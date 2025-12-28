@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<title>ドクターヘリ活動記録 v3.12 (2025/12/28)</title>
+<title>ドクターヘリ活動記録 v3.15 (2025/12/28 修正版)</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -389,7 +389,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
 <body>
 <header>
   <h1>🚁 ドクターヘリ活動記録</h1>
-  <p class="sub">heli record v3.12</p>
+  <p class="sub">heli record v3.15</p>
 </header>
 
 <main>
@@ -1801,10 +1801,27 @@ function renderAbgPills() {
     pill.innerHTML = `<label>${rec.item}</label><span class="abg-val" style="min-width:50px;text-align:right;font-weight:600;color:var(--brand)">${rec.val}</span><span class="unit">${rec.unit}</span>
       <button onclick="event.stopPropagation();state.fd.abg_data.splice(${i},1);renderAbgPills();updateState()">×</button>`;
     const valSpan = pill.querySelector('.abg-val');
+    
+    // タッチイベント（モバイル）
     let timer = null; let isLong = false;
-    valSpan.addEventListener('touchstart', () => { isLong = false; timer = setTimeout(() => { isLong = true; openAbgManualInput(i); }, 500); });
-    valSpan.addEventListener('touchend', () => { clearTimeout(timer); if(!isLong) openAbgDial(i); });
+    valSpan.addEventListener('touchstart', (e) => { 
+      e.preventDefault();
+      isLong = false; 
+      timer = setTimeout(() => { isLong = true; openAbgManualInput(i); }, 500); 
+    });
+    valSpan.addEventListener('touchend', (e) => { 
+      e.preventDefault();
+      clearTimeout(timer); 
+      if(!isLong) openAbgDial(i); 
+    });
     valSpan.addEventListener('touchmove', () => clearTimeout(timer));
+    
+    // クリックイベント（PC）
+    valSpan.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openAbgDial(i);
+    });
+    
     c.appendChild(pill);
   });
 }
@@ -1885,7 +1902,7 @@ function extractFindings(def, chips) {
 
 // generateReport SpO2半角修正 & ドクター身体所見反映
 function generateReport() {
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v3.12\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー：'+state.patient.allergy+'\nかかりつけ：'+state.patient.hospital+'\n\n【救急隊活動】\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v3.15\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往：'+state.patient.history+'\n薬：'+state.patient.medication+'\nアレ：'+state.patient.allergy+'\nかかりつけ：'+state.patient.hospital+'\n\n【救急隊活動】\n';
   state.ems.vitals.forEach(v => {
     const gcs = v.gcs.v === 'T' ? `E${v.gcs.e}VTM${v.gcs.m}(${v.gcs.e+v.gcs.m}T)` : `E${v.gcs.e}V${v.gcs.v}M${v.gcs.m}(${v.gcs.e+parseInt(v.gcs.v)+v.gcs.m})`;
     r += `[${v.time}] BP:${v.sbp}/${v.dbp} HR:${v.hr} RR:${v.rr} SpO2:${v.spo2}% BT:${v.bt}℃ GCS:${gcs} JCS:${v.jcs}\n`;
@@ -1908,17 +1925,17 @@ function generateReport() {
     const str = state.fd.stroke || {}; r+=`【瞳孔・運動】L:${str.pupilL}mm R:${str.pupilR}mm, PLR L:${str.plrL} R:${str.plrR}, MMT(${str.mmt?.ru},${str.mmt?.lu},${str.mmt?.rl},${str.mmt?.ll}), NIHSS:${calcNihssSum()}点\n`;
   }
   else if(fTab==='cpa') state.fd.cpaEvents.forEach((ev,i)=>r+=`【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
-  else if(fTab==='cpa') state.fd.cpaEvents.forEach((ev,i)=>r+=`【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
   
   // 検査所見出力
   let exams = [];
-  if(state.fd.bs && state.fd.bs !== 120) exams.push(`BS:${state.fd.bs}mg/dL`);
+  if(state.fd.exams.bs && state.fd.bs) exams.push(`BS:${state.fd.bs}mg/dL`);
   if(state.fd.exams.us && state.fd.exam_texts.us) exams.push(`US:${state.fd.exam_texts.us}`);
   if(state.fd.exams.ecg && state.fd.exam_texts.ecg) exams.push(`ECG:${state.fd.exam_texts.ecg}`);
   if(state.fd.exams.fast && state.fd.exam_texts.fast) exams.push(`FAST:${state.fd.exam_texts.fast}`);
   if(state.fd.exams.efast && state.fd.exam_texts.efast) exams.push(`eFAST:${state.fd.exam_texts.efast}`);
   if(state.fd.abg_type && state.fd.abg_data.length > 0) {
-    exams.push(`${state.fd.abg_type}:${state.fd.abg_data.map(d=>`pH${d.ph}/pCO2:${d.pco2}/HCO3:${d.hco3}/Lac:${d.lac}`).join(', ')}`);
+    const abgStr = state.fd.abg_data.map(d=>`${d.item}:${d.val}${d.unit}`).join(' ');
+    exams.push(`${state.fd.abg_type} ${abgStr}`);
   }
   if(state.fd.exam_detail) exams.push(state.fd.exam_detail);
   if(exams.length > 0) r += `【検査】${exams.join('、')}\n`;
@@ -1966,8 +1983,8 @@ function restoreUI() {
   $('#patient_history').value=state.patient.history; $('#patient_medication').value=state.patient.medication; $('#patient_allergy').value=state.patient.allergy; $('#last_meal_time').value=state.patient.lastMeal; $('#patient_hospital').value=state.patient.hospital;
   $('#heli_takeoff').value=state.heli.takeoff; $('#heli_lz_landing').value=state.heli.lz_landing; $('#fd_contact').value=state.heli.fd_contact; $('#turn_type').value=state.heli.turn_type; $('#transport_takeoff').value=state.heli.transport_takeoff; $('#hospital_arrival').value=state.heli.hospital_arrival;
   $('#ems_aware').value=e.aware; $('#ems_arrival').value=e.arrival; $('#ems_contact').value=e.contact; $('#ems_lz').value=e.lz; $('#ems_o2_flow').value=e.o2_flow; $('#ems_procedures_detail').value=e.procedures_detail;
-  $('#fd_bs_display').textContent=f.bs; $('#fd_abg_type').value=f.abg_type; toggleAbg();
-  ['us','ecg','fast','efast'].forEach(k=>{ $(`#exam_${k}`).checked=f.exams[k]; $(`#exam_${k}_txt`).value=f.exam_texts[k]; toggleExam(k); });
+  $('#fd_bs_display').textContent=f.bs; $('#fd_bs').value=f.bs; $('#fd_abg_type').value=f.abg_type; toggleAbg();
+  ['bs','us','ecg','fast','efast'].forEach(k=>{ $(`#exam_${k}`).checked=f.exams[k]; if(k==='bs'){ $('#fd_bs_display').textContent=f.bs; toggleExam(k); } else { $(`#exam_${k}_txt`).value=f.exam_texts[k]; toggleExam(k); } });
   if($('#plrL')){ $('#pupilL_display').textContent=f.stroke.pupilL; $('#pupilR_display').textContent=f.stroke.pupilR; $('#plrL').value=f.stroke.plrL; $('#plrR').value=f.stroke.plrR; $('#str_gaze').value=f.stroke.gaze; $('#str_nyst').value=f.stroke.nyst; $('#mmt_ru_display').textContent=f.stroke.mmt.ru; $('#mmt_lu_display').textContent=f.stroke.mmt.lu; $('#mmt_rl_display').textContent=f.stroke.mmt.rl; $('#mmt_ll_display').textContent=f.stroke.mmt.ll; $('#str_btr').value=f.stroke.btr; $('#str_ptr').value=f.stroke.ptr; $('#str_babinski').checked=f.stroke.babinski; $('#str_chaddock').checked=f.stroke.chaddock; renderNihss(); }
   $('#consideration').value=state.consideration; $('#destination_custom').value=state.destination.custom; $('#selection_reason').value=state.destination.reason;
   renderEmsVitals(); renderFdVitals(); renderHospitalChips(); renderCpaEvents(); renderAbgPills(); renderProblems(); bindMemos();
