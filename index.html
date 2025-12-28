@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <title>ドクターヘリ活動記録 v3.11 (2025/12/28 15:10)</title>
 <style>
 :root{
@@ -1944,6 +1945,16 @@ function init() {
   $('#copyOut').onclick=()=>{ navigator.clipboard.writeText($('#outText').textContent); const b=$('#copyOut'); b.textContent='✓ 完了'; setTimeout(()=>b.textContent='📋 コピー',1500); };
 }
 init();
+// PWA Service Worker 登録ロジック
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      console.log('Service Worker 登録完了:', reg.scope);
+    }).catch((err) => {
+      console.log('Service Worker 登録失敗:', err);
+    });
+  });
+}
 </script>
 </body>
 </html>
