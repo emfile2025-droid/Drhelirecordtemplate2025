@@ -1885,7 +1885,7 @@ function extractFindings(def, chips) {
 
 // generateReport SpO2半角修正 & ドクター身体所見反映
 function generateReport() {
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v3.11\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往：'+state.patient.history+'\n薬：'+state.patient.medication+'\nアレ：'+state.patient.allergy+'\nかかりつけ：'+state.patient.hospital+'\n\n【救急隊活動】\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v3.11\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー：'+state.patient.allergy+'\nかかりつけ：'+state.patient.hospital+'\n\n【救急隊活動】\n';
   state.ems.vitals.forEach(v => {
     const gcs = v.gcs.v === 'T' ? `E${v.gcs.e}VTM${v.gcs.m}(${v.gcs.e+v.gcs.m}T)` : `E${v.gcs.e}V${v.gcs.v}M${v.gcs.m}(${v.gcs.e+parseInt(v.gcs.v)+v.gcs.m})`;
     r += `[${v.time}] BP:${v.sbp}/${v.dbp} HR:${v.hr} RR:${v.rr} SpO2:${v.spo2}% BT:${v.bt}℃ GCS:${gcs} JCS:${v.jcs}\n`;
@@ -1958,3 +1958,4 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
