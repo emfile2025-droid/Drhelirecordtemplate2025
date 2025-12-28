@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<title>ドクターヘリ活動記録 v3.11 (2025/12/28 15:10)</title>
+<title>ドクターヘリ活動記録 v3.12 (2025/12/28)</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -389,7 +389,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
 <body>
 <header>
   <h1>🚁 ドクターヘリ活動記録</h1>
-  <p class="sub">heli record v3.11</p>
+  <p class="sub">heli record v3.12</p>
 </header>
 
 <main>
@@ -1885,7 +1885,7 @@ function extractFindings(def, chips) {
 
 // generateReport SpO2半角修正 & ドクター身体所見反映
 function generateReport() {
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v3.11\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー：'+state.patient.allergy+'\nかかりつけ：'+state.patient.hospital+'\n\n【救急隊活動】\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v3.12\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー：'+state.patient.allergy+'\nかかりつけ：'+state.patient.hospital+'\n\n【救急隊活動】\n';
   state.ems.vitals.forEach(v => {
     const gcs = v.gcs.v === 'T' ? `E${v.gcs.e}VTM${v.gcs.m}(${v.gcs.e+v.gcs.m}T)` : `E${v.gcs.e}V${v.gcs.v}M${v.gcs.m}(${v.gcs.e+parseInt(v.gcs.v)+v.gcs.m})`;
     r += `[${v.time}] BP:${v.sbp}/${v.dbp} HR:${v.hr} RR:${v.rr} SpO2:${v.spo2}% BT:${v.bt}℃ GCS:${gcs} JCS:${v.jcs}\n`;
@@ -1908,6 +1908,44 @@ function generateReport() {
     const str = state.fd.stroke || {}; r+=`【瞳孔・運動】L:${str.pupilL}mm R:${str.pupilR}mm, PLR L:${str.plrL} R:${str.plrR}, MMT(${str.mmt?.ru},${str.mmt?.lu},${str.mmt?.rl},${str.mmt?.ll}), NIHSS:${calcNihssSum()}点\n`;
   }
   else if(fTab==='cpa') state.fd.cpaEvents.forEach((ev,i)=>r+=`【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
+  else if(fTab==='cpa') state.fd.cpaEvents.forEach((ev,i)=>r+=`【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
+  
+  // 検査所見出力
+  let exams = [];
+  if(state.fd.bs && state.fd.bs !== 120) exams.push(`BS:${state.fd.bs}mg/dL`);
+  if(state.fd.exams.us && state.fd.exam_texts.us) exams.push(`US:${state.fd.exam_texts.us}`);
+  if(state.fd.exams.ecg && state.fd.exam_texts.ecg) exams.push(`ECG:${state.fd.exam_texts.ecg}`);
+  if(state.fd.exams.fast && state.fd.exam_texts.fast) exams.push(`FAST:${state.fd.exam_texts.fast}`);
+  if(state.fd.exams.efast && state.fd.exam_texts.efast) exams.push(`eFAST:${state.fd.exam_texts.efast}`);
+  if(state.fd.abg_type && state.fd.abg_data.length > 0) {
+    exams.push(`${state.fd.abg_type}:${state.fd.abg_data.map(d=>`pH${d.ph}/pCO2:${d.pco2}/HCO3:${d.hco3}/Lac:${d.lac}`).join(', ')}`);
+  }
+  if(state.fd.exam_detail) exams.push(state.fd.exam_detail);
+  if(exams.length > 0) r += `【検査】${exams.join('、')}\n`;
+  
+  // 処置出力
+  let procs = Object.keys(state.fd.procedures).filter(k => state.fd.procedures[k]);
+  if(procs.length > 0 || state.fd.procedure_detail) {
+    r += '【処置】';
+    if(procs.length > 0) r += procs.join('、');
+    if(state.fd.procedure_detail) {
+      if(procs.length > 0) r += '、';
+      r += state.fd.procedure_detail;
+    }
+    r += '\n';
+  }
+  
+  // 薬剤出力
+  let drugs = Object.keys(state.fd.drugs).filter(k => state.fd.drugs[k]);
+  if(drugs.length > 0 || state.fd.drug_detail) {
+    r += '【薬剤】';
+    if(drugs.length > 0) r += drugs.join('、');
+    if(state.fd.drug_detail) {
+      if(drugs.length > 0) r += '、';
+      r += state.fd.drug_detail;
+    }
+    r += '\n';
+  }
 
   r += '\n【評価】\n'; state.problems.forEach((p,i)=>r+=`#${i+1} ${p}\n`);
   if(state.consideration) r+=`考察：${state.consideration}\n`;
@@ -1958,4 +1996,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
