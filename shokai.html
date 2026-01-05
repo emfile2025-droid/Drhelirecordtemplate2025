@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>紹介状作成 ver.10.2</title>
+<style>
+    /* ------------------------------------------------------------------
+       Base & Reset
+       ------------------------------------------------------------------ */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+        line-height: 1.6;
+        background-color: #f2f2f7;
+        color: #1c1c1e;
+        margin: 0;
+        padding: 0;
+        font-size: 16px; 
+        overflow-x: hidden;
+    }
+    
+    .sans-serif {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+    }
+
+    /* ------------------------------------------------------------------
+       Initial Screen (Fixed Layout)
+       ------------------------------------------------------------------ */
+    .initial-screen {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+    }
+
+    .initial-header {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .initial-title {
+        font-size: 26px;
+        font-weight: 300;
+        color: #2c3e50;
+        margin: 0 0 10px 0;
+        letter-spacing: 2px;
+    }
+
+    .initial-subtitle {
+        font-size: 13px;
+        color: #7f8c8d;
+        font-weight: 400;
+        letter-spacing: 1px;
+    }
+
+    .upload-container {
+        width: 100%;
+        max-width: 480px;
+        padding: 0 15px;
+    }
+
+    .upload-zone {
+        background: white;
+        border: 2px dashed #d1d5db;
+        border-radius: 16px;
+        padding: 50px 30px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+        width: 100%;
+    }
+
+    .upload-zone:hover {
+        border-color: #005088;
+        box-shadow: 0 8px 32px rgba(0,80,136,0.12);
+        transform: translateY(-2px);
+    }
+
+    .upload-zone.drag-over {
+        border-color: #005088;
+        background: #f0f8ff;
+        border-style: solid;
+    }
+
+    .upload-icon {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 20px;
+        background: #f8f9fa;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        color: #6b7280;
+        transition: all 0.3s ease;
+    }
+
+    .upload-zone:hover .upload-icon {
+        background: #005088;
+        color: white;
+        transform: scale(1.1);
+    }
+
+    .upload-text {
+        font-size: 16px;
+        color: #374151;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+
+    .upload-hint {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-bottom: 20px;
+    }
+
+    .btn-browse {
+        display: inline-block;
+        padding: 11px 28px;
+        background: #005088;
+        color: white;
+        border-radius: 22px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 12px rgba(0,80,136,0.2);
+    }
+
+    .btn-browse:hover {
+        background: #003d66;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(0,80,136,0.3);
+    }
+
+    .btn-browse:active {
+        transform: translateY(0);
+    }
+
+    input[type="file"] {
+        display: none;
+    }
+
+    .error-message {
+        margin-top: 15px;
+        padding: 10px 16px;
+        background: #fee;
+        border: 1px solid #fcc;
+        border-radius: 8px;
+        color: #c33;
+        font-size: 13px;
+        text-align: center;
+        display: none;
+    }
+
+    /* ------------------------------------------------------------------
+       Header (After file loaded)
+       ------------------------------------------------------------------ */
+    .app-header {
+        background: linear-gradient(135deg, #005088 0%, #0066aa 100%);
+        color: white;
+        padding: 12px 15px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        display: none;
+    }
+    
+    .app-header.show {
+        display: block;
+    }
+
+    .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .header-top h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: 0.5px; }
+    
+    .btn-reset {
+        background: rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 5px 14px;
+        border-radius: 16px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    .btn-reset:hover {
+        background: rgba(255,255,255,0.25);
+    }
+    .btn-reset:active {
+        transform: scale(0.95);
+    }
+
+    /* Toggle Switch */
+    .mode-switch {
+        display: flex;
+        background: rgba(0,0,0,0.15);
+        border-radius: 10px;
+        padding: 3px;
+        position: relative;
+    }
+    .mode-btn {
+        flex: 1;
+        text-align: center;
+        padding: 8px 0;
+        font-size: 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        color: rgba(255,255,255,0.65);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        z-index: 1;
+        font-weight: 500;
+    }
+    .mode-btn:active {
+        transform: scale(0.97);
+    }
+    .mode-btn.active {
+        background: white;
+        color: #005088;
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .save-indicator {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        font-size: 11px;
+        color: rgba(255,255,255,0.7);
+        display: none;
+        align-items: center;
+        gap: 5px;
+    }
+    .save-indicator.show {
+        display: flex;
+    }
+    .save-dot {
+        width: 6px;
+        height: 6px;
+        background: #4ade80;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    /* ------------------------------------------------------------------
+       Main Content
+       ------------------------------------------------------------------ */
+    .main-content { 
+        padding: 15px; 
+        max-width: 800px; 
+        margin: 0 auto; 
+        padding-bottom: 140px;
+        display: none;
+    }
+    
+    .main-content.show {
+        display: block;
+    }
+
+    /* ------------------------------------------------------------------
+       Views
+       ------------------------------------------------------------------ */
+    
+    .view-container { display: none; }
+    .view-container.active { display: block; }
+
+    /* View 1: HTML Preview */
+    .preview-paper {
+        background: white;
+        padding: 40px;
+        border: 1px solid #e5e5ea;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        font-size: 14px;
+        position: relative;
+    }
+    .preview-paper::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #005088, #0066aa);
+        border-radius: 8px 8px 0 0;
+    }
+
+    /* View 2: Text Edit */
+    .edit-container {
+        position: relative;
+    }
+    .edit-toolbar {
+        background: white;
+        padding: 10px 15px;
+        border-radius: 10px 10px 0 0;
+        border: 1px solid #e5e5ea;
+        border-bottom: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .edit-info {
+        font-size: 12px;
+        color: #666;
+    }
+    .btn-update-preview {
+        background: #005088;
+        color: white;
+        border: none;
+        padding: 6px 16px;
+        border-radius: 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 6px rgba(0,80,136,0.3);
+    }
+    .btn-update-preview:hover {
+        background: #0066aa;
+        transform: translateY(-1px);
+    }
+    .btn-update-preview:active {
+        transform: translateY(0);
+    }
+
+    .edit-area {
+        width: 100%;
+        min-height: 500px;
+        padding: 20px;
+        border: 1px solid #e5e5ea;
+        border-radius: 0 0 10px 10px;
+        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+        font-size: 15px;
+        line-height: 1.9;
+        resize: vertical;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: border-color 0.3s;
+    }
+    .edit-area:focus {
+        outline: none;
+        border-color: #005088;
+        box-shadow: 0 0 0 3px rgba(0,80,136,0.1);
+    }
+
+    /* ------------------------------------------------------------------
+       Styles for HTML Preview
+       ------------------------------------------------------------------ */
+    .letter-title {
+        font-size: 24px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 40px;
+        letter-spacing: 3px;
+        color: #005088;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #005088;
+    }
+    .header-row { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: flex-end; 
+        margin-bottom: 35px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e5e5ea;
+    }
+    .recipient { 
+        font-size: 16px; 
+        font-weight: bold;
+        line-height: 1.8;
+    }
+    .sender { 
+        text-align: right; 
+        font-size: 14px;
+        line-height: 1.8;
+        color: #555;
+    }
+    .intro-text, .closing-text { 
+        margin: 25px 0; 
+        line-height: 2.0; 
+        text-indent: 1em;
+    }
+    .section { 
+        margin-bottom: 25px;
+        padding: 15px;
+        background: #fafafa;
+        border-radius: 8px;
+        border-left: 3px solid #005088;
+    }
+    .section-head { 
+        font-weight: bold;
+        color: #005088;
+        margin-bottom: 10px;
+        font-size: 15px;
+        display: block;
+    }
+    .section-body { 
+        padding-left: 5px; 
+        line-height: 1.9;
+    }
+
+    /* ------------------------------------------------------------------
+       Action Buttons
+       ------------------------------------------------------------------ */
+    .action-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 12px 15px;
+        box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
+        display: none;
+        gap: 10px;
+        z-index: 200;
+        border-top: 1px solid #e5e5ea;
+    }
+    .action-bar.show {
+        display: flex;
+    }
+
+    .action-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-height: 48px;
+    }
+    .action-btn:active {
+        transform: scale(0.96);
+    }
+    .btn-copy {
+        background: #f5f5f7;
+        color: #333;
+    }
+    .btn-copy:hover {
+        background: #e8e8ea;
+    }
+    .btn-share {
+        background: #005088;
+        color: white;
+        box-shadow: 0 2px 8px rgba(0,80,136,0.3);
+    }
+    .btn-share:hover {
+        background: #0066aa;
+    }
+
+    .fab-container {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 200;
+    }
+
+    .fab {
+        width: 56px;
+        height: 56px;
+        border-radius: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .fab:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    .fab:active { 
+        transform: scale(0.95); 
+    }
+    .fab-copy { 
+        background: #555;
+    }
+    .fab-share { 
+        background: #005088;
+    }
+
+    .toast {
+        position: fixed;
+        bottom: 160px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.85);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 24px;
+        font-size: 14px;
+        opacity: 0;
+        transition: opacity 0.3s, transform 0.3s;
+        pointer-events: none;
+        z-index: 300;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .toast.show { 
+        opacity: 1;
+        transform: translateX(-50%) translateY(-10px);
+    }
+
+    .info-notice {
+        text-align: center;
+        color: #888;
+        font-size: 12px;
+        margin-top: 15px;
+        padding: 8px;
+        background: #f9f9f9;
+        border-radius: 8px;
+    }
+
+    /* ------------------------------------------------------------------
+       Responsive
+       ------------------------------------------------------------------ */
+    @media (min-width: 768px) {
+        .action-bar { display: none !important; }
+        .fab-container { display: flex !important; }
+        .preview-paper { padding: 50px; }
+        
+        .initial-title {
+            font-size: 28px;
+        }
+        .upload-zone {
+            padding: 60px 40px;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .initial-screen {
+            padding: 15px;
+        }
+        .initial-title {
+            font-size: 22px;
+        }
+        .initial-subtitle {
+            font-size: 12px;
+        }
+        .upload-container {
+            padding: 0 10px;
+        }
+        .upload-zone {
+            padding: 40px 20px;
+        }
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        .upload-text {
+            font-size: 15px;
+        }
+        .upload-hint {
+            font-size: 11px;
+        }
+        .btn-browse {
+            padding: 10px 24px;
+            font-size: 13px;
+        }
+        
+        .preview-paper { padding: 25px 20px; font-size: 13px; }
+        .letter-title { font-size: 20px; }
+        .section { padding: 12px; }
+    }
+
+    @media (max-width: 375px) {
+        .upload-zone {
+            padding: 35px 15px;
+        }
+    }
+
+</style>
+</head>
+<body>
+
+<!-- Initial Screen -->
+<div id="initialScreen" class="initial-screen sans-serif">
+    <div class="initial-header">
+        <h1 class="initial-title">診療情報提供書</h1>
+        <p class="initial-subtitle">REFERRAL LETTER GENERATOR</p>
+    </div>
+    
+    <div class="upload-container">
+        <label id="uploadZone" class="upload-zone">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">JSONファイルを選択</div>
+            <div class="upload-hint">ドラッグ&ドロップまたはクリック</div>
+            <span class="btn-browse">ファイルを選択</span>
+            <input type="file" id="fileInput" accept=".json, application/json">
+        </label>
+        <div id="errorMsg" class="error-message"></div>
+    </div>
+</div>
+
+<!-- App Header (Hidden initially) -->
+<header id="appHeader" class="app-header sans-serif">
+    <div class="header-top">
+        <h1>📋 紹介状作成</h1>
+        <button class="btn-reset" onclick="resetData()">全消去</button>
+    </div>
+    <div class="mode-switch">
+        <div class="mode-btn active" id="btn-mode-preview" onclick="switchMode('preview')">
+            📄 プレビュー
+        </div>
+        <div class="mode-btn" id="btn-mode-edit" onclick="switchMode('edit')">
+            ✏️ テキスト編集
+        </div>
+    </div>
+    <div class="save-indicator" id="saveIndicator">
+        <span class="save-dot"></span>
+        <span>自動保存済み</span>
+    </div>
+</header>
+
+<!-- Main Content (Hidden initially) -->
+<div id="mainContent" class="main-content">
+    
+    <div id="view-preview" class="view-container active">
+        <div id="preview-content" class="preview-paper">
+        </div>
+        <p class="info-notice sans-serif">💡 編集モードで内容を変更できます</p>
+    </div>
+
+    <div id="view-edit" class="view-container">
+        <div class="edit-container sans-serif">
+            <div class="edit-toolbar">
+                <span class="edit-info">✏️ 自由に編集できます</span>
+                <button class="btn-update-preview" onclick="updatePreviewFromEdit()">
+                    🔄 プレビューを更新
+                </button>
+            </div>
+            <textarea id="editable-text" class="edit-area" placeholder="ここにテキストが生成されます..."></textarea>
+        </div>
+        <p class="info-notice sans-serif">💾 変更は自動保存されます</p>
+    </div>
+
+</div>
+
+<!-- Action Bar (Mobile) -->
+<div id="actionBar" class="action-bar sans-serif">
+    <button class="action-btn btn-copy" onclick="copyText()">
+        📋 コピー
+    </button>
+    <button class="action-btn btn-share" onclick="shareText()">
+        🚀 共有
+    </button>
+</div>
+
+<!-- FAB (Desktop) -->
+<div id="fabContainer" class="fab-container sans-serif">
+    <div class="fab fab-copy" onclick="copyText()" title="クリップボードにコピー">📋</div>
+    <div class="fab fab-share" onclick="shareText()" title="メールやJoinに共有">🚀</div>
+</div>
+
+<div id="toast" class="toast sans-serif">テキストをコピーしました</div>
+
+<script>
+/**
+ * Version 10.2: Fixed Upload Screen Layout
+ * - Fixed container width overflow
+ * - Improved responsive design
+ * - Better padding management
+ */
+
+const STORAGE_KEY = 'heli_referral_data_v1';
+const EDIT_STORAGE_KEY = 'heli_referral_edit_v1';
+let originalData = null;
+
+// Initialize
+window.onload = function() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            originalData = data;
+            processData(data);
+            showMainApp();
+            
+            const savedEdit = localStorage.getItem(EDIT_STORAGE_KEY);
+            if (savedEdit) {
+                document.getElementById('editable-text').value = savedEdit;
+            }
+        } catch (e) {
+            console.error("Storage load error", e);
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(EDIT_STORAGE_KEY);
+        }
+    }
+    
+    setupDragAndDrop();
+};
+
+// File Input
+document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
+
+// Drag and Drop
+function setupDragAndDrop() {
+    const zone = document.getElementById('uploadZone');
+    
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+    });
+    
+    zone.addEventListener('dragleave', () => {
+        zone.classList.remove('drag-over');
+    });
+    
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFile(files[0]);
+        }
+    });
+}
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) handleFile(file);
+}
+
+function handleFile(file) {
+    if (!file.name.endsWith('.json')) {
+        showError("JSONファイルを選択してください");
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const json = JSON.parse(e.target.result);
+            originalData = json;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
+            processData(json);
+            showMainApp();
+            showToast('✅ ファイルを読み込みました');
+        } catch (error) {
+            showError("JSONファイルの読み込みに失敗しました");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function showMainApp() {
+    document.getElementById('initialScreen').style.display = 'none';
+    document.getElementById('appHeader').classList.add('show');
+    document.getElementById('mainContent').classList.add('show');
+    document.getElementById('actionBar').classList.add('show');
+}
+
+function hideMainApp() {
+    document.getElementById('initialScreen').style.display = 'flex';
+    document.getElementById('appHeader').classList.remove('show');
+    document.getElementById('mainContent').classList.remove('show');
+    document.getElementById('actionBar').classList.remove('show');
+}
+
+// Auto-save edit content
+let saveTimeout;
+document.getElementById('editable-text').addEventListener('input', function() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        localStorage.setItem(EDIT_STORAGE_KEY, this.value);
+        showSaveIndicator();
+    }, 1000);
+});
+
+// Main Processing
+function processData(data) {
+    renderPreviewHTML(data);
+    
+    const plainText = generatePlainText(data);
+    const currentEdit = document.getElementById('editable-text').value;
+    if (!currentEdit) {
+        document.getElementById('editable-text').value = plainText;
+        localStorage.setItem(EDIT_STORAGE_KEY, plainText);
+    }
+    
+    switchMode('preview');
+}
+
+function switchMode(mode) {
+    const previewContainer = document.getElementById('view-preview');
+    const editContainer = document.getElementById('view-edit');
+    const btnPreview = document.getElementById('btn-mode-preview');
+    const btnEdit = document.getElementById('btn-mode-edit');
+
+    if (mode === 'preview') {
+        previewContainer.classList.add('active');
+        editContainer.classList.remove('active');
+        btnPreview.classList.add('active');
+        btnEdit.classList.remove('active');
+    } else {
+        previewContainer.classList.remove('active');
+        editContainer.classList.add('active');
+        btnPreview.classList.remove('active');
+        btnEdit.classList.add('active');
+    }
+}
+
+function updatePreviewFromEdit() {
+    const editedText = document.getElementById('editable-text').value;
+    if (!editedText) return;
+    
+    const previewContainer = document.getElementById('preview-content');
+    const htmlContent = convertTextToPreviewHTML(editedText);
+    previewContainer.innerHTML = htmlContent;
+    
+    switchMode('preview');
+    showToast('✅ プレビューを更新しました');
+}
+
+function resetData() {
+    if(confirm('データを消去して初期画面に戻りますか？')) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(EDIT_STORAGE_KEY);
+        location.reload();
+    }
+}
+
+function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.innerText = msg;
+    el.style.display = 'block';
+    setTimeout(() => {
+        el.style.display = 'none';
+    }, 3000);
+}
+
+function showSaveIndicator() {
+    const indicator = document.getElementById('saveIndicator');
+    indicator.classList.add('show');
+    setTimeout(() => {
+        indicator.classList.remove('show');
+    }, 2000);
+}
+
+// Copy / Share
+function copyText() {
+    const text = document.getElementById('editable-text').value;
+    if (!text) return;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("📋 テキストをコピーしました");
+    }).catch(err => {
+        alert('コピーに失敗しました');
+    });
+}
+
+function shareText() {
+    const text = document.getElementById('editable-text').value;
+    if (!text) return;
+
+    if (navigator.share) {
+        navigator.share({
+            title: '診療情報提供書',
+            text: text
+        }).catch(err => console.log('Share canceled', err));
+    } else {
+        alert("お使いのブラウザは共有機能に対応していません。\nコピー機能をご利用ください。");
+        copyText();
+    }
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.innerText = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ---------------------------------------------------------
+// Data Extraction Helpers
+// ---------------------------------------------------------
+function safeGet(obj, path, defaultVal = '') {
+    return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj) || defaultVal;
+}
+
+function classifyFindings(chips) {
+    const positive = [];
+    const negative = [];
+    const normalKeywords = ['正中', '対称', '整', '清', '軟', '良好', 'なし', '陰性', '消失', '不詳'];
+
+    if (!chips || typeof chips !== 'object') return { positive, negative };
+
+    Object.entries(chips).forEach(([key, val]) => {
+        const vStr = String(val).toLowerCase().trim();
+        const kStr = key;
+        const isActive = (vStr === '+' || vStr === 'on' || vStr === 'true' || vStr === 'あり' || vStr === '陽性');
+        const isNegativeVal = (vStr === '-' || vStr === 'off' || vStr === 'false' || vStr === 'なし' || vStr === '陰性');
+
+        if (isActive) {
+            if (normalKeywords.some(kw => kStr.includes(kw))) negative.push(kStr);
+            else positive.push(kStr);
+        } else if (isNegativeVal) {
+            if (!kStr.includes('なし')) negative.push(kStr + '(-)');
+            else negative.push(kStr);
+        }
+    });
+    return { positive, negative };
+}
+
+function getPatientInfo(data) {
+    const requestDetail = safeGet(data, 'request.detail', '');
+    const ageMatch = requestDetail.match(/\d+歳?代?/);
+    const sexMatch = requestDetail.match(/[男女]性?/);
+    return `${ageMatch ? ageMatch[0] : '年齢不詳'} ${sexMatch ? sexMatch[0] : '性別不詳'}`;
+}
+
+function getFindingsData(data) {
+    const chipsFD = safeGet(data, 'fd.chips', {});
+    const chipsEMS = safeGet(data, 'ems.chips', {});
+    const mergedChips = { ...chipsEMS, ...chipsFD };
+    const { positive, negative } = classifyFindings(mergedChips);
+
+    const traumaMemo = safeGet(data, 'fd.memos.trauma', {});
+    const memoList = [];
+    if(traumaMemo.head) memoList.push(`頭部: ${traumaMemo.head}`);
+    if(traumaMemo.neck) memoList.push(`頸部: ${traumaMemo.neck}`);
+    if(traumaMemo.chest) memoList.push(`胸部: ${traumaMemo.chest}`);
+    if(traumaMemo.abd)  memoList.push(`腹部: ${traumaMemo.abd}`);
+    if(traumaMemo.pelvis) memoList.push(`骨盤: ${traumaMemo.pelvis}`);
+    if(traumaMemo.limb) memoList.push(`四肢: ${traumaMemo.limb}`);
+
+    return { positive, negative, memoList };
+}
+
+function getTreatmentStr(data) {
+    const procFD = safeGet(data, 'fd.procedures', {});
+    const procEMS = safeGet(data, 'ems.procedures', {});
+    const drugsFD = safeGet(data, 'fd.drugs', {});
+    const getTrueKeys = (obj) => Object.keys(obj).filter(k => obj[k] === true || obj[k] === 'on' || obj[k] === '+');
+    let list = [...getTrueKeys(procEMS), ...getTrueKeys(procFD), ...getTrueKeys(drugsFD)];
+    if (safeGet(data, 'fd.drug_detail')) list.push(safeGet(data, 'fd.drug_detail'));
+    if (safeGet(data, 'fd.procedure_detail')) list.push(safeGet(data, 'fd.procedure_detail'));
+    if (safeGet(data, 'ems.procedures_detail')) list.push(safeGet(data, 'ems.procedures_detail'));
+    return [...new Set(list)].join('、') || '特記事項なし';
+}
+
+function getVitalsData(data) {
+    const vitalsArr = safeGet(data, 'fd.vitals', []).length > 0 ? data.fd.vitals : safeGet(data, 'ems.vitals', []);
+    return vitalsArr.length > 0 ? vitalsArr[vitalsArr.length - 1] : {};
+}
+
+// ---------------------------------------------------------
+// Generator: Plain Text
+// ---------------------------------------------------------
+function generatePlainText(data) {
+    const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const destName = safeGet(data, 'destination.hospital', '＿＿＿＿病院');
+    const patientInfoStr = getPatientInfo(data);
+    const { positive, negative, memoList } = getFindingsData(data);
+    const treatmentStr = getTreatmentStr(data);
+    const lastV = getVitalsData(data);
+    
+    let findingText = "";
+    if (positive.length > 0) findingText += `【陽性所見】 ${positive.join('、')}\n`;
+    else findingText += `【陽性所見】 特になし\n`;
+    if (memoList.length > 0) findingText += memoList.map(m => `  ・${m}`).join('\n') + '\n';
+    if (negative.length > 0) findingText += `  (陰性所見: ${negative.join('、')})\n`;
+
+    const fast = safeGet(data, 'fd.exam_texts.us', '');
+    const efast = safeGet(data, 'fd.exam_texts.efast', '');
+    let examText = [];
+    if(fast) examText.push(`FAST: ${fast}`);
+    if(efast) examText.push(`eFAST: ${efast}`);
+    const examStr = examText.join(' / ') || '-';
+
+    const problems = safeGet(data, 'problems', []);
+    const problemStr = problems.length > 0 ? problems.map((p,i)=>`${i+1}. ${p}`).join('\n') : '特記事項なし';
+
+    return `診療情報提供書
+
+${destName} 救命救急センター 御机下
+${today}
+鹿児島県ドクターヘリ
+
+平素より当県の救急医療体制にご高配を賜り、厚く御礼申し上げます。
+さて、本日搬送いたしました患者につきまして、下記の通りご報告申し上げます。
+
+【患者情報】
+${patientInfoStr}
+既往歴: ${safeGet(data, 'patient.history', 'なし')}
+内服: ${safeGet(data, 'patient.medication', 'なし')}
+アレルギー: ${safeGet(data, 'patient.allergy', 'なし')}
+
+【現病歴(経過)】
+${safeGet(data, 'request.time', '--:--')} 覚知
+${safeGet(data, 'request.detail', '').replace(/\n/g, '\n')}
+
+【身体所見・バイタル(最終)】
+意識: GCS E${safeGet(lastV, 'gcs.e','-')}V${safeGet(lastV, 'gcs.v','-')}M${safeGet(lastV, 'gcs.m','-')} / JCS ${safeGet(lastV, 'jcs','-')}
+BP: ${safeGet(lastV, 'sbp','-')}/${safeGet(lastV, 'dbp','-')} mmHg
+HR: ${safeGet(lastV, 'hr','-')} bpm
+SpO2: ${safeGet(lastV, 'spo2','-')}%
+${findingText}
+【傷病名・プロブレム】
+${problemStr}
+
+【検査・処置】
+BS: ${safeGet(data, 'fd.bs', '-')} mg/dL
+画像所見: ${examStr}
+実施処置: ${treatmentStr}
+
+本日は緊急の搬送要請に対し、迅速にご快諾いただき深謝いたします。
+つきましては、貴院にて詳細な精査および加療をお願いしたく存じます。
+ご多忙の折恐縮ですが、何卒よろしくお願い申し上げます。`;
+}
+
+// ---------------------------------------------------------
+// Generator: HTML Preview
+// ---------------------------------------------------------
+function renderPreviewHTML(data) {
+    const container = document.getElementById('preview-content');
+    const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const destName = safeGet(data, 'destination.hospital', '＿＿＿＿病院');
+    const patientInfoStr = getPatientInfo(data);
+    const { positive, negative, memoList } = getFindingsData(data);
+    const treatmentStr = getTreatmentStr(data);
+    const lastV = getVitalsData(data);
+    
+    let physicalHtml = '';
+    if (positive.length > 0) physicalHtml += `<strong>【陽性所見】</strong> ${positive.join('、')}<br>`;
+    else physicalHtml += `<strong>【陽性所見】</strong> 特になし<br>`;
+    if (memoList.length > 0) physicalHtml += `<div style="margin: 8px 0 8px 1em; line-height:1.8;">${memoList.map(m => '・' + m).join('<br>')}</div>`;
+    if (negative.length > 0) physicalHtml += `<span style="color:#666; font-size:0.9em; margin-top:6px; display:block;">(正常・陰性所見: ${negative.join('、')})</span>`;
+
+    const fast = safeGet(data, 'fd.exam_texts.us', '');
+    const efast = safeGet(data, 'fd.exam_texts.efast', '');
+    let examText = '';
+    if(fast) examText += `FAST: ${fast} `;
+    if(efast) examText += `eFAST: ${efast}`;
+
+    const problems = safeGet(data, 'problems', []);
+
+    const html = `
+        <div class="letter-title">診療情報提供書</div>
+        <div class="header-row">
+            <div class="recipient">${destName} 救命救急センター<br>御机下</div>
+            <div class="sender">${today}<br>鹿児島県ドクターヘリ</div>
+        </div>
+        <div class="intro-text">
+            平素より当県の救急医療体制にご高配を賜り、厚く御礼申し上げます。<br>
+            さて、本日搬送いたしました患者につきまして、下記の通りご報告申し上げます。
+        </div>
+        <div class="section">
+            <div class="section-head">📋 患者情報</div>
+            <div class="section-body">
+                ${patientInfoStr}<br>
+                既往歴: ${safeGet(data, 'patient.history', 'なし')}<br>
+                内服: ${safeGet(data, 'patient.medication', 'なし')}<br>
+                アレルギー: ${safeGet(data, 'patient.allergy', 'なし')}
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-head">📝 現病歴(経過)</div>
+            <div class="section-body">
+                ${safeGet(data, 'request.time', '--:--')} 覚知<br>
+                ${safeGet(data, 'request.detail', '').replace(/\n/g, '<br>')}
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-head">🩺 身体所見・バイタル(最終)</div>
+            <div class="section-body">
+                意識: GCS E${safeGet(lastV, 'gcs.e','-')}V${safeGet(lastV, 'gcs.v','-')}M${safeGet(lastV, 'gcs.m','-')} / JCS ${safeGet(lastV, 'jcs','-')}<br>
+                BP: ${safeGet(lastV, 'sbp','-')}/${safeGet(lastV, 'dbp','-')} mmHg, 
+                HR: ${safeGet(lastV, 'hr','-')} bpm, 
+                SpO2: ${safeGet(lastV, 'spo2','-')}%<br>
+                <div style="margin-top:10px;">${physicalHtml}</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-head">⚠️ 傷病名・プロブレム</div>
+            <div class="section-body">
+                ${problems.length > 0 ? problems.map((p,i)=>`${i+1}. ${p}`).join('<br>') : '特記事項なし'}
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-head">💉 検査・処置</div>
+            <div class="section-body">
+                BS: ${safeGet(data, 'fd.bs', '-')} mg/dL<br>
+                画像所見: ${examText || '-'}<br>
+                実施処置: ${treatmentStr}
+            </div>
+        </div>
+        <div class="closing-text">
+            本日は緊急の搬送要請に対し、迅速にご快諾いただき深謝いたします。<br>
+            つきましては、貴院にて詳細な精査および加療をお願いしたく存じます。<br>
+            ご多忙の折恐縮ですが、何卒よろしくお願い申し上げます。
+        </div>
+    `;
+    container.innerHTML = html;
+}
+
+function convertTextToPreviewHTML(text) {
+    const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+    
+    return `<div style="white-space: pre-wrap; line-height: 1.9;">${escaped}</div>`;
+}
+</script>
+
+</body>
+</html>
