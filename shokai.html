@@ -12,8 +12,8 @@
     body {
         font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
         line-height: 1.6;
-        background-color: #f2f2f7;
-        color: #1c1c1e;
+        background-color: #eff6ff;
+        color: #1e3a8a;
         margin: 0;
         padding: 0;
         font-size: 16px; 
@@ -34,7 +34,7 @@
         justify-content: center;
         align-items: center;
         padding: 20px;
-        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+        background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
     }
 
     .initial-header {
@@ -45,98 +45,108 @@
     .initial-title {
         font-size: 26px;
         font-weight: 300;
-        color: #2c3e50;
+        color: #1e3a8a;
         margin: 0 0 10px 0;
-        letter-spacing: 2px;
+        letter-spacing: 3px;
     }
 
     .initial-subtitle {
         font-size: 13px;
-        color: #7f8c8d;
-        font-weight: 400;
-        letter-spacing: 1px;
+        color: #92400e;
+        font-weight: 500;
+        letter-spacing: 2px;
     }
 
     .upload-container {
         width: 100%;
-        max-width: 480px;
-        padding: 0 15px;
+        max-width: 500px;
+        padding: 0 20px;
     }
 
     .upload-zone {
         background: white;
-        border: 2px dashed #d1d5db;
+        border: 2px solid #bfdbfe;
         border-radius: 16px;
-        padding: 50px 30px;
+        padding: 60px 40px;
         text-align: center;
         cursor: pointer;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+        box-shadow: 0 4px 20px rgba(30,58,138,0.08), 0 1px 3px rgba(0,0,0,0.05);
         width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
     }
 
     .upload-zone:hover {
-        border-color: #005088;
-        box-shadow: 0 8px 32px rgba(0,80,136,0.12);
+        border-color: #1e3a8a;
+        box-shadow: 0 8px 30px rgba(30,58,138,0.15), 0 2px 6px rgba(30,58,138,0.1);
         transform: translateY(-2px);
     }
 
     .upload-zone.drag-over {
-        border-color: #005088;
-        background: #f0f8ff;
+        border-color: #1e40af;
+        background: #f0f9ff;
         border-style: solid;
     }
 
     .upload-icon {
-        width: 56px;
-        height: 56px;
-        margin: 0 auto 20px;
-        background: #f8f9fa;
+        width: 64px;
+        height: 64px;
+        margin: 0 0 24px 0;
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 28px;
-        color: #6b7280;
+        font-size: 32px;
+        color: #1e40af;
         transition: all 0.3s ease;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(30,58,138,0.12);
     }
 
     .upload-zone:hover .upload-icon {
-        background: #005088;
-        color: white;
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+        color: #fbbf24;
         transform: scale(1.1);
+        box-shadow: 0 4px 16px rgba(30,58,138,0.35);
     }
 
     .upload-text {
-        font-size: 16px;
-        color: #374151;
-        font-weight: 500;
-        margin-bottom: 6px;
+        font-size: 17px;
+        color: #1e3a8a;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+        line-height: 1.4;
     }
 
     .upload-hint {
-        font-size: 12px;
-        color: #9ca3af;
-        margin-bottom: 20px;
+        font-size: 13px;
+        color: #3b82f6;
+        margin: 0 0 28px 0;
+        line-height: 1.5;
     }
 
     .btn-browse {
         display: inline-block;
-        padding: 11px 28px;
-        background: #005088;
+        padding: 12px 32px;
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
         color: white;
-        border-radius: 22px;
-        font-size: 14px;
+        border-radius: 24px;
+        font-size: 15px;
         font-weight: 600;
         letter-spacing: 0.5px;
         transition: all 0.2s ease;
-        box-shadow: 0 2px 12px rgba(0,80,136,0.2);
+        box-shadow: 0 4px 12px rgba(30,58,138,0.3), 0 2px 4px rgba(0,0,0,0.1);
+        margin: 0;
     }
 
     .btn-browse:hover {
-        background: #003d66;
+        background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
         transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(0,80,136,0.3);
+        box-shadow: 0 6px 20px rgba(30,58,138,0.4), 0 3px 6px rgba(0,0,0,0.15);
     }
 
     .btn-browse:active {
@@ -148,28 +158,29 @@
     }
 
     .error-message {
-        margin-top: 15px;
-        padding: 10px 16px;
-        background: #fee;
-        border: 1px solid #fcc;
-        border-radius: 8px;
-        color: #c33;
+        margin-top: 20px;
+        padding: 12px 20px;
+        background: #fff5f5;
+        border: 1px solid #fc8181;
+        border-radius: 10px;
+        color: #c53030;
         font-size: 13px;
         text-align: center;
         display: none;
+        line-height: 1.5;
     }
 
     /* ------------------------------------------------------------------
        Header (After file loaded)
        ------------------------------------------------------------------ */
     .app-header {
-        background: linear-gradient(135deg, #005088 0%, #0066aa 100%);
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
         color: white;
         padding: 12px 15px;
         position: sticky;
         top: 0;
         z-index: 100;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 12px rgba(30,58,138,0.25);
         display: none;
     }
     
@@ -229,7 +240,7 @@
     }
     .mode-btn.active {
         background: white;
-        color: #005088;
+        color: #1e3a8a;
         font-weight: 700;
         box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
@@ -298,7 +309,7 @@
         left: 0;
         right: 0;
         height: 4px;
-        background: linear-gradient(90deg, #005088, #0066aa);
+        background: linear-gradient(90deg, #1e3a8a 0%, #92400e 100%);
         border-radius: 8px 8px 0 0;
     }
 
@@ -322,7 +333,7 @@
         color: #666;
     }
     .btn-update-preview {
-        background: #005088;
+        background: #1e3a8a;
         color: white;
         border: none;
         padding: 6px 16px;
@@ -331,10 +342,10 @@
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
-        box-shadow: 0 2px 6px rgba(0,80,136,0.3);
+        box-shadow: 0 2px 6px rgba(30,58,138,0.3);
     }
     .btn-update-preview:hover {
-        background: #0066aa;
+        background: #1e40af;
         transform: translateY(-1px);
     }
     .btn-update-preview:active {
@@ -357,8 +368,8 @@
     }
     .edit-area:focus {
         outline: none;
-        border-color: #005088;
-        box-shadow: 0 0 0 3px rgba(0,80,136,0.1);
+        border-color: #1e3a8a;
+        box-shadow: 0 0 0 3px rgba(30,58,138,0.1);
     }
 
     /* ------------------------------------------------------------------
@@ -370,9 +381,9 @@
         text-align: center;
         margin-bottom: 40px;
         letter-spacing: 3px;
-        color: #005088;
+        color: #1e3a8a;
         padding-bottom: 15px;
-        border-bottom: 2px solid #005088;
+        border-bottom: 2px solid #1e3a8a;
     }
     .header-row { 
         display: flex; 
@@ -401,13 +412,13 @@
     .section { 
         margin-bottom: 25px;
         padding: 15px;
-        background: #fafafa;
+        background: #f0f9ff;
         border-radius: 8px;
-        border-left: 3px solid #005088;
+        border-left: 3px solid #92400e;
     }
     .section-head { 
         font-weight: bold;
-        color: #005088;
+        color: #1e3a8a;
         margin-bottom: 10px;
         font-size: 15px;
         display: block;
@@ -463,12 +474,12 @@
         background: #e8e8ea;
     }
     .btn-share {
-        background: #005088;
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
         color: white;
-        box-shadow: 0 2px 8px rgba(0,80,136,0.3);
+        box-shadow: 0 2px 8px rgba(30,58,138,0.3);
     }
     .btn-share:hover {
-        background: #0066aa;
+        background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
     }
 
     .fab-container {
@@ -502,10 +513,10 @@
         transform: scale(0.95); 
     }
     .fab-copy { 
-        background: #555;
+        background: #64748b;
     }
     .fab-share { 
-        background: #005088;
+        background: #1e3a8a;
     }
 
     .toast {
@@ -562,31 +573,37 @@
         }
         .initial-title {
             font-size: 22px;
+            margin-bottom: 8px;
         }
         .initial-subtitle {
             font-size: 12px;
         }
+        .initial-header {
+            margin-bottom: 40px;
+        }
         .upload-container {
-            padding: 0 10px;
+            padding: 0 15px;
         }
         .upload-zone {
-            padding: 40px 20px;
+            padding: 45px 25px;
         }
         .upload-icon {
-            width: 48px;
-            height: 48px;
-            font-size: 24px;
-            margin-bottom: 16px;
+            width: 56px;
+            height: 56px;
+            font-size: 28px;
+            margin-bottom: 20px;
         }
         .upload-text {
-            font-size: 15px;
+            font-size: 16px;
+            margin-bottom: 6px;
         }
         .upload-hint {
-            font-size: 11px;
+            font-size: 12px;
+            margin-bottom: 24px;
         }
         .btn-browse {
-            padding: 10px 24px;
-            font-size: 13px;
+            padding: 11px 28px;
+            font-size: 14px;
         }
         
         .preview-paper { padding: 25px 20px; font-size: 13px; }
@@ -595,8 +612,28 @@
     }
 
     @media (max-width: 375px) {
+        .upload-container {
+            padding: 0 12px;
+        }
         .upload-zone {
-            padding: 35px 15px;
+            padding: 40px 20px;
+        }
+        .upload-icon {
+            width: 52px;
+            height: 52px;
+            font-size: 26px;
+            margin-bottom: 18px;
+        }
+        .upload-text {
+            font-size: 15px;
+        }
+        .upload-hint {
+            font-size: 11px;
+            margin-bottom: 22px;
+        }
+        .btn-browse {
+            padding: 10px 24px;
+            font-size: 13px;
         }
     }
 
@@ -616,7 +653,7 @@
             <div class="upload-icon">📄</div>
             <div class="upload-text">JSONファイルを選択</div>
             <div class="upload-hint">ドラッグ&ドロップまたはクリック</div>
-            <span class="btn-browse">ファイルを選択</span>
+            <div class="btn-browse">ファイルを選択</div>
             <input type="file" id="fileInput" accept=".json, application/json">
         </label>
         <div id="errorMsg" class="error-message"></div>
