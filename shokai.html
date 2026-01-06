@@ -518,7 +518,11 @@
     .fab-share { 
         background: #1e3a8a;
     }
-
+    /* ↓ このスタイルを追加 */
+    .fab-gmail {
+        background: #ea4335; /* Gmail Red */
+    }
+    /* ↑ 追加ここまで */
     .toast {
         position: fixed;
         bottom: 160px;
@@ -716,6 +720,7 @@
 
 <!-- FAB (Desktop) -->
 <div id="fabContainer" class="fab-container sans-serif">
+    <div class="fab fab-gmail" onclick="sendToGmail()" title="Gmailで送信">📧</div>
     <div class="fab fab-copy" onclick="copyText()" title="クリップボードにコピー">📋</div>
     <div class="fab fab-share" onclick="shareText()" title="メールやJoinに共有">🚀</div>
 </div>
@@ -730,7 +735,7 @@
  * - Better padding management
  */
 
-const STORAGE_KEY = 'heli_referral_data_v1';
+const STORAGE_KEY = 'heliRecordV33';  // ← ここを書き換える
 const EDIT_STORAGE_KEY = 'heli_referral_edit_v1';
 let originalData = null;
 
@@ -932,7 +937,25 @@ function shareText() {
         copyText();
     }
 }
+function sendToGmail() {
+    // 1. テキストを取得
+    const text = document.getElementById('editable-text').value;
+    if (!text) {
+        alert("送信するテキストがありません。");
+        return;
+    }
 
+    // 2. 件名と本文をエンコード（URLで送れる形式に変換）
+    const subject = encodeURIComponent("診療情報提供書");
+    const body = encodeURIComponent(text);
+
+    // 3. Gmailの作成画面URLを構築
+    // view=cm (作成モード), fs=1 (フルスクリーン), su (件名), body (本文)
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
+
+    // 4. 新しいタブでGmailを開く
+    window.open(url, '_blank');
+}
 function showToast(msg) {
     const toast = document.getElementById('toast');
     toast.innerText = msg;
