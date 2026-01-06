@@ -918,6 +918,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
 
 <div class="bottom-nav">
   <button class="btn" id="copyOut">📋 コピー</button>
+  <button class="btn ghost" onclick="openReferral()" style="color:#005088;font-weight:bold">✉️ 紹介状</button>
   <button class="btn ghost" onclick="saveData()">💾 保存</button>
   <button class="btn ghost" onclick="loadData()">📂 読込</button>
   <button class="btn ghost" onclick="resetData()" style="color:#dc2626">🗑 リセット</button>
@@ -1998,6 +1999,11 @@ function init() {
   [['#fd-gen-head',FD_GEN_GROUPS.head],['#fd-gen-resp',FD_GEN_GROUPS.resp],['#fd-gen-card',FD_GEN_GROUPS.card],['#fd-gen-abd',FD_GEN_GROUPS.abd],['#fd-gen-limb',FD_GEN_GROUPS.limb],['#fd-gen-neuro',FD_GEN_GROUPS.neuro],['#fd-tra-head',FD_TRA_GROUPS.head],['#fd-tra-neck',FD_TRA_GROUPS.neck],['#fd-tra-chest',FD_TRA_GROUPS.chest],['#fd-tra-abd',FD_TRA_GROUPS.abd],['#fd-tra-pelvis',FD_TRA_GROUPS.pelvis],['#fd-tra-limb',FD_TRA_GROUPS.limb],['#fd-str-cn',FD_STR_GROUPS.cn],['#fd-str-higher',FD_STR_GROUPS.higher]].forEach(x=>mountChips(x[0],x[1],'fd'));
   setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); restoreUI();
   $('#copyOut').onclick=()=>{ navigator.clipboard.writeText($('#outText').textContent); const b=$('#copyOut'); b.textContent='✓ 完了'; setTimeout(()=>b.textContent='📋 コピー',1500); };
+}
+// ↓ 以下の3行を追加してください
+function openReferral() {
+  updateState(); // 最新の入力内容を保存
+  window.open('shokai.html', '_blank'); // 新しいタブでshokai.htmlを開く
 }
 init();
 // PWA Service Worker 登録ロジック
