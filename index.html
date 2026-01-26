@@ -2070,7 +2070,10 @@ function generateReport() {
 
   r += '\n【評価】\n'; state.problems.forEach((p,i)=>r+=`#${i+1} ${p}\n`);
   if(state.consideration) r+=`考察：${state.consideration}\n`;
-  r += '\n【搬送先】\n'+(state.destination.custom||state.destination.hospital||'--')+'\n理由：'+state.destination.reason+'\n━━━━━━━━━━━━━━━━━━━━\n作成：'+new Date().toLocaleString(); return r;
+  r += '\n【搬送先】\n'+(state.destination.custom||state.destination.hospital||'--');
+  if(state.destination.reason) r += '\n理由：'+state.destination.reason;
+  if(state.heli.turn_type) r += '\n活動パターン：'+state.heli.turn_type;
+  r += '\n━━━━━━━━━━━━━━━━━━━━\n作成：'+new Date().toLocaleString(); return r;
 }
 
 function saveData() { const b = new Blob([JSON.stringify(state, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `heli_${new Date().toISOString().slice(0,10)}.json`; a.click(); }
@@ -2120,12 +2123,79 @@ function updateApp() {
   }
 }
 
+function bindInputEvents() {
+  // 要請情報
+  $('#request_type').onchange = updateState;
+  $('#request_detail').oninput = updateState;
+  $('#request_time').onchange = updateState;
+  
+  // 患者情報
+  $('#patient_history').oninput = updateState;
+  $('#patient_medication').oninput = updateState;
+  $('#patient_allergy').oninput = updateState;
+  $('#last_meal_time').onchange = updateState;
+  $('#patient_hospital').oninput = updateState;
+  
+  // ヘリタイムライン
+  $('#heli_takeoff').onchange = updateState;
+  $('#heli_lz_landing').onchange = updateState;
+  $('#fd_contact').onchange = updateState;
+  $('#turn_type').onchange = updateState;
+  $('#transport_takeoff').onchange = updateState;
+  $('#hospital_arrival').onchange = updateState;
+  
+  // 救急隊タイムライン
+  $('#ems_aware').onchange = updateState;
+  $('#ems_arrival').onchange = updateState;
+  $('#ems_contact').onchange = updateState;
+  $('#ems_lz').onchange = updateState;
+  $('#ems_o2_flow').onchange = updateState;
+  $('#ems_procedures_detail').oninput = updateState;
+  
+  // フライトドクター
+  $('#fd_bs').onchange = updateState;
+  $('#fd_exam_detail').oninput = updateState;
+  $('#fd_procedure_detail').oninput = updateState;
+  $('#fd_drug_detail').oninput = updateState;
+  $('#exam_us_txt').oninput = updateState;
+  $('#exam_ecg_txt').oninput = updateState;
+  $('#exam_fast_txt').oninput = updateState;
+  $('#exam_efast_txt').oninput = updateState;
+  
+  // 評価
+  $('#consideration').oninput = updateState;
+  
+  // 搬送先
+  $('#destination_custom').oninput = updateState;
+  $('#selection_reason').oninput = updateState;
+  
+  // ストローク関連
+  if($('#plrL')) {
+    $('#plrL').onchange = updateState;
+    $('#plrR').onchange = updateState;
+    $('#str_gaze').onchange = updateState;
+    $('#str_nyst').onchange = updateState;
+    $('#str_btr').onchange = updateState;
+    $('#str_ptr').onchange = updateState;
+    $('#str_babinski').onchange = updateState;
+    $('#str_chaddock').onchange = updateState;
+    if($('#nihss_memo')) $('#nihss_memo').oninput = updateState;
+  }
+  
+  // チェックボックス（検査）
+  if($('#exam_bs')) $('#exam_bs').onchange = updateState;
+  if($('#exam_us')) $('#exam_us').onchange = updateState;
+  if($('#exam_ecg')) $('#exam_ecg').onchange = updateState;
+  if($('#exam_fast')) $('#exam_fast').onchange = updateState;
+  if($('#exam_efast')) $('#exam_efast').onchange = updateState;
+}
+
 function init() {
   const saved = localStorage.getItem('heliRecordV33'); if(saved) try{state=JSON.parse(saved);}catch(e){}
   if(state.ems.vitals.length===0) addEmsVital(); if(state.fd.vitals.length===0) addFdVital();
   [['#ems-gen-head',EMS_GEN_GROUPS.head],['#ems-gen-resp',EMS_GEN_GROUPS.resp],['#ems-gen-card',EMS_GEN_GROUPS.card],['#ems-gen-abd',EMS_GEN_GROUPS.abd],['#ems-gen-limb',EMS_GEN_GROUPS.limb],['#ems-gen-neuro',EMS_GEN_GROUPS.neuro],['#ems-tra-head',EMS_TRA_GROUPS.head],['#ems-tra-neck',EMS_TRA_GROUPS.neck],['#ems-tra-chest',EMS_TRA_GROUPS.chest],['#ems-tra-abd',EMS_TRA_GROUPS.abd],['#ems-tra-pelvis',EMS_TRA_GROUPS.pelvis],['#ems-tra-limb',EMS_TRA_GROUPS.limb],['#ems-cpa-rhythm',EMS_CPA_GROUPS.rhythm],['#ems-cpa-witness',EMS_CPA_GROUPS.witness],['#ems-cpa-airway',EMS_CPA_GROUPS.airway],['#ems-cpa-circulation',EMS_CPA_GROUPS.circulation],['#ems-cpa-chest',EMS_CPA_GROUPS.chest],['#ems-str-conscious',EMS_STR_GROUPS.conscious],['#ems-str-face',EMS_STR_GROUPS.face],['#ems-str-motor',EMS_STR_GROUPS.motor],['#ems-str-other',EMS_STR_GROUPS.other]].forEach(x=>mountChips(x[0],x[1],'ems'));
   [['#fd-gen-head',FD_GEN_GROUPS.head],['#fd-gen-resp',FD_GEN_GROUPS.resp],['#fd-gen-card',FD_GEN_GROUPS.card],['#fd-gen-abd',FD_GEN_GROUPS.abd],['#fd-gen-limb',FD_GEN_GROUPS.limb],['#fd-gen-neuro',FD_GEN_GROUPS.neuro],['#fd-tra-head',FD_TRA_GROUPS.head],['#fd-tra-neck',FD_TRA_GROUPS.neck],['#fd-tra-chest',FD_TRA_GROUPS.chest],['#fd-tra-abd',FD_TRA_GROUPS.abd],['#fd-tra-pelvis',FD_TRA_GROUPS.pelvis],['#fd-tra-limb',FD_TRA_GROUPS.limb],['#fd-str-cn',FD_STR_GROUPS.cn],['#fd-str-higher',FD_STR_GROUPS.higher]].forEach(x=>mountChips(x[0],x[1],'fd'));
-  setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); restoreUI();
+  setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); restoreUI(); bindInputEvents();
   $('#copyOut').onclick=()=>{ navigator.clipboard.writeText($('#outText').textContent); const b=$('#copyOut'); b.textContent='✓ 完了'; setTimeout(()=>b.textContent='📋 コピー',1500); };
 }
 // 紹介状送信先Gmailアドレス（ここに指定したアドレスを書き込む）
@@ -2399,6 +2469,9 @@ function generatePlainText(data) {
   // プロブレム
   const problems = safeGet(data, 'problems', []);
   const problemText = problems.length > 0 ? problems.map((p,i)=>`${i+1}. ${p}`).join('\n') : '特記事項なし';
+  
+  // 考察
+  const consideration = safeGet(data, 'consideration', '').trim();
 
   // 紹介状本文の組み立て
   let referralText = `診療情報提供書
@@ -2451,7 +2524,14 @@ ${requestText}
   }
 
   referralText += `\n\n【傷病名・プロブレム】
-${problemText}
+${problemText}`;
+
+  if (consideration) {
+    referralText += `\n\n【考察】
+${consideration}`;
+  }
+
+  referralText += `
 
 以上、病院前活動のご報告とさせていただきます。
 本日は緊急の搬送要請に対し、迅速にご快諾いただき深謝いたします。
@@ -2474,4 +2554,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
