@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<title>ドクターヘリ活動記録 v3.16 (2026/01/06 修正版)</title>
+<title>ドクターヘリ活動記録 v4.0</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -28,9 +28,33 @@ header{
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:0.5px solid var(--line);
   padding:calc(12px + var(--safe-top)) 16px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
 }
-h1{margin:0;font-size:17px;font-weight:600;text-align:center}
-.sub{margin:4px 0 0;color:var(--muted);font-size:12px;text-align:center}
+.header-content{
+  flex:1;
+  text-align:center;
+}
+h1{margin:0;font-size:17px;font-weight:600}
+.sub{margin:4px 0 0;color:var(--muted);font-size:12px}
+.btn-update{
+  background:var(--brand);
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:500;
+  cursor:pointer;
+  transition:all 0.2s;
+  white-space:nowrap;
+  min-width:60px;
+}
+.btn-update:active{
+  opacity:0.8;
+  transform:scale(0.95);
+}
 main{padding:12px}
 .card{
   background:#fff;border-radius:12px;
@@ -384,15 +408,41 @@ div.card-body > div[style*="display:flex"] .btn.small {
 .nihss-btn.active{
   background:var(--brand);color:#fff;border-color:var(--brand);
 }
+
+/* カード背景色の区別 */
+.ems-card {
+  background: #f0f9ff;
+  border-left: 4px solid #0ea5e9;
+}
+.fd-card {
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+}
+
+/* 紹介状画面スタイル */
+#referralView {
+  padding: 12px;
+  padding-bottom: calc(60px + var(--safe-bottom));
+}
+
+#referralText {
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+  line-height: 1.9;
+  font-size: 14px;
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>🚁 ドクターヘリ活動記録</h1>
-  <p class="sub">heli record v3.15</p>
+  <div style="width:60px"></div>
+  <div class="header-content">
+    <h1>🚁 ドクターヘリ活動記録</h1>
+    <p class="sub">heli record v4.0</p>
+  </div>
+  <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
 </header>
 
-<main>
+<main id="mainRecordView">
   <div class="card">
     <div class="card-header">📞 要請情報</div>
     <div class="card-body">
@@ -425,7 +475,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   </div>
 
   <div class="card">
-    <div class="card-header">⏱️ タイムライン</div>
+    <div class="card-header">⏱️ ドクターヘリタイムライン</div>
     <div class="card-body">
       <div class="grid2">
         <div>
@@ -460,7 +510,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
     </div>
   </div>
 
-  <div class="card">
+  <div class="card ems-card">
     <div class="card-header">🚑 先行救急隊</div>
     <div class="card-body">
       <div class="grid2">
@@ -602,7 +652,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
     </div>
   </div>
 
-  <div class="card">
+  <div class="card fd-card">
     <div class="card-header">👨‍⚕️ フライトドクター</div>
     <div class="card-body">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -916,12 +966,33 @@ div.card-body > div[style*="display:flex"] .btn.small {
   </div>
 </main>
 
-<div class="bottom-nav">
+<!-- 紹介状画面 -->
+<main id="referralView" style="display:none">
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>📋 紹介状</span>
+        <button class="btn small ghost" onclick="switchToRecordView()" style="width:auto;padding:8px 16px">← 活動記録に戻る</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="result" id="referralText" style="white-space:pre-wrap;font-family:'Hiragino Mincho ProN','Yu Mincho',serif;line-height:1.9"></div>
+    </div>
+  </div>
+</main>
+
+<div class="bottom-nav" id="bottomNav">
   <button class="btn" id="copyOut">📋 コピー</button>
   <button class="btn ghost" onclick="openReferral()" style="color:#005088;font-weight:bold">✉️ 紹介状</button>
   <button class="btn ghost" onclick="saveData()">💾 保存</button>
   <button class="btn ghost" onclick="loadData()">📂 読込</button>
   <button class="btn ghost" onclick="resetData()" style="color:#dc2626">🗑 リセット</button>
+</div>
+
+<!-- 紹介状送信ボタン -->
+<div class="bottom-nav" id="referralSendBtn" style="display:none">
+  <button class="btn" onclick="sendReferralEmail()" style="background:#ea4335;color:#fff">📧 メール送信</button>
+  <button class="btn ghost" onclick="switchToRecordView()">← 戻る</button>
 </div>
 
 <div class="dial-overlay" id="dialOverlay" onclick="closeDial(event)">
@@ -1903,30 +1974,62 @@ function extractFindings(def, chips) {
 
 // generateReport SpO2半角修正 & ドクター身体所見反映
 function generateReport() {
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v3.15\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n【救急隊活動】\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v4.0\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n【救急隊活動】\n';
   state.ems.vitals.forEach(v => {
     const gcs = v.gcs.v === 'T' ? `E${v.gcs.e}VTM${v.gcs.m}(${v.gcs.e+v.gcs.m}T)` : `E${v.gcs.e}V${v.gcs.v}M${v.gcs.m}(${v.gcs.e+parseInt(v.gcs.v)+v.gcs.m})`;
     r += `[${v.time}] BP:${v.sbp}/${v.dbp} HR:${v.hr} RR:${v.rr} SpO2:${v.spo2}% BT:${v.bt}℃ GCS:${gcs} JCS:${v.jcs}\n`;
   });
   const eTab = state.ems.exam_tab;
-  if(eTab==='general') [['頭頚部',EMS_GEN_GROUPS.head,'head'],['呼吸器',EMS_GEN_GROUPS.resp,'resp'],['循環器',EMS_GEN_GROUPS.card,'card'],['腹部',EMS_GEN_GROUPS.abd,'abd'],['四肢',EMS_GEN_GROUPS.limb,'limb'],['神経',EMS_GEN_GROUPS.neuro,'neuro']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.ems.chips),m=state.ems.memos.general[k]; if(s||m)r+=`【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
+  if(eTab==='general') {
+    // 頭頚部
+    const headS = extractFindings(EMS_GEN_GROUPS.head, state.ems.chips);
+    const headM = state.ems.memos.general.head;
+    if(headS||headM) r+=`【頭頚部】${[headS,headM].filter(Boolean).join('。')}\n`;
+    // 胸部（呼吸器と循環器を統合）
+    const respS = extractFindings(EMS_GEN_GROUPS.resp, state.ems.chips);
+    const respM = state.ems.memos.general.resp;
+    const cardS = extractFindings(EMS_GEN_GROUPS.card, state.ems.chips);
+    const cardM = state.ems.memos.general.card;
+    const chestContent = [respS,respM,cardS,cardM].filter(Boolean);
+    if(chestContent.length > 0) r+=`【胸部】${chestContent.join('。')}\n`;
+    // 腹部、四肢、神経
+    [['腹部',EMS_GEN_GROUPS.abd,'abd'],['四肢',EMS_GEN_GROUPS.limb,'limb'],['神経',EMS_GEN_GROUPS.neuro,'neuro']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.ems.chips),m=state.ems.memos.general[k]; if(s||m)r+=`【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
+  }
   else if(eTab==='trauma') [['頭部・顔面',EMS_TRA_GROUPS.head,'head'],['頸部',EMS_TRA_GROUPS.neck,'neck'],['胸部',EMS_TRA_GROUPS.chest,'chest'],['腹部',EMS_TRA_GROUPS.abd,'abd'],['骨盤',EMS_TRA_GROUPS.pelvis,'pelvis'],['四肢',EMS_TRA_GROUPS.limb,'limb']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.ems.chips),m=state.ems.memos.trauma[k]; if(s||m)r+=`【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
   
   r += '\n【フライトドクター活動】\n';
+  // フライトドクタータイムライン
+  if(state.heli.fd_contact) r += `FD接触: ${state.heli.fd_contact}\n`;
   state.fd.vitals.forEach(v => {
     const gcs = v.gcs.v === 'T' ? `E${v.gcs.e}VTM${v.gcs.m}(${v.gcs.e+v.gcs.m}T)` : `E${v.gcs.e}V${v.gcs.v}M${v.gcs.m}(${v.gcs.e+parseInt(v.gcs.v)+v.gcs.m})`;
     r += `[${v.time}] BP:${v.sbp}/${v.dbp} HR:${v.hr} RR:${v.rr} SpO2:${v.spo2}% BT:${v.bt}℃ GCS:${gcs} JCS:${v.jcs}\n`;
   });
   // ドクター身体所見出力ロジック追加
+  r += '【身体所見】\n';
   const fTab = state.fd.exam_tab;
-  if(fTab==='general') [['頭頚部',FD_GEN_GROUPS.head,'head'],['呼吸器',FD_GEN_GROUPS.resp,'resp'],['循環器',FD_GEN_GROUPS.card,'card'],['腹部',FD_GEN_GROUPS.abd,'abd'],['四肢',FD_GEN_GROUPS.limb,'limb'],['神経',FD_GEN_GROUPS.neuro,'neuro']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.general[k]; if(s||m)r+=`【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
-  else if(fTab==='trauma') [['頭部・顔面',FD_TRA_GROUPS.head,'head'],['頸部',FD_TRA_GROUPS.neck,'neck'],['胸部',FD_TRA_GROUPS.chest,'chest'],['腹部',FD_TRA_GROUPS.abd,'abd'],['骨盤',FD_TRA_GROUPS.pelvis,'pelvis'],['四肢',FD_TRA_GROUPS.limb,'limb']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.trauma[k]; if(s||m)r+=`【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
-  else if(fTab==='stroke') {
-    const cn = extractFindings(FD_STR_GROUPS.cn, state.fd.chips); const cnM = state.fd.memos?.stroke?.cn || ''; if(cn||cnM) r+=`【脳神経】${[cn,cnM].filter(Boolean).join('。')}\n`;
-    const str = state.fd.stroke || {}; r+=`【瞳孔・運動】L:${str.pupilL}mm R:${str.pupilR}mm, PLR L:${str.plrL} R:${str.plrR}, MMT(${str.mmt?.ru},${str.mmt?.lu},${str.mmt?.rl},${str.mmt?.ll}), NIHSS:${calcNihssSum()}点\n`;
+  if(fTab==='general') {
+    // 頭頚部
+    const headS = extractFindings(FD_GEN_GROUPS.head, state.fd.chips);
+    const headM = state.fd.memos.general.head;
+    if(headS||headM) r+=`  【頭頚部】${[headS,headM].filter(Boolean).join('。')}\n`;
+    // 胸部（呼吸器と循環器を統合）
+    const respS = extractFindings(FD_GEN_GROUPS.resp, state.fd.chips);
+    const respM = state.fd.memos.general.resp;
+    const cardS = extractFindings(FD_GEN_GROUPS.card, state.fd.chips);
+    const cardM = state.fd.memos.general.card;
+    const chestContent = [respS,respM,cardS,cardM].filter(Boolean);
+    if(chestContent.length > 0) r+=`  【胸部】${chestContent.join('。')}\n`;
+    // 腹部、四肢、神経
+    [['腹部',FD_GEN_GROUPS.abd,'abd'],['四肢',FD_GEN_GROUPS.limb,'limb'],['神経',FD_GEN_GROUPS.neuro,'neuro']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.general[k]; if(s||m)r+=`  【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
   }
-  else if(fTab==='cpa') state.fd.cpaEvents.forEach((ev,i)=>r+=`【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
+  else if(fTab==='trauma') [['頭部・顔面',FD_TRA_GROUPS.head,'head'],['頸部',FD_TRA_GROUPS.neck,'neck'],['胸部',FD_TRA_GROUPS.chest,'chest'],['腹部',FD_TRA_GROUPS.abd,'abd'],['骨盤',FD_TRA_GROUPS.pelvis,'pelvis'],['四肢',FD_TRA_GROUPS.limb,'limb']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.trauma[k]; if(s||m)r+=`  【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
+  else if(fTab==='stroke') {
+    const cn = extractFindings(FD_STR_GROUPS.cn, state.fd.chips); const cnM = state.fd.memos?.stroke?.cn || ''; if(cn||cnM) r+=`  【脳神経】${[cn,cnM].filter(Boolean).join('。')}\n`;
+    const str = state.fd.stroke || {}; r+=`  【瞳孔・運動】L:${str.pupilL}mm R:${str.pupilR}mm, PLR L:${str.plrL} R:${str.plrR}, MMT(${str.mmt?.ru},${str.mmt?.lu},${str.mmt?.rl},${str.mmt?.ll}), NIHSS:${calcNihssSum()}点\n`;
+  }
+  else if(fTab==='cpa') state.fd.cpaEvents.forEach((ev,i)=>r+=`  【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
   
+  r += '\n';
   // 検査所見出力
   let exams = [];
   if(state.fd.exams.bs && state.fd.bs) exams.push(`BS:${state.fd.bs}mg/dL`);
@@ -1992,6 +2095,31 @@ function restoreUI() {
   renderProcedureChips('ems_procedures', e.procedures_items, e.procedures); renderProcedureChips('fd_procedures', f.procedures_items, f.procedures); renderProcedureChips('fd_drugs', f.drugs_items, f.drugs); render();
 }
 
+function updateApp() {
+  if(confirm('アプリを最新版に更新しますか？\n（キャッシュを削除して再読み込みします）')) {
+    // Service Workerの登録を解除
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(registration => {
+          registration.unregister();
+        });
+      });
+    }
+    // キャッシュを削除
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          caches.delete(name);
+        });
+      });
+    }
+    // 強制リロード
+    setTimeout(() => {
+      window.location.reload(true);
+    }, 500);
+  }
+}
+
 function init() {
   const saved = localStorage.getItem('heliRecordV33'); if(saved) try{state=JSON.parse(saved);}catch(e){}
   if(state.ems.vitals.length===0) addEmsVital(); if(state.fd.vitals.length===0) addFdVital();
@@ -2000,10 +2128,337 @@ function init() {
   setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); restoreUI();
   $('#copyOut').onclick=()=>{ navigator.clipboard.writeText($('#outText').textContent); const b=$('#copyOut'); b.textContent='✓ 完了'; setTimeout(()=>b.textContent='📋 コピー',1500); };
 }
-// ↓ 以下の3行を追加してください
+// 紹介状送信先Gmailアドレス（ここに指定したアドレスを書き込む）
+const REFERRAL_EMAIL = 'kchcenter.drheli.drcar@gmail.com'; // ← ここに送信先Gmailアドレスを記入してください
+
+// 画面切り替え
+let currentView = 'record'; // 'record' または 'referral'
+
 function openReferral() {
   updateState(); // 最新の入力内容を保存
-  window.open('shokai.html', '_blank'); // 新しいタブでshokai.htmlを開く
+  switchToReferralView();
+}
+
+function switchToReferralView() {
+  currentView = 'referral';
+  $('#mainRecordView').style.display = 'none';
+  $('#referralView').style.display = 'block';
+  $('#referralSendBtn').style.display = 'block';
+  $('#bottomNav').style.display = 'none';
+  generateReferralText();
+}
+
+function switchToRecordView() {
+  currentView = 'record';
+  $('#mainRecordView').style.display = 'block';
+  $('#referralView').style.display = 'none';
+  $('#referralSendBtn').style.display = 'none';
+  $('#bottomNav').style.display = 'flex';
+}
+
+function generateReferralText() {
+  const referralText = generatePlainText(state);
+  $('#referralText').textContent = referralText;
+}
+
+function sendReferralEmail() {
+  const text = $('#referralText').textContent;
+  if (!text) {
+    alert('送信するテキストがありません。');
+    return;
+  }
+  
+  const subject = encodeURIComponent('診療情報提供書');
+  const body = encodeURIComponent(text);
+  const mailtoLink = `mailto:${REFERRAL_EMAIL}?subject=${subject}&body=${body}`;
+  
+  window.location.href = mailtoLink;
+}
+
+// ---------------------------------------------------------
+// 紹介状生成関数
+// ---------------------------------------------------------
+function safeGet(obj, path, defaultVal = '') {
+  return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj) || defaultVal;
+}
+
+function classifyFindings(chips) {
+  const positive = [];
+  const negative = [];
+  const normalKeywords = ['正中', '対称', '整', '清', '軟', '良好', 'なし', '陰性', '消失', '不詳'];
+
+  if (!chips || typeof chips !== 'object') return { positive, negative };
+
+  Object.entries(chips).forEach(([key, val]) => {
+    const vStr = String(val).toLowerCase().trim();
+    const kStr = key;
+    const isActive = (vStr === '+' || vStr === 'on' || vStr === 'true' || vStr === 'あり' || vStr === '陽性');
+    const isNegativeVal = (vStr === '-' || vStr === 'off' || vStr === 'false' || vStr === 'なし' || vStr === '陰性');
+
+    if (isActive) {
+      if (normalKeywords.some(kw => kStr.includes(kw))) negative.push(kStr);
+      else positive.push(kStr);
+    } else if (isNegativeVal) {
+      if (!kStr.includes('なし')) negative.push(kStr + '(-)');
+      else negative.push(kStr);
+    }
+  });
+  return { positive, negative };
+}
+
+function getPatientInfo(data) {
+  const requestDetail = safeGet(data, 'request.detail', '');
+  const ageMatch = requestDetail.match(/\d+歳?代?/);
+  const sexMatch = requestDetail.match(/[男女]性?/);
+  return `${ageMatch ? ageMatch[0] : '年齢不詳'} ${sexMatch ? sexMatch[0] : '性別不詳'}`;
+}
+
+// 正常所見と異常所見を分類する関数
+function classifyNormalAndAbnormal(chips, type) {
+  const normal = [];
+  const abnormal = [];
+  
+  // 全てのグループ定義を取得
+  const allGroups = type === 'ems' 
+    ? { ...EMS_GEN_GROUPS, ...EMS_TRA_GROUPS, ...EMS_CPA_GROUPS, ...EMS_STR_GROUPS }
+    : { ...FD_GEN_GROUPS, ...FD_TRA_GROUPS, ...FD_CPA_GROUPS, ...FD_STR_GROUPS };
+  
+  if (!chips || typeof chips !== 'object') return { normal, abnormal };
+  
+  // 全てのnormalとabnのリストを作成
+  const allNormal = [];
+  const allAbnormal = [];
+  Object.values(allGroups).forEach(group => {
+    if (group.normal) allNormal.push(...group.normal);
+    if (group.abn) allAbnormal.push(...group.abn);
+  });
+  
+  Object.entries(chips).forEach(([key, val]) => {
+    const vStr = String(val).toLowerCase().trim();
+    const isActive = (vStr === '+' || vStr === 'on' || vStr === 'true' || vStr === 'あり' || vStr === '陽性');
+    
+    if (isActive) {
+      // 正常所見リストに含まれているかチェック
+      if (allNormal.includes(key)) {
+        normal.push(key);
+      } else if (allAbnormal.includes(key)) {
+        abnormal.push(key);
+      } else {
+        // グループ定義にない場合は、キーワードで判定
+        const normalKeywords = ['正中', '対称', '整', '清', '軟', '平坦', '良好', 'なし', '正常', '純'];
+        if (normalKeywords.some(kw => key.includes(kw))) {
+          normal.push(key);
+        } else {
+          abnormal.push(key);
+        }
+      }
+    }
+  });
+  
+  return { normal, abnormal };
+}
+
+function getFindingsData(data, type) {
+  // type: 'ems' または 'fd'
+  const chips = safeGet(data, `${type}.chips`, {});
+  const { normal, abnormal } = classifyNormalAndAbnormal(chips, type);
+
+  const traumaMemo = safeGet(data, `${type}.memos.trauma`, {});
+  const memoList = [];
+  if(traumaMemo.head) memoList.push(`頭部: ${traumaMemo.head}`);
+  if(traumaMemo.neck) memoList.push(`頸部: ${traumaMemo.neck}`);
+  if(traumaMemo.chest) memoList.push(`胸部: ${traumaMemo.chest}`);
+  if(traumaMemo.abd)  memoList.push(`腹部: ${traumaMemo.abd}`);
+  if(traumaMemo.pelvis) memoList.push(`骨盤: ${traumaMemo.pelvis}`);
+  if(traumaMemo.limb) memoList.push(`四肢: ${traumaMemo.limb}`);
+
+  return { normal, abnormal, memoList };
+}
+
+function getTreatmentStr(data, type) {
+  // type: 'ems' または 'fd'
+  const proc = safeGet(data, `${type}.procedures`, {});
+  const getTrueKeys = (obj) => Object.keys(obj).filter(k => obj[k] === true || obj[k] === 'on' || obj[k] === '+');
+  let list = [...getTrueKeys(proc)];
+  
+  if (type === 'fd') {
+    const drugs = safeGet(data, 'fd.drugs', {});
+    list = [...list, ...getTrueKeys(drugs)];
+    if (safeGet(data, 'fd.drug_detail')) list.push(safeGet(data, 'fd.drug_detail'));
+    if (safeGet(data, 'fd.procedure_detail')) list.push(safeGet(data, 'fd.procedure_detail'));
+  } else {
+    if (safeGet(data, 'ems.procedures_detail')) list.push(safeGet(data, 'ems.procedures_detail'));
+  }
+  
+  return [...new Set(list)].join('、') || '特記事項なし';
+}
+
+function getVitalsData(data) {
+  const vitalsArr = safeGet(data, 'fd.vitals', []).length > 0 ? data.fd.vitals : safeGet(data, 'ems.vitals', []);
+  return vitalsArr.length > 0 ? vitalsArr[vitalsArr.length - 1] : {};
+}
+
+function formatVitals(v) {
+  if (!v || Object.keys(v).length === 0) return null;
+  const gcs = v.gcs ? `GCS E${safeGet(v, 'gcs.e','-')}V${safeGet(v, 'gcs.v','-')}M${safeGet(v, 'gcs.m','-')}` : '';
+  const jcs = safeGet(v, 'jcs', '') !== '' && safeGet(v, 'jcs', '') !== '-' ? `JCS ${safeGet(v, 'jcs','-')}` : '';
+  const consciousness = [gcs, jcs].filter(Boolean).join(' / ') || '';
+  const bp = safeGet(v, 'sbp', '') !== '' && safeGet(v, 'sbp', '') !== '-' ? `${safeGet(v, 'sbp','-')}/${safeGet(v, 'dbp','-')} mmHg` : '';
+  const hr = safeGet(v, 'hr', '') !== '' && safeGet(v, 'hr', '') !== '-' ? `${safeGet(v, 'hr','-')} bpm` : '';
+  const spo2 = safeGet(v, 'spo2', '') !== '' && safeGet(v, 'spo2', '') !== '-' ? `${safeGet(v, 'spo2','-')}%` : '';
+  const vitals = [bp, hr, spo2].filter(Boolean);
+  return { consciousness, vitals: vitals.join('、') || '測定不能' };
+}
+
+function formatFindings(normal, abnormal, memoList) {
+  let findings = [];
+  
+  // 正常所見は「でした。」で終わる
+  if (normal.length > 0) {
+    findings.push(normal.join('、') + 'でした。');
+  }
+  
+  // 異常所見は「を認めました。」で終わる
+  if (abnormal.length > 0) {
+    findings.push(abnormal.join('、') + 'を認めました。');
+  }
+  
+  // メモはそのまま追加
+  if (memoList.length > 0) {
+    memoList.forEach(m => findings.push(m));
+  }
+  
+  return findings.length > 0 ? findings.join(' ') : '特記すべき身体所見はありませんでした。';
+}
+
+function generatePlainText(data) {
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const destName = safeGet(data, 'destination.custom') || safeGet(data, 'destination.hospital', '＿＿＿＿病院');
+  
+  // 要請方法・要請内容
+  const requestType = safeGet(data, 'request.type', '');
+  const requestDetail = safeGet(data, 'request.detail', '').trim();
+  const requestText = requestType ? `${requestType}。${requestDetail || ''}` : requestDetail || '';
+
+  // 先行救急隊の活動
+  const emsVitals = safeGet(data, 'ems.vitals', []);
+  const emsLastV = emsVitals.length > 0 ? emsVitals[emsVitals.length - 1] : null;
+  const emsVitalsFormatted = formatVitals(emsLastV);
+  const emsFindings = getFindingsData(data, 'ems');
+  const emsFindingsText = formatFindings(emsFindings.normal, emsFindings.abnormal, emsFindings.memoList);
+  const emsTreatment = getTreatmentStr(data, 'ems');
+  
+  // 先行救急隊タイムライン
+  const emsAware = safeGet(data, 'ems.aware', '');
+  const emsArrival = safeGet(data, 'ems.arrival', '');
+  const emsContact = safeGet(data, 'ems.contact', '');
+  const emsLz = safeGet(data, 'ems.lz', '');
+  let emsTimelineText = '';
+  if (emsAware) emsTimelineText += `覚知: ${emsAware}`;
+  if (emsArrival) emsTimelineText += emsTimelineText ? `、現着: ${emsArrival}` : `現着: ${emsArrival}`;
+  if (emsContact) emsTimelineText += emsTimelineText ? `、接触: ${emsContact}` : `接触: ${emsContact}`;
+  if (emsLz) emsTimelineText += emsTimelineText ? `、LZ着: ${emsLz}` : `LZ着: ${emsLz}`;
+  
+  // ヘリタイムライン
+  const heliTakeoff = safeGet(data, 'heli.takeoff', '');
+  const heliLzLanding = safeGet(data, 'heli.lz_landing', '');
+  const heliFdContact = safeGet(data, 'heli.fd_contact', '');
+  const heliTransportTakeoff = safeGet(data, 'heli.transport_takeoff', '');
+  const heliHospitalArrival = safeGet(data, 'heli.hospital_arrival', '');
+  let timelineText = '';
+  if (heliTakeoff) timelineText += `ヘリ離陸: ${heliTakeoff}`;
+  if (heliLzLanding) timelineText += timelineText ? `、LZ着陸: ${heliLzLanding}` : `LZ着陸: ${heliLzLanding}`;
+  if (heliFdContact) timelineText += timelineText ? `、FD接触: ${heliFdContact}` : `FD接触: ${heliFdContact}`;
+  if (heliTransportTakeoff) timelineText += timelineText ? `、搬送離陸: ${heliTransportTakeoff}` : `搬送離陸: ${heliTransportTakeoff}`;
+  if (heliHospitalArrival) timelineText += timelineText ? `、病院到着: ${heliHospitalArrival}` : `病院到着: ${heliHospitalArrival}`;
+  
+  // フライトドクターの活動
+  const fdVitals = safeGet(data, 'fd.vitals', []);
+  const fdLastV = fdVitals.length > 0 ? fdVitals[fdVitals.length - 1] : null;
+  const fdVitalsFormatted = formatVitals(fdLastV);
+  const fdFindings = getFindingsData(data, 'fd');
+  const fdFindingsText = formatFindings(fdFindings.normal, fdFindings.abnormal, fdFindings.memoList);
+  const fdTreatment = getTreatmentStr(data, 'fd');
+  
+  // 検査所見
+  const fast = safeGet(data, 'fd.exam_texts.fast', '');
+  const efast = safeGet(data, 'fd.exam_texts.efast', '');
+  const us = safeGet(data, 'fd.exam_texts.us', '');
+  const ecg = safeGet(data, 'fd.exam_texts.ecg', '');
+  const bs = safeGet(data, 'fd.bs', '');
+  let examTexts = [];
+  if (bs && bs !== '-' && safeGet(data, 'fd.exams.bs', false)) {
+    examTexts.push(`血糖値 ${bs} mg/dL`);
+  }
+  if (fast) examTexts.push(`FAST: ${fast}`);
+  if (efast) examTexts.push(`eFAST: ${efast}`);
+  if (us) examTexts.push(`超音波検査: ${us}`);
+  if (ecg) examTexts.push(`12誘導心電図: ${ecg}`);
+  const examStr = examTexts.length > 0 ? examTexts.join('、') : '特記すべき検査所見はありませんでした。';
+
+  // プロブレム
+  const problems = safeGet(data, 'problems', []);
+  const problemText = problems.length > 0 ? problems.map((p,i)=>`${i+1}. ${p}`).join('\n') : '特記事項なし';
+
+  // 紹介状本文の組み立て
+  let referralText = `診療情報提供書
+
+${destName} 救急外来 ご担当医先生 御机下
+${today}
+鹿児島県ドクターヘリ
+
+平素より当県の救急医療体制にご高配を賜り、厚く御礼申し上げます。
+さて、本日搬送いたしました患者様につきまして、病院前活動を下記の通りご報告申し上げます。
+
+【要請方法・要請内容】
+${requestText}
+
+【患者情報】
+既往歴: ${safeGet(data, 'patient.history', 'なし')}
+内服: ${safeGet(data, 'patient.medication', 'なし')}
+アレルギー: ${safeGet(data, 'patient.allergy', 'なし')}
+
+【先行救急隊活動】`;
+
+  if (emsTimelineText) {
+    referralText += `\nタイムライン: ${emsTimelineText}`;
+  }
+  if (emsVitalsFormatted) {
+    referralText += `\nバイタルサイン: ${emsVitalsFormatted.consciousness ? `意識レベル ${emsVitalsFormatted.consciousness}、` : ''}${emsVitalsFormatted.vitals}`;
+  }
+  referralText += `\n身体所見: ${emsFindingsText}`;
+  if (emsTreatment !== '特記事項なし') {
+    referralText += `\n実施処置: ${emsTreatment}`;
+  }
+
+  referralText += `\n\n【ドクターヘリタイムライン】`;
+  if (timelineText) {
+    referralText += `\n${timelineText}`;
+  } else {
+    referralText += `\n特記事項なし`;
+  }
+
+  referralText += `\n\n【フライトドクター活動】`;
+  if (fdVitalsFormatted) {
+    referralText += `\nバイタルサイン: ${fdVitalsFormatted.consciousness ? `意識レベル ${fdVitalsFormatted.consciousness}、` : ''}${fdVitalsFormatted.vitals}`;
+  }
+  referralText += `\n身体所見: ${fdFindingsText}`;
+  if (examStr !== '特記すべき検査所見はありませんでした。') {
+    referralText += `\n検査所見: ${examStr}`;
+  }
+  if (fdTreatment !== '特記事項なし') {
+    referralText += `\n実施処置・薬剤: ${fdTreatment}`;
+  }
+
+  referralText += `\n\n【傷病名・プロブレム】
+${problemText}
+
+以上、病院前活動のご報告とさせていただきます。
+本日は緊急の搬送要請に対し、迅速にご快諾いただき深謝いたします。
+つきましては、貴院にて詳細な精査および加療をお願いしたく存じます。
+ご多忙の折恐縮ですが、何卒よろしくお願い申し上げます。`;
+
+  return referralText;
 }
 init();
 // PWA Service Worker 登録ロジック
@@ -2019,5 +2474,4 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
 
