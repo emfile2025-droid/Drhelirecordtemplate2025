@@ -1406,6 +1406,7 @@ function openBsDial() {
 }
 
 function addCpaEvent() {
+  if(!state.fd.cpaEvents) state.fd.cpaEvents = [];
   const now = new Date();
   const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const newEvent = {
@@ -1441,6 +1442,7 @@ function renderCpaEvents() {
   const container = $('#cpa_events_container');
   if(!container) return;
   container.innerHTML = '';
+  if(!state.fd.cpaEvents) state.fd.cpaEvents = [];
   if(state.fd.cpaEvents.length === 0) {
     container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">心停止イベントを追加してください</div>';
     return;
@@ -1529,18 +1531,21 @@ function renderCpaEvents() {
 }
 
 function updateCpaEventField(idx, field, value) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   state.fd.cpaEvents[idx][field] = value;
   if(field === 'arrestTime' || field === 'cprStart' || field === 'roscTime') calcFlowTimes(idx);
   updateState();
 }
 
 function toggleCpaField(idx, field) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   state.fd.cpaEvents[idx][field] = !state.fd.cpaEvents[idx][field];
   renderCpaEvents();
   updateState();
 }
 
 function setCpaEventNow(idx, field) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   const now = new Date();
   state.fd.cpaEvents[idx][field] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   renderCpaEvents();
@@ -1548,6 +1553,7 @@ function setCpaEventNow(idx, field) {
 }
 
 function openCpaRhythmDial(idx) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   const rhythms = ['Asystole', 'PEA', 'VF', 'pulseless VT'];
   const current = state.fd.cpaEvents[idx].rhythm;
   const options = rhythms.map(r => ({label: r, value: r}));
@@ -1559,6 +1565,7 @@ function openCpaRhythmDial(idx) {
 }
 
 function toggleCpaIntubation(idx) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   const checked = event.target.checked;
   state.fd.cpaEvents[idx].intubation = checked;
   $(`#cpa_intubation_time_area_${idx}`).style.display = checked ? 'block' : 'none';
@@ -1566,6 +1573,7 @@ function toggleCpaIntubation(idx) {
 }
 
 function toggleCpaPericardio(idx) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   const checked = event.target.checked;
   state.fd.cpaEvents[idx].pericardio = checked;
   $(`#cpa_pericardio_time_area_${idx}`).style.display = checked ? 'block' : 'none';
@@ -1573,6 +1581,7 @@ function toggleCpaPericardio(idx) {
 }
 
 function addAdrenalineTime(idx) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   if(!state.fd.cpaEvents[idx].adrenalineTimes) state.fd.cpaEvents[idx].adrenalineTimes = [];
   let newTime;
   if(state.fd.cpaEvents[idx].adrenalineTimes.length === 0) {
@@ -1593,6 +1602,7 @@ function addMinutesToTime(timeStr, minutes) {
 }
 
 function removeAdrenalineTime(idx, adrIdx) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx] || !state.fd.cpaEvents[idx].adrenalineTimes) return;
   state.fd.cpaEvents[idx].adrenalineTimes.splice(adrIdx, 1);
   renderAdrenalineTimes(idx);
   updateState();
@@ -1602,6 +1612,7 @@ function renderAdrenalineTimes(idx) {
   const container = $(`#adrenaline_times_${idx}`);
   if(!container) return;
   container.innerHTML = '';
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   (state.fd.cpaEvents[idx].adrenalineTimes || []).forEach((time, adrIdx) => {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
@@ -1615,6 +1626,7 @@ function renderAdrenalineTimes(idx) {
 }
 
 function openAdrenalineTimeDial(idx, adrIdx) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx] || !state.fd.cpaEvents[idx].adrenalineTimes) return;
   const current = state.fd.cpaEvents[idx].adrenalineTimes[adrIdx] || '00:00';
   const [h, m] = current.split(':').map(Number);
   const hours = []; for(let i=0; i<24; i++) hours.push({label: String(i).padStart(2,'0'), value: i});
@@ -1627,6 +1639,7 @@ function openAdrenalineTimeDial(idx, adrIdx) {
 }
 
 function calcFlowTimes(idx) {
+  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   const ev = state.fd.cpaEvents[idx];
   if(idx === 0) {
     if(ev.arrestTime && ev.cprStart) {
@@ -1855,19 +1868,22 @@ const ABG_ITEMS = [{item:'pH',unit:'',normal:'7.40'},{item:'pCO2',unit:'mmHg',no
 const ABG_DIAL_CONFIG = {'pH': {min:6.8,max:7.8,step:0.01,decimals:2},'pCO2': {min:10,max:150,step:1,decimals:0},'pO2': {min:10,max:500,step:1,decimals:0},'HCO3-': {min:0,max:50,step:1,decimals:0},'BE': {min:-30,max:30,step:1,decimals:0},'Lac': {min:0,max:30,step:0.1,decimals:1},'Na': {min:100,max:180,step:1,decimals:0},'Cr': {min:0.1,max:15,step:0.1,decimals:1}};
 
 function toggleAbg() { state.fd.abg_type = $('#fd_abg_type').value; $('#abg_area').style.display = state.fd.abg_type ? 'block' : 'none'; updateState(); }
-function addAbgSet() { ABG_ITEMS.forEach(it => { if(!state.fd.abg_data.some(x => x.item === it.item)) state.fd.abg_data.push({item:it.item, unit:it.unit, val:it.normal}); }); renderAbgPills(); updateState(); }
+function addAbgSet() { if(!state.fd.abg_data) state.fd.abg_data = []; ABG_ITEMS.forEach(it => { if(!state.fd.abg_data.some(x => x.item === it.item)) state.fd.abg_data.push({item:it.item, unit:it.unit, val:it.normal}); }); renderAbgPills(); updateState(); }
 function clearAbg() { if(confirm('クリアしますか？')) { state.fd.abg_data = []; renderAbgPills(); updateState(); } }
 function openAbgDial(idx) {
+  if(!state.fd.abg_data || !state.fd.abg_data[idx]) return;
   const rec = state.fd.abg_data[idx]; const config = ABG_DIAL_CONFIG[rec.item]; if(!config) return;
   const options = []; for(let v=config.min; v<=config.max; v+=config.step) { const val = v.toFixed(config.decimals); options.push({label:val,value:val}); }
   openDial(`${rec.item}`, [{options, selected: parseFloat(rec.val).toFixed(config.decimals), unit: rec.unit}], vals => { rec.val = vals[0]; renderAbgPills(); updateState(); });
 }
 function openAbgManualInput(idx) {
+  if(!state.fd.abg_data || !state.fd.abg_data[idx]) return;
   const rec = state.fd.abg_data[idx]; const newVal = prompt(`${rec.item} の値を入力`, rec.val);
   if(newVal !== null && newVal.trim() !== '') { rec.val = newVal.trim(); renderAbgPills(); updateState(); }
 }
 function renderAbgPills() {
   const c = $('#abg_pills'); c.innerHTML = '';
+  if(!state.fd.abg_data) state.fd.abg_data = [];
   state.fd.abg_data.forEach((rec, i) => {
     const pill = document.createElement('div'); pill.className = 'labpill'; pill.style.cursor = 'pointer';
     pill.innerHTML = `<label>${rec.item}</label><span class="abg-val" style="min-width:50px;text-align:right;font-weight:600;color:var(--brand)">${rec.val}</span><span class="unit">${rec.unit}</span>
@@ -1899,6 +1915,7 @@ function renderAbgPills() {
 }
 
 function toggleExam(type) {
+  if(!state.fd.exams) state.fd.exams = {bs:false, us:false, ecg:false, fast:false, efast:false};
   state.fd.exams[type] = $(`#exam_${type}`).checked;
   if(type === 'bs') $('#exam_bs_area').style.display = state.fd.exams[type] ? 'block' : 'none';
   else $(`#exam_${type}_txt`).style.display = state.fd.exams[type] ? 'block' : 'none';
@@ -1952,6 +1969,7 @@ function updateState() {
   state.heli = {takeoff:$('#heli_takeoff').value, lz_landing:$('#heli_lz_landing').value, fd_contact:$('#fd_contact').value, turn_type:$('#turn_type').value, transport_takeoff:$('#transport_takeoff').value, hospital_arrival:$('#hospital_arrival').value};
   state.ems.aware=$('#ems_aware').value; state.ems.arrival=$('#ems_arrival').value; state.ems.contact=$('#ems_contact').value; state.ems.lz=$('#ems_lz').value; state.ems.o2_flow=$('#ems_o2_flow').value; state.ems.procedures_detail=$('#ems_procedures_detail').value;
   state.fd.bs=$('#fd_bs').value; state.fd.exam_detail=$('#fd_exam_detail').value; state.fd.procedure_detail=$('#fd_procedure_detail').value; state.fd.drug_detail=$('#fd_drug_detail').value;
+  if(!state.fd.exam_texts) state.fd.exam_texts = {us:'', ecg:'', fast:'', efast:''};
   ['us','ecg','fast','efast'].forEach(t => state.fd.exam_texts[t] = $(`#exam_${t}_txt`).value);
   if($('#plrL')) {
     if(!state.fd.stroke) state.fd.stroke = {mmt:{}, nihss:{}};
@@ -2027,17 +2045,17 @@ function generateReport() {
     const cn = extractFindings(FD_STR_GROUPS.cn, state.fd.chips); const cnM = state.fd.memos?.stroke?.cn || ''; if(cn||cnM) r+=`  【脳神経】${[cn,cnM].filter(Boolean).join('。')}\n`;
     const str = state.fd.stroke || {}; r+=`  【瞳孔・運動】L:${str.pupilL}mm R:${str.pupilR}mm, PLR L:${str.plrL} R:${str.plrR}, MMT(${str.mmt?.ru},${str.mmt?.lu},${str.mmt?.rl},${str.mmt?.ll}), NIHSS:${calcNihssSum()}点\n`;
   }
-  else if(fTab==='cpa') state.fd.cpaEvents.forEach((ev,i)=>r+=`  【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
+  else if(fTab==='cpa' && state.fd.cpaEvents) state.fd.cpaEvents.forEach((ev,i)=>r+=`  【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
   
   r += '\n';
   // 検査所見出力
   let exams = [];
-  if(state.fd.exams.bs && state.fd.bs) exams.push(`BS:${state.fd.bs}mg/dL`);
-  if(state.fd.exams.us && state.fd.exam_texts.us) exams.push(`US:${state.fd.exam_texts.us}`);
-  if(state.fd.exams.ecg && state.fd.exam_texts.ecg) exams.push(`ECG:${state.fd.exam_texts.ecg}`);
-  if(state.fd.exams.fast && state.fd.exam_texts.fast) exams.push(`FAST:${state.fd.exam_texts.fast}`);
-  if(state.fd.exams.efast && state.fd.exam_texts.efast) exams.push(`eFAST:${state.fd.exam_texts.efast}`);
-  if(state.fd.abg_type && state.fd.abg_data.length > 0) {
+  if(state.fd.exams?.bs && state.fd.bs) exams.push(`BS:${state.fd.bs}mg/dL`);
+  if(state.fd.exams?.us && state.fd.exam_texts?.us) exams.push(`US:${state.fd.exam_texts.us}`);
+  if(state.fd.exams?.ecg && state.fd.exam_texts?.ecg) exams.push(`ECG:${state.fd.exam_texts.ecg}`);
+  if(state.fd.exams?.fast && state.fd.exam_texts?.fast) exams.push(`FAST:${state.fd.exam_texts.fast}`);
+  if(state.fd.exams?.efast && state.fd.exam_texts?.efast) exams.push(`eFAST:${state.fd.exam_texts.efast}`);
+  if(state.fd.abg_type && state.fd.abg_data && state.fd.abg_data.length > 0) {
     const abgStr = state.fd.abg_data.map(d=>`${d.item}:${d.val}${d.unit}`).join(' ');
     exams.push(`${state.fd.abg_type} ${abgStr}`);
   }
@@ -2091,8 +2109,10 @@ function restoreUI() {
   $('#heli_takeoff').value=state.heli.takeoff; $('#heli_lz_landing').value=state.heli.lz_landing; $('#fd_contact').value=state.heli.fd_contact; $('#turn_type').value=state.heli.turn_type; $('#transport_takeoff').value=state.heli.transport_takeoff; $('#hospital_arrival').value=state.heli.hospital_arrival;
   $('#ems_aware').value=e.aware; $('#ems_arrival').value=e.arrival; $('#ems_contact').value=e.contact; $('#ems_lz').value=e.lz; $('#ems_o2_flow').value=e.o2_flow; $('#ems_procedures_detail').value=e.procedures_detail;
   $('#fd_bs_display').textContent=f.bs; $('#fd_bs').value=f.bs; $('#fd_abg_type').value=f.abg_type; toggleAbg();
-  ['bs','us','ecg','fast','efast'].forEach(k=>{ $(`#exam_${k}`).checked=f.exams[k]; if(k==='bs'){ $('#fd_bs_display').textContent=f.bs; toggleExam(k); } else { $(`#exam_${k}_txt`).value=f.exam_texts[k]; toggleExam(k); } });
-  if($('#plrL')){ $('#pupilL_display').textContent=f.stroke.pupilL; $('#pupilR_display').textContent=f.stroke.pupilR; $('#plrL').value=f.stroke.plrL; $('#plrR').value=f.stroke.plrR; $('#str_gaze').value=f.stroke.gaze; $('#str_nyst').value=f.stroke.nyst; $('#mmt_ru_display').textContent=f.stroke.mmt.ru; $('#mmt_lu_display').textContent=f.stroke.mmt.lu; $('#mmt_rl_display').textContent=f.stroke.mmt.rl; $('#mmt_ll_display').textContent=f.stroke.mmt.ll; $('#str_btr').value=f.stroke.btr; $('#str_ptr').value=f.stroke.ptr; $('#str_babinski').checked=f.stroke.babinski; $('#str_chaddock').checked=f.stroke.chaddock; renderNihss(); }
+  if(!f.exams) f.exams = {bs:false, us:false, ecg:false, fast:false, efast:false};
+  if(!f.exam_texts) f.exam_texts = {us:'', ecg:'', fast:'', efast:''};
+  ['bs','us','ecg','fast','efast'].forEach(k=>{ $(`#exam_${k}`).checked=f.exams[k] || false; if(k==='bs'){ $('#fd_bs_display').textContent=f.bs; toggleExam(k); } else { $(`#exam_${k}_txt`).value=f.exam_texts[k] || ''; toggleExam(k); } });
+  if($('#plrL') && f.stroke){ $('#pupilL_display').textContent=f.stroke.pupilL; $('#pupilR_display').textContent=f.stroke.pupilR; $('#plrL').value=f.stroke.plrL; $('#plrR').value=f.stroke.plrR; $('#str_gaze').value=f.stroke.gaze; $('#str_nyst').value=f.stroke.nyst; $('#mmt_ru_display').textContent=f.stroke.mmt?.ru; $('#mmt_lu_display').textContent=f.stroke.mmt?.lu; $('#mmt_rl_display').textContent=f.stroke.mmt?.rl; $('#mmt_ll_display').textContent=f.stroke.mmt?.ll; $('#str_btr').value=f.stroke.btr; $('#str_ptr').value=f.stroke.ptr; $('#str_babinski').checked=f.stroke.babinski; $('#str_chaddock').checked=f.stroke.chaddock; renderNihss(); }
   $('#consideration').value=state.consideration; $('#destination_custom').value=state.destination.custom; $('#selection_reason').value=state.destination.reason;
   renderEmsVitals(); renderFdVitals(); renderHospitalChips(); renderCpaEvents(); renderAbgPills(); renderProblems(); bindMemos();
   renderProcedureChips('ems_procedures', e.procedures_items, e.procedures); renderProcedureChips('fd_procedures', f.procedures_items, f.procedures); renderProcedureChips('fd_drugs', f.drugs_items, f.drugs); render();
@@ -2183,11 +2203,11 @@ function bindInputEvents() {
   }
   
   // チェックボックス（検査）
-  if($('#exam_bs')) $('#exam_bs').onchange = updateState;
-  if($('#exam_us')) $('#exam_us').onchange = updateState;
-  if($('#exam_ecg')) $('#exam_ecg').onchange = updateState;
-  if($('#exam_fast')) $('#exam_fast').onchange = updateState;
-  if($('#exam_efast')) $('#exam_efast').onchange = updateState;
+  if($('#exam_bs')) $('#exam_bs').onchange = () => toggleExam('bs');
+  if($('#exam_us')) $('#exam_us').onchange = () => toggleExam('us');
+  if($('#exam_ecg')) $('#exam_ecg').onchange = () => toggleExam('ecg');
+  if($('#exam_fast')) $('#exam_fast').onchange = () => toggleExam('fast');
+  if($('#exam_efast')) $('#exam_efast').onchange = () => toggleExam('efast');
 }
 
 function init() {
