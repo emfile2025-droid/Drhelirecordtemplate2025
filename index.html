@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<title>ドクターヘリ活動記録 v4.0</title>
+<title>ドクターヘリ活動記録 v4.1</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -72,7 +72,7 @@ input,textarea,select{
   width:100%;padding:12px;
   border:none;border-radius:10px;
   background:var(--chip);font-size:16px;
-  -webkit-appearance:none;
+  -webkit-appearance:none;appearance:none;
 }
 textarea{resize:none;min-height:80px}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
@@ -437,7 +437,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <div style="width:60px"></div>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v4.0</p>
+    <p class="sub">heli record v4.1</p>
   </div>
   <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
 </header>
@@ -1487,10 +1487,10 @@ function renderCpaEvents() {
         <button class="btn small" style="margin-top:8px" onclick="addAdrenalineTime(${idx})">＋ アドレナリン追加</button>
         <h3 style="margin-top:12px">気道確保</h3>
         <div class="checkline"><label><input type="checkbox" ${event.lt ? 'checked' : ''} onchange="updateCpaEventField(${idx}, 'lt', this.checked)"> LT挿入</label></div>
-        <div class="checkline" style="margin-top:8px"><label><input type="checkbox" ${event.intubation ? 'checked' : ''} onchange="toggleCpaIntubation(${idx})"> 気管挿管</label></div>
+        <div class="checkline" style="margin-top:8px"><label><input type="checkbox" ${event.intubation ? 'checked' : ''} onchange="toggleCpaIntubation(${idx}, event)"> 気管挿管</label></div>
         <div id="cpa_intubation_time_area_${idx}" style="${event.intubation ? '' : 'display:none'};margin-top:8px"><div class="time-row"><input type="time" value="${event.intubationTime}" onchange="updateCpaEventField(${idx}, 'intubationTime', this.value)"><button class="time-btn" onclick="setCpaEventNow(${idx}, 'intubationTime')">Now</button></div></div>
         <h3 style="margin-top:12px">その他処置</h3>
-        <div class="checkline"><label><input type="checkbox" ${event.pericardio ? 'checked' : ''} onchange="toggleCpaPericardio(${idx})"> 心膜腔穿刺</label></div>
+        <div class="checkline"><label><input type="checkbox" ${event.pericardio ? 'checked' : ''} onchange="toggleCpaPericardio(${idx}, event)"> 心膜腔穿刺</label></div>
         <div id="cpa_pericardio_time_area_${idx}" style="${event.pericardio ? '' : 'display:none'};margin-top:8px"><div class="time-row"><input type="time" value="${event.pericardioTime}" onchange="updateCpaEventField(${idx}, 'pericardioTime', this.value)"><button class="time-btn" onclick="setCpaEventNow(${idx}, 'pericardioTime')">Now</button></div></div>
         <h3 style="margin-top:12px">転帰</h3>
         <div><label>心拍再開(ROSC)時刻</label><div class="time-row"><input type="time" value="${event.roscTime}" onchange="updateCpaEventField(${idx}, 'roscTime', this.value)"><button class="time-btn" onclick="setCpaEventNow(${idx}, 'roscTime')">Now</button></div></div>
@@ -1564,17 +1564,17 @@ function openCpaRhythmDial(idx) {
   });
 }
 
-function toggleCpaIntubation(idx) {
+function toggleCpaIntubation(idx, e) {
   if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
-  const checked = event.target.checked;
+  const checked = e && e.target ? e.target.checked : !state.fd.cpaEvents[idx].intubation;
   state.fd.cpaEvents[idx].intubation = checked;
   $(`#cpa_intubation_time_area_${idx}`).style.display = checked ? 'block' : 'none';
   updateState();
 }
 
-function toggleCpaPericardio(idx) {
+function toggleCpaPericardio(idx, e) {
   if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
-  const checked = event.target.checked;
+  const checked = e && e.target ? e.target.checked : !state.fd.cpaEvents[idx].pericardio;
   state.fd.cpaEvents[idx].pericardio = checked;
   $(`#cpa_pericardio_time_area_${idx}`).style.display = checked ? 'block' : 'none';
   updateState();
@@ -1641,24 +1641,21 @@ function openAdrenalineTimeDial(idx, adrIdx) {
 function calcFlowTimes(idx) {
   if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   const ev = state.fd.cpaEvents[idx];
+  const setText = (elId, text) => { const el = $(elId); if(el) el.textContent = text; };
+  const fmt = (d) => (typeof d === 'number' && !isNaN(d) && d >= 0) ? `${d} 分` : '-- 分';
   if(idx === 0) {
-    if(ev.arrestTime && ev.cprStart) {
-      const diff = calcTimeDiffMinutes(ev.arrestTime, ev.cprStart);
-      $(`#no_flow_time_${idx}`).textContent = diff >= 0 ? `${diff} 分` : '-- 分';
-    }
-    if(ev.cprStart && ev.roscTime) {
-      const diff = calcTimeDiffMinutes(ev.cprStart, ev.roscTime);
-      $(`#low_flow_time_${idx}`).textContent = diff >= 0 ? `${diff} 分` : '-- 分';
-    }
+    if(ev.arrestTime && ev.cprStart) setText(`#no_flow_time_${idx}`, fmt(calcTimeDiffMinutes(ev.arrestTime, ev.cprStart)));
+    if(ev.cprStart && ev.roscTime) setText(`#low_flow_time_${idx}`, fmt(calcTimeDiffMinutes(ev.cprStart, ev.roscTime)));
   } else if(ev.arrestTime && ev.roscTime) {
-    const diff = calcTimeDiffMinutes(ev.arrestTime, ev.roscTime);
-    $(`#low_flow_time_${idx}`).textContent = diff >= 0 ? `${diff} 分` : '-- 分';
+    setText(`#low_flow_time_${idx}`, fmt(calcTimeDiffMinutes(ev.arrestTime, ev.roscTime)));
   }
 }
 
 function calcTimeDiffMinutes(startTime, endTime) {
+  if(!startTime || !endTime || !startTime.includes(':') || !endTime.includes(':')) return NaN;
   const [sh, sm] = startTime.split(':').map(Number);
   const [eh, em] = endTime.split(':').map(Number);
+  if([sh,sm,eh,em].some(isNaN)) return NaN;
   let diff = (eh * 60 + em) - (sh * 60 + sm);
   return diff < 0 ? diff + 1440 : diff;
 }
@@ -1777,8 +1774,9 @@ function renderFdVitals() {
 // createVitalCard内 SpO2表記を半角に修正
 function createVitalCard(type, idx, v) {
   const card = document.createElement('div'); card.className = 'vital-card';
-  const gcsSum = v.gcs.v === 'T' ? `${v.gcs.e + v.gcs.m}T` : (v.gcs.e + parseInt(v.gcs.v) + v.gcs.m);
-  const spo2Display = v.spo2 === 0 ? '--' : v.spo2;
+  const gcs = v.gcs && (v.gcs.e !== undefined && v.gcs.v !== undefined && v.gcs.m !== undefined) ? v.gcs : {e:4,v:5,m:6};
+  const gcsSum = gcs.v === 'T' ? `${gcs.e + gcs.m}T` : (gcs.e + (parseInt(gcs.v)||0) + gcs.m);
+  const spo2Display = v.spo2 === 0 ? '--' : (v.spo2 ?? '--');
   card.innerHTML = `
     <div class="vital-header"><div class="vital-time"><input type="time" value="${v.time}" onchange="state.${type}.vitals[${idx}].time=this.value;updateState()"></div>
       <button class="vital-del" onclick="removeVital('${type}',${idx})">削除</button></div>
@@ -1788,10 +1786,10 @@ function createVitalCard(type, idx, v) {
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'rr')"><div class="vital-label">RR</div><div class="vital-value">${v.rr}</div><div class="vital-unit">/min</div></div>
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'spo2')"><div class="vital-label">SpO2</div><div class="vital-value">${spo2Display}</div><div class="vital-unit">%</div></div>
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'bt')"><div class="vital-label">BT</div><div class="vital-value">${v.bt}</div><div class="vital-unit">℃</div></div>
-      <div class="vital-item" onclick="openVitalDial('${type}',${idx},'jcs')"><div class="vital-label">JCS</div><div class="vital-value">${v.jcs}</div></div>
-      <div class="vital-gcs"><div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_e')"><span class="lbl">E</span><span class="val">${v.gcs.e}</span></div>
-        <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_v')"><span class="lbl">V</span><span class="val">${v.gcs.v}</span></div>
-        <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_m')"><span class="lbl">M</span><span class="val">${v.gcs.m}</span></div><div class="gcs-sum">${gcsSum}</div></div>
+      <div class="vital-item" onclick="openVitalDial('${type}',${idx},'jcs')"><div class="vital-label">JCS</div><div class="vital-value">${v.jcs ?? '--'}</div></div>
+      <div class="vital-gcs"><div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_e')"><span class="lbl">E</span><span class="val">${gcs.e}</span></div>
+        <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_v')"><span class="lbl">V</span><span class="val">${gcs.v}</span></div>
+        <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_m')"><span class="lbl">M</span><span class="val">${gcs.m}</span></div><div class="gcs-sum">${gcsSum}</div></div>
     </div>`; return card;
 }
 
@@ -1878,8 +1876,13 @@ function openAbgDial(idx) {
 }
 function openAbgManualInput(idx) {
   if(!state.fd.abg_data || !state.fd.abg_data[idx]) return;
-  const rec = state.fd.abg_data[idx]; const newVal = prompt(`${rec.item} の値を入力`, rec.val);
-  if(newVal !== null && newVal.trim() !== '') { rec.val = newVal.trim(); renderAbgPills(); updateState(); }
+  const rec = state.fd.abg_data[idx]; const config = ABG_DIAL_CONFIG[rec.item]; if(!config) return;
+  const newVal = prompt(`${rec.item} の値を入力 (${config.min}～${config.max})`, rec.val);
+  if(newVal !== null && newVal.trim() !== '') {
+    const num = parseFloat(newVal.trim());
+    if(!isNaN(num) && num >= config.min && num <= config.max) { rec.val = num.toFixed(config.decimals); renderAbgPills(); updateState(); }
+    else alert('有効な数値を入力してください');
+  }
 }
 function renderAbgPills() {
   const c = $('#abg_pills'); c.innerHTML = '';
@@ -1967,7 +1970,7 @@ function updateState() {
   state.request = {type:$('#request_type').value, detail:$('#request_detail').value, time:$('#request_time').value};
   state.patient = {history:$('#patient_history').value, medication:$('#patient_medication').value, allergy:$('#patient_allergy').value, lastMeal:$('#last_meal_time').value, hospital:$('#patient_hospital').value};
   state.heli = {takeoff:$('#heli_takeoff').value, lz_landing:$('#heli_lz_landing').value, fd_contact:$('#fd_contact').value, turn_type:$('#turn_type').value, transport_takeoff:$('#transport_takeoff').value, hospital_arrival:$('#hospital_arrival').value};
-  state.ems.aware=$('#ems_aware').value; state.ems.arrival=$('#ems_arrival').value; state.ems.contact=$('#ems_contact').value; state.ems.lz=$('#ems_lz').value; state.ems.o2_flow=$('#ems_o2_flow').value; state.ems.procedures_detail=$('#ems_procedures_detail').value;
+  state.ems.aware=$('#ems_aware').value; state.ems.arrival=$('#ems_arrival').value; state.ems.contact=$('#ems_contact').value; state.ems.lz=$('#ems_lz').value; state.ems.stroke_onset=$('#ems_stroke_onset').value; state.ems.o2_flow=$('#ems_o2_flow').value; state.ems.procedures_detail=$('#ems_procedures_detail').value;
   state.fd.bs=$('#fd_bs').value; state.fd.exam_detail=$('#fd_exam_detail').value; state.fd.procedure_detail=$('#fd_procedure_detail').value; state.fd.drug_detail=$('#fd_drug_detail').value;
   if(!state.fd.exam_texts) state.fd.exam_texts = {us:'', ecg:'', fast:'', efast:''};
   ['us','ecg','fast','efast'].forEach(t => state.fd.exam_texts[t] = $(`#exam_${t}_txt`).value);
@@ -1978,7 +1981,7 @@ function updateState() {
   state.consideration=$('#consideration').value; const custom = $('#destination_custom').value.trim();
   if(custom) { state.destination.custom=custom; if(state.destination.hospital) { state.destination.hospital=''; renderHospitalChips(); } } else state.destination.custom='';
   state.destination.reason=$('#selection_reason').value; updateDestinationDisplay(); render();
-  localStorage.setItem('heliRecordV33', JSON.stringify(state));
+  localStorage.setItem('heliRecordV41', JSON.stringify(state));
 }
 
 function render() { $('#outText').textContent = generateReport(); }
@@ -1992,10 +1995,15 @@ function extractFindings(def, chips) {
 
 // generateReport SpO2半角修正 & ドクター身体所見反映
 function generateReport() {
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v4.0\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n【救急隊活動】\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v4.1\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n【救急隊活動】\n';
+  if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
+    const tl = [state.ems.aware&&`覚知:${state.ems.aware}`,state.ems.arrival&&`現着:${state.ems.arrival}`,state.ems.contact&&`接触:${state.ems.contact}`,state.ems.lz&&`LZ着:${state.ems.lz}`].filter(Boolean).join(' ');
+    r += `タイムライン: ${tl}\n`;
+  }
   state.ems.vitals.forEach(v => {
-    const gcs = v.gcs.v === 'T' ? `E${v.gcs.e}VTM${v.gcs.m}(${v.gcs.e+v.gcs.m}T)` : `E${v.gcs.e}V${v.gcs.v}M${v.gcs.m}(${v.gcs.e+parseInt(v.gcs.v)+v.gcs.m})`;
-    r += `[${v.time}] BP:${v.sbp}/${v.dbp} HR:${v.hr} RR:${v.rr} SpO2:${v.spo2}% BT:${v.bt}℃ GCS:${gcs} JCS:${v.jcs}\n`;
+    const g = v.gcs && v.gcs.e != null && v.gcs.v != null && v.gcs.m != null ? v.gcs : {e:4,v:5,m:6};
+    const gcs = g.v === 'T' ? `E${g.e}VTM${g.m}(${g.e+g.m}T)` : `E${g.e}V${g.v}M${g.m}(${g.e+(parseInt(g.v)||0)+g.m})`;
+    r += `[${v.time||'--'}] BP:${v.sbp??'--'}/${v.dbp??'--'} HR:${v.hr??'--'} RR:${v.rr??'--'} SpO2:${v.spo2??'--'}% BT:${v.bt??'--'}℃ GCS:${gcs} JCS:${v.jcs??'--'}\n`;
   });
   const eTab = state.ems.exam_tab;
   if(eTab==='general') {
@@ -2014,13 +2022,30 @@ function generateReport() {
     [['腹部',EMS_GEN_GROUPS.abd,'abd'],['四肢',EMS_GEN_GROUPS.limb,'limb'],['神経',EMS_GEN_GROUPS.neuro,'neuro']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.ems.chips),m=state.ems.memos.general[k]; if(s||m)r+=`【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
   }
   else if(eTab==='trauma') [['頭部・顔面',EMS_TRA_GROUPS.head,'head'],['頸部',EMS_TRA_GROUPS.neck,'neck'],['胸部',EMS_TRA_GROUPS.chest,'chest'],['腹部',EMS_TRA_GROUPS.abd,'abd'],['骨盤',EMS_TRA_GROUPS.pelvis,'pelvis'],['四肢',EMS_TRA_GROUPS.limb,'limb']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.ems.chips),m=state.ems.memos.trauma[k]; if(s||m)r+=`【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
+  else if(eTab==='stroke') {
+    [['意識',EMS_STR_GROUPS.conscious],['顔面・発語',EMS_STR_GROUPS.face],['運動',EMS_STR_GROUPS.motor],['その他症状',EMS_STR_GROUPS.other]].forEach(([t,d])=>{ const s=extractFindings(d,state.ems.chips); if(s)r+=`【${t}】${s}\n`; });
+    if(state.ems.stroke_onset) r+=`【発症時刻】${state.ems.stroke_onset}\n`;
+    const strM = state.ems.memos?.stroke?.memo || ''; if(strM) r+=`【脳卒中所見メモ】${strM}\n`;
+  }
+  else if(eTab==='cpa') {
+    [['初期波形',EMS_CPA_GROUPS.rhythm],['目撃・バイスタンダーCPR',EMS_CPA_GROUPS.witness],['気道',EMS_CPA_GROUPS.airway],['循環',EMS_CPA_GROUPS.circulation],['胸腹部',EMS_CPA_GROUPS.chest]].forEach(([t,d])=>{ const s=extractFindings(d,state.ems.chips); if(s)r+=`【${t}】${s}\n`; });
+    const cpaM = state.ems.memos?.cpa?.memo || ''; if(cpaM) r+=`【CPA所見メモ】${cpaM}\n`;
+  }
+  if((state.ems.procedures && Object.keys(state.ems.procedures).some(k=>state.ems.procedures[k])) || (state.ems.procedures_detail && state.ems.procedures_detail.trim()) || state.ems.o2_flow) {
+    const emsProcs = Object.keys(state.ems.procedures||{}).filter(k=>state.ems.procedures[k]);
+    let emsProcStr = emsProcs.join('、');
+    if(state.ems.o2_flow && (state.ems.procedures||{})['酸素投与']) emsProcStr += (emsProcStr ? '、' : '') + `酸素${state.ems.o2_flow}`;
+    if(state.ems.procedures_detail && state.ems.procedures_detail.trim()) emsProcStr += (emsProcStr ? '、' : '') + state.ems.procedures_detail.trim();
+    r += `【実施処置】${emsProcStr || '--'}\n`;
+  }
   
   r += '\n【フライトドクター活動】\n';
   // フライトドクタータイムライン
   if(state.heli.fd_contact) r += `FD接触: ${state.heli.fd_contact}\n`;
   state.fd.vitals.forEach(v => {
-    const gcs = v.gcs.v === 'T' ? `E${v.gcs.e}VTM${v.gcs.m}(${v.gcs.e+v.gcs.m}T)` : `E${v.gcs.e}V${v.gcs.v}M${v.gcs.m}(${v.gcs.e+parseInt(v.gcs.v)+v.gcs.m})`;
-    r += `[${v.time}] BP:${v.sbp}/${v.dbp} HR:${v.hr} RR:${v.rr} SpO2:${v.spo2}% BT:${v.bt}℃ GCS:${gcs} JCS:${v.jcs}\n`;
+    const g = v.gcs && v.gcs.e != null && v.gcs.v != null && v.gcs.m != null ? v.gcs : {e:4,v:5,m:6};
+    const gcs = g.v === 'T' ? `E${g.e}VTM${g.m}(${g.e+g.m}T)` : `E${g.e}V${g.v}M${g.m}(${g.e+(parseInt(g.v)||0)+g.m})`;
+    r += `[${v.time||'--'}] BP:${v.sbp??'--'}/${v.dbp??'--'} HR:${v.hr??'--'} RR:${v.rr??'--'} SpO2:${v.spo2??'--'}% BT:${v.bt??'--'}℃ GCS:${gcs} JCS:${v.jcs??'--'}\n`;
   });
   // ドクター身体所見出力ロジック追加
   r += '【身体所見】\n';
@@ -2043,9 +2068,32 @@ function generateReport() {
   else if(fTab==='trauma') [['頭部・顔面',FD_TRA_GROUPS.head,'head'],['頸部',FD_TRA_GROUPS.neck,'neck'],['胸部',FD_TRA_GROUPS.chest,'chest'],['腹部',FD_TRA_GROUPS.abd,'abd'],['骨盤',FD_TRA_GROUPS.pelvis,'pelvis'],['四肢',FD_TRA_GROUPS.limb,'limb']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.trauma[k]; if(s||m)r+=`  【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
   else if(fTab==='stroke') {
     const cn = extractFindings(FD_STR_GROUPS.cn, state.fd.chips); const cnM = state.fd.memos?.stroke?.cn || ''; if(cn||cnM) r+=`  【脳神経】${[cn,cnM].filter(Boolean).join('。')}\n`;
-    const str = state.fd.stroke || {}; r+=`  【瞳孔・運動】L:${str.pupilL}mm R:${str.pupilR}mm, PLR L:${str.plrL} R:${str.plrR}, MMT(${str.mmt?.ru},${str.mmt?.lu},${str.mmt?.rl},${str.mmt?.ll}), NIHSS:${calcNihssSum()}点\n`;
+    const str = state.fd.stroke || {};
+    let eyeLine = `L:${str.pupilL ?? '--'}mm R:${str.pupilR ?? '--'}mm, PLR L:${str.plrL || '--'} R:${str.plrR || '--'}`;
+    if(str.gaze||str.nyst) eyeLine += `, 共同偏視:${str.gaze||'--'}, 眼振:${str.nyst||'--'}`;
+    const eyeM = state.fd.memos?.stroke?.eye || ''; if(eyeM) eyeLine += ' '+eyeM;
+    r+=`  【瞳孔・眼球運動】${eyeLine}\n`;
+    const motorM = state.fd.memos?.stroke?.motor || '';
+    r+=`  【運動】MMT(${str.mmt?.ru ?? '--'},${str.mmt?.lu ?? '--'},${str.mmt?.rl ?? '--'},${str.mmt?.ll ?? '--'})${motorM ? ' '+motorM : ''}\n`;
+    const reflexM = state.fd.memos?.stroke?.reflex || '';
+    if(str.btr||str.ptr||str.babinski||str.chaddock||reflexM) r+=`  【反射】BTR:${str.btr||'--'}, PTR:${str.ptr||'--'}${str.babinski?' Babinski(+)':''}${str.chaddock?' Chaddock(+)':''}${reflexM ? ' '+reflexM : ''}\n`;
+    const higher = extractFindings(FD_STR_GROUPS.higher, state.fd.chips); const higherM = state.fd.memos?.stroke?.higher || ''; if(higher||higherM) r+=`  【高次脳機能・小脳】${[higher,higherM].filter(Boolean).join('。')}\n`;
+    r+=`  【NIHSS】${calcNihssSum()}点${str.nihssMemo ? ' '+str.nihssMemo : ''}\n`;
   }
-  else if(fTab==='cpa' && state.fd.cpaEvents) state.fd.cpaEvents.forEach((ev,i)=>r+=`  【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ROSC:${ev.roscTime||'--'}, Memo:${ev.memo}\n`);
+  else if(fTab==='cpa' && state.fd.cpaEvents) state.fd.cpaEvents.forEach((ev,i)=>{
+    const w = ev.witnessed ? '目撃あり' : '目撃なし';
+    const b = ev.bystander ? 'BP-CPRあり' : 'BP-CPRなし';
+    let line = `  【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ${w}, ${b}`;
+    if(ev.cprStart) line += `, 胸骨圧迫開始:${ev.cprStart}`;
+    if(ev.ivTime) line += `, 末梢確保:${ev.ivTime}`;
+    if(ev.adrenalineTimes?.length) line += `, アドレナリン:${ev.adrenalineTimes.join('→')}`;
+    if(ev.lt) line += ', LT挿入';
+    if(ev.intubation) line += ev.intubationTime ? `, 気管挿管:${ev.intubationTime}` : ', 気管挿管';
+    if(ev.pericardio) line += ev.pericardioTime ? `, 心膜腔穿刺:${ev.pericardioTime}` : ', 心膜腔穿刺';
+    line += `, ROSC:${ev.roscTime||'--'}`;
+    if(ev.memo) line += `, Memo:${ev.memo}`;
+    r += line + '\n';
+  });
   
   r += '\n';
   // 検査所見出力
@@ -2100,22 +2148,41 @@ function loadData() {
     const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onload = ev => { try { state = JSON.parse(ev.target.result); restoreUI(); } catch(err) { alert('読込失敗'); } }; r.readAsText(f); }
   }; i.click();
 }
-function resetData() { if(confirm('データをリセットしますか？')){ localStorage.removeItem('heliRecordV33'); location.reload(); } }
+function resetData() { if(confirm('データをリセットしますか？')){ localStorage.removeItem('heliRecordV41'); location.reload(); } }
 
 function restoreUI() {
+  const EMS_DEF = {aware:'',arrival:'',contact:'',lz:'',vitals:[],exam_tab:'general',chips:{},memos:{general:{},trauma:{},stroke:{memo:''},cpa:{memo:''}},stroke_onset:'',procedures:{},procedures_items:['頚椎カラー','全身固定','吸引','酸素投与','BVM換気','気管挿管','LT挿入','静脈路確保','ブドウ糖投与','ショック輸液','圧迫止血','胸骨圧迫','LUCAS装着','除細動','アドレナリン'],o2_flow:'',procedures_detail:''};
+  const FD_DEF = {vitals:[],exam_tab:'general',chips:{},memos:{},exams:{bs:false,us:false,ecg:false,fast:false,efast:false},exam_texts:{us:'',ecg:'',fast:'',efast:''},bs:120,abg_type:'',abg_data:[],exam_detail:'',cpaEvents:[],stroke:{},procedures:{},procedures_items:['酸素投与','BVM','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],procedure_detail:'',drugs:{},drugs_items:['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'],drug_detail:''};
+  if(!state.ems) { state.ems = Object.assign({}, EMS_DEF); state.ems.vitals = []; state.ems.procedures = {}; state.ems.chips = {}; }
+  if(!state.fd) { state.fd = Object.assign({}, FD_DEF); state.fd.vitals = []; state.fd.procedures = {}; state.fd.chips = {}; state.fd.drugs = {}; }
+  if(!Array.isArray(state.ems.vitals)) state.ems.vitals = [];
+  if(!Array.isArray(state.fd.vitals)) state.fd.vitals = [];
+  if(!state.ems.procedures_items?.length) state.ems.procedures_items = ['頚椎カラー','全身固定','吸引','酸素投与','BVM換気','気管挿管','LT挿入','静脈路確保','ブドウ糖投与','ショック輸液','圧迫止血','胸骨圧迫','LUCAS装着','除細動','アドレナリン'];
+  if(!state.fd.procedures_items?.length) state.fd.procedures_items = ['酸素投与','BVM','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'];
+  if(!state.fd.drugs_items?.length) state.fd.drugs_items = ['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'];
   const f=state.fd, e=state.ems;
   $('#request_type').value=state.request.type; $('#request_detail').value=state.request.detail; $('#request_time').value=state.request.time;
   $('#patient_history').value=state.patient.history; $('#patient_medication').value=state.patient.medication; $('#patient_allergy').value=state.patient.allergy; $('#last_meal_time').value=state.patient.lastMeal; $('#patient_hospital').value=state.patient.hospital;
   $('#heli_takeoff').value=state.heli.takeoff; $('#heli_lz_landing').value=state.heli.lz_landing; $('#fd_contact').value=state.heli.fd_contact; $('#turn_type').value=state.heli.turn_type; $('#transport_takeoff').value=state.heli.transport_takeoff; $('#hospital_arrival').value=state.heli.hospital_arrival;
-  $('#ems_aware').value=e.aware; $('#ems_arrival').value=e.arrival; $('#ems_contact').value=e.contact; $('#ems_lz').value=e.lz; $('#ems_o2_flow').value=e.o2_flow; $('#ems_procedures_detail').value=e.procedures_detail;
+  $('#ems_aware').value=e.aware; $('#ems_arrival').value=e.arrival; $('#ems_contact').value=e.contact; $('#ems_lz').value=e.lz; $('#ems_stroke_onset').value=e.stroke_onset||''; $('#ems_o2_flow').value=e.o2_flow; $('#ems_procedures_detail').value=e.procedures_detail;
   $('#fd_bs_display').textContent=f.bs; $('#fd_bs').value=f.bs; $('#fd_abg_type').value=f.abg_type; toggleAbg();
   if(!f.exams) f.exams = {bs:false, us:false, ecg:false, fast:false, efast:false};
   if(!f.exam_texts) f.exam_texts = {us:'', ecg:'', fast:'', efast:''};
   ['bs','us','ecg','fast','efast'].forEach(k=>{ $(`#exam_${k}`).checked=f.exams[k] || false; if(k==='bs'){ $('#fd_bs_display').textContent=f.bs; toggleExam(k); } else { $(`#exam_${k}_txt`).value=f.exam_texts[k] || ''; toggleExam(k); } });
-  if($('#plrL') && f.stroke){ $('#pupilL_display').textContent=f.stroke.pupilL; $('#pupilR_display').textContent=f.stroke.pupilR; $('#plrL').value=f.stroke.plrL; $('#plrR').value=f.stroke.plrR; $('#str_gaze').value=f.stroke.gaze; $('#str_nyst').value=f.stroke.nyst; $('#mmt_ru_display').textContent=f.stroke.mmt?.ru; $('#mmt_lu_display').textContent=f.stroke.mmt?.lu; $('#mmt_rl_display').textContent=f.stroke.mmt?.rl; $('#mmt_ll_display').textContent=f.stroke.mmt?.ll; $('#str_btr').value=f.stroke.btr; $('#str_ptr').value=f.stroke.ptr; $('#str_babinski').checked=f.stroke.babinski; $('#str_chaddock').checked=f.stroke.chaddock; renderNihss(); }
+  if($('#plrL') && f.stroke){ $('#pupilL_display').textContent=f.stroke.pupilL; $('#pupilR_display').textContent=f.stroke.pupilR; $('#plrL').value=f.stroke.plrL; $('#plrR').value=f.stroke.plrR; $('#str_gaze').value=f.stroke.gaze||''; $('#str_nyst').value=f.stroke.nyst||''; $('#mmt_ru_display').textContent=f.stroke.mmt?.ru; $('#mmt_lu_display').textContent=f.stroke.mmt?.lu; $('#mmt_rl_display').textContent=f.stroke.mmt?.rl; $('#mmt_ll_display').textContent=f.stroke.mmt?.ll; $('#str_btr').value=f.stroke.btr||''; $('#str_ptr').value=f.stroke.ptr||''; $('#str_babinski').checked=f.stroke.babinski; $('#str_chaddock').checked=f.stroke.chaddock; if($('#nihss_memo')) $('#nihss_memo').value=f.stroke.nihssMemo||''; renderNihss(); }
   $('#consideration').value=state.consideration; $('#destination_custom').value=state.destination.custom; $('#selection_reason').value=state.destination.reason;
   renderEmsVitals(); renderFdVitals(); renderHospitalChips(); renderCpaEvents(); renderAbgPills(); renderProblems(); bindMemos();
   renderProcedureChips('ems_procedures', e.procedures_items, e.procedures); renderProcedureChips('fd_procedures', f.procedures_items, f.procedures); renderProcedureChips('fd_drugs', f.drugs_items, f.drugs); render();
+  restoreExamTab('ems', e.exam_tab); restoreExamTab('fd', f.exam_tab);
+  const tt = $('#transport_times');
+  if(tt) tt.style.display = ['Jターン','Uターン'].includes(state.heli.turn_type) ? 'block' : 'none';
+}
+function restoreExamTab(prefix, tabType) {
+  const valid = ['general','trauma','stroke','cpa'].includes(tabType) ? tabType : 'general';
+  $$(`#${prefix}_examTabs .exam-tab`).forEach(t => { t.classList.toggle('active', t.dataset.exam === valid); });
+  const card = $(`#${prefix}_examTabs`)?.closest('.card');
+  if(card) { card.querySelectorAll('.exam-pane').forEach(p => p.classList.remove('active')); card.querySelector(`.exam-pane[data-pane="${valid}"]`)?.classList.add('active'); }
+  state[prefix].exam_tab = valid;
 }
 
 function updateApp() {
@@ -2160,7 +2227,11 @@ function bindInputEvents() {
   $('#heli_takeoff').onchange = updateState;
   $('#heli_lz_landing').onchange = updateState;
   $('#fd_contact').onchange = updateState;
-  $('#turn_type').onchange = updateState;
+  $('#turn_type').onchange = () => {
+    const tt = $('#transport_times');
+    if(tt) tt.style.display = ['Jターン','Uターン'].includes($('#turn_type').value) ? 'block' : 'none';
+    updateState();
+  };
   $('#transport_takeoff').onchange = updateState;
   $('#hospital_arrival').onchange = updateState;
   
@@ -2169,6 +2240,7 @@ function bindInputEvents() {
   $('#ems_arrival').onchange = updateState;
   $('#ems_contact').onchange = updateState;
   $('#ems_lz').onchange = updateState;
+  if($('#ems_stroke_onset')) $('#ems_stroke_onset').onchange = updateState;
   $('#ems_o2_flow').onchange = updateState;
   $('#ems_procedures_detail').oninput = updateState;
   
@@ -2211,7 +2283,13 @@ function bindInputEvents() {
 }
 
 function init() {
-  const saved = localStorage.getItem('heliRecordV33'); if(saved) try{state=JSON.parse(saved);}catch(e){}
+  const saved = localStorage.getItem('heliRecordV41'); if(saved) try{state=JSON.parse(saved);}catch(e){}
+  const EMS_DEF = {aware:'',arrival:'',contact:'',departure:'',lz:'',vitals:[],exam_tab:'general',chips:{},memos:{general:{},trauma:{},stroke:{memo:''},cpa:{memo:''}},stroke_onset:'',procedures:{},procedures_items:['頚椎カラー','全身固定','吸引','酸素投与','BVM換気','気管挿管','LT挿入','静脈路確保','ブドウ糖投与','ショック輸液','圧迫止血','胸骨圧迫','LUCAS装着','除細動','アドレナリン'],o2_flow:'',procedures_detail:''};
+  const FD_DEF = {vitals:[],exam_tab:'general',chips:{},memos:{},exams:{bs:false,us:false,ecg:false,fast:false,efast:false},exam_texts:{us:'',ecg:'',fast:'',efast:''},bs:120,abg_type:'',abg_data:[],exam_detail:'',cpaEvents:[],stroke:{},procedures:{},procedures_items:['酸素投与','BVM','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],procedure_detail:'',drugs:{},drugs_items:['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'],drug_detail:''};
+  if(!state.ems) { state.ems = Object.assign({}, EMS_DEF); state.ems.vitals = []; state.ems.procedures = {}; state.ems.chips = {}; }
+  if(!state.fd) { state.fd = Object.assign({}, FD_DEF); state.fd.vitals = []; state.fd.procedures = {}; state.fd.chips = {}; state.fd.drugs = {}; }
+  if(!Array.isArray(state.ems.vitals)) state.ems.vitals = [];
+  if(!Array.isArray(state.fd.vitals)) state.fd.vitals = [];
   if(state.ems.vitals.length===0) addEmsVital(); if(state.fd.vitals.length===0) addFdVital();
   [['#ems-gen-head',EMS_GEN_GROUPS.head],['#ems-gen-resp',EMS_GEN_GROUPS.resp],['#ems-gen-card',EMS_GEN_GROUPS.card],['#ems-gen-abd',EMS_GEN_GROUPS.abd],['#ems-gen-limb',EMS_GEN_GROUPS.limb],['#ems-gen-neuro',EMS_GEN_GROUPS.neuro],['#ems-tra-head',EMS_TRA_GROUPS.head],['#ems-tra-neck',EMS_TRA_GROUPS.neck],['#ems-tra-chest',EMS_TRA_GROUPS.chest],['#ems-tra-abd',EMS_TRA_GROUPS.abd],['#ems-tra-pelvis',EMS_TRA_GROUPS.pelvis],['#ems-tra-limb',EMS_TRA_GROUPS.limb],['#ems-cpa-rhythm',EMS_CPA_GROUPS.rhythm],['#ems-cpa-witness',EMS_CPA_GROUPS.witness],['#ems-cpa-airway',EMS_CPA_GROUPS.airway],['#ems-cpa-circulation',EMS_CPA_GROUPS.circulation],['#ems-cpa-chest',EMS_CPA_GROUPS.chest],['#ems-str-conscious',EMS_STR_GROUPS.conscious],['#ems-str-face',EMS_STR_GROUPS.face],['#ems-str-motor',EMS_STR_GROUPS.motor],['#ems-str-other',EMS_STR_GROUPS.other]].forEach(x=>mountChips(x[0],x[1],'ems'));
   [['#fd-gen-head',FD_GEN_GROUPS.head],['#fd-gen-resp',FD_GEN_GROUPS.resp],['#fd-gen-card',FD_GEN_GROUPS.card],['#fd-gen-abd',FD_GEN_GROUPS.abd],['#fd-gen-limb',FD_GEN_GROUPS.limb],['#fd-gen-neuro',FD_GEN_GROUPS.neuro],['#fd-tra-head',FD_TRA_GROUPS.head],['#fd-tra-neck',FD_TRA_GROUPS.neck],['#fd-tra-chest',FD_TRA_GROUPS.chest],['#fd-tra-abd',FD_TRA_GROUPS.abd],['#fd-tra-pelvis',FD_TRA_GROUPS.pelvis],['#fd-tra-limb',FD_TRA_GROUPS.limb],['#fd-str-cn',FD_STR_GROUPS.cn],['#fd-str-higher',FD_STR_GROUPS.higher]].forEach(x=>mountChips(x[0],x[1],'fd'));
