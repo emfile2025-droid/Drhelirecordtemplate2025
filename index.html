@@ -1475,7 +1475,7 @@ function renderCpaEvents() {
         </div>
         <div class="grid2" style="margin-top:12px">
           <div class="toggle-btn ${event.witnessed ? 'active' : ''}" onclick="toggleCpaField(${idx}, 'witnessed')">${event.witnessed ? '目撃あり' : '目撃なし'}</div>
-          <div class="toggle-btn ${event.bystander ? 'active' : ''}" onclick="toggleCpaField(${idx}, 'bystander')">${event.bystander ? 'BP-CPRあり' : 'BP-CPRなし'}</div>
+          <div class="toggle-btn ${event.bystander ? 'active' : ''}" onclick="toggleCpaField(${idx}, 'bystander')">${event.bystander ? 'バイスタンダーCPRあり' : 'バイスタンダーCPRなし'}</div>
         </div>
         <h3 style="margin-top:12px">蘇生処置</h3>
         <div class="grid2">
@@ -1985,8 +1985,14 @@ function updateState() {
 }
 
 function render() { $('#outText').textContent = generateReport(); }
-// fmtFinding 記号を半角に修正
-function fmtFinding(lbl, st) { if(st==='on') return lbl; if(st==='+') return `${lbl}(+)`; if(st==='-') return `${lbl}(-)`; return null; }
+// fmtFinding 記号を半角に修正。「なし」を含むラベルはそのまま返す（目撃なし(+)→目撃なし）
+function fmtFinding(lbl, st) {
+  if(st==='on') return lbl;
+  if(lbl.includes('なし')) return lbl; // なしであることが既に明示されているため記号を付けない
+  if(st==='+') return `${lbl}(+)`;
+  if(st==='-') return `${lbl}(-)`;
+  return null;
+}
 function extractFindings(def, chips) {
   const arr = []; const labels = Array.isArray(def) ? def : (def.normal || []).concat(def.abn || []);
   labels.forEach(lbl => { const st = chips[lbl]; if(st) { const s = fmtFinding(lbl, st); if(s) arr.push(s); } });
@@ -2082,7 +2088,7 @@ function generateReport() {
   }
   else if(fTab==='cpa' && state.fd.cpaEvents) state.fd.cpaEvents.forEach((ev,i)=>{
     const w = ev.witnessed ? '目撃あり' : '目撃なし';
-    const b = ev.bystander ? 'BP-CPRあり' : 'BP-CPRなし';
+    const b = ev.bystander ? 'バイスタンダーCPRあり' : 'バイスタンダーCPRなし';
     let line = `  【心停止${i+1}】${ev.arrestTime} ${ev.rhythm}, ${w}, ${b}`;
     if(ev.cprStart) line += `, 胸骨圧迫開始:${ev.cprStart}`;
     if(ev.ivTime) line += `, 末梢確保:${ev.ivTime}`;
