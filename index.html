@@ -1222,41 +1222,73 @@ function openDial(title, wheels, callback) {
       }
     };
     
-    scroll.addEventListener('touchstart', e => {
-      e.preventDefault();
+    const onPointerDown = (clientY) => {
       stopAnimation();
       scroll.style.transition = 'none';
-      startY = e.touches[0].clientY;
-      lastY = startY;
+      startY = clientY;
+      lastY = clientY;
       lastTime = Date.now();
       velocityY = 0;
-    }, {passive: false});
-    
-    scroll.addEventListener('touchmove', e => {
-      e.preventDefault();
-      const y = e.touches[0].clientY;
-      const dy = y - lastY;
+    };
+    const onPointerMove = (clientY) => {
+      const dy = clientY - lastY;
       const acceleration = 1.5;
       currentOffset += dy * acceleration;
-      
       scroll.style.transform = `translateY(${currentOffset}px)`;
       const now = Date.now();
       const dt = now - lastTime;
-      if(dt > 0) {
-        velocityY = (dy * acceleration) / dt * 16;
-      }
-      lastY = y;
+      if(dt > 0) velocityY = (dy * acceleration) / dt * 16;
+      lastY = clientY;
       lastTime = now;
-    }, {passive: false});
-    
-    scroll.addEventListener('touchend', e => {
-      e.preventDefault();
+    };
+    const onPointerUp = () => {
       if(Math.abs(velocityY) > 2) {
         animationId = requestAnimationFrame(momentumScroll);
       } else {
         snapToNearest();
       }
+    };
+    
+    // タッチ（スマホ・タブレット）
+    scroll.addEventListener('touchstart', e => {
+      e.preventDefault();
+      onPointerDown(e.touches[0].clientY);
     }, {passive: false});
+    scroll.addEventListener('touchmove', e => {
+      e.preventDefault();
+      onPointerMove(e.touches[0].clientY);
+    }, {passive: false});
+    scroll.addEventListener('touchend', e => {
+      e.preventDefault();
+      onPointerUp();
+    }, {passive: false});
+    
+    // マウスドラッグ（PC・MacBookトラックパッド）
+    wheel.addEventListener('mousedown', e => {
+      e.preventDefault();
+      onPointerDown(e.clientY);
+      const onMouseMove = (e2) => { onPointerMove(e2.clientY); };
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        onPointerUp();
+      };
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+    
+    // マウスホイール（PC・MacBookトラックパッド2本指スクロール）
+    wheel.addEventListener('wheel', e => {
+      e.preventDefault();
+      stopAnimation();
+      scroll.style.transition = 'none';
+      const delta = e.deltaY > 0 ? 1 : -1;
+      currentIndex = Math.max(0, Math.min(w.options.length - 1, currentIndex + delta));
+      currentOffset = -currentIndex * 40;
+      w.selected = w.options[currentIndex].value;
+      scroll.style.transform = `translateY(${currentOffset}px)`;
+      updateDialSelection(scroll, currentIndex);
+    }, { passive: false });
     
     scroll.querySelectorAll('.dial-option').forEach((opt, oi) => {
       opt.addEventListener('click', e => {
