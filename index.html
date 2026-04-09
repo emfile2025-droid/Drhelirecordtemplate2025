@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<title>ドクターヘリ活動記録 v4.2</title>
+<!-- 2026-04-09 | v4.3 | 施設間搬送・ドクターデリバリー時は前医活動UI／タイムライン抑制／活動パターン非出力 -->
+<title>ドクターヘリ活動記録 v4.3</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -437,7 +438,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <div style="width:60px"></div>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v4.2</p>
+    <p class="sub">heli record v4.3</p>
   </div>
   <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
 </header>
@@ -456,6 +457,8 @@ div.card-body > div[style*="display:flex"] .btn.small {
       </select>
       <label>要請内容</label>
       <textarea id="request_detail" placeholder="要請の詳細内容を記載"></textarea>
+      <label id="label_preceding_field">先行救急隊</label>
+      <textarea id="preceding_ems_team" placeholder="例：指宿救急2、日消救急3"></textarea>
       
       <h3>患者情報</h3>
       <label>既往歴</label>
@@ -511,24 +514,24 @@ div.card-body > div[style*="display:flex"] .btn.small {
   </div>
 
   <div class="card ems-card">
-    <div class="card-header">🚑 先行救急隊</div>
+    <div class="card-header" id="ems_section_title">🚑 先行救急隊</div>
     <div class="card-body">
       <div class="grid2">
-        <div>
+        <div class="ems-tl-pre">
           <label>覚知</label>
           <div class="time-row">
             <input type="time" id="ems_aware">
             <button class="time-btn" onclick="setNow('ems_aware')">Now</button>
           </div>
         </div>
-        <div>
+        <div class="ems-tl-pre">
           <label>現着</label>
           <div class="time-row">
             <input type="time" id="ems_arrival">
             <button class="time-btn" onclick="setNow('ems_arrival')">Now</button>
           </div>
         </div>
-        <div>
+        <div class="ems-tl-pre">
           <label>接触</label>
           <div class="time-row">
             <input type="time" id="ems_contact">
@@ -930,6 +933,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
       <label style="margin-top:12px">選定理由</label>
       <textarea id="selection_reason" placeholder="搬送先選定の理由"></textarea>
       
+      <div id="turn_pattern_block">
       <h3>活動パターン</h3>
       <select id="turn_type">
         <option value="Iターン">Iターン</option>
@@ -954,6 +958,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -1008,6 +1013,24 @@ div.card-body > div[style*="display:flex"] .btn.small {
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
+
+function isFacilityTransferRequestType(type) {
+  return type === '施設間搬送' || type === 'ドクターデリバリー';
+}
+function syncRequestModeUI() {
+  const sel = $('#request_type');
+  if (!sel) return;
+  const fac = isFacilityTransferRequestType(sel.value);
+  const lp = $('#label_preceding_field');
+  if (lp) lp.textContent = fac ? '前医活動情報' : '先行救急隊';
+  const et = $('#ems_section_title');
+  if (et) et.textContent = fac ? '🚑 前医活動情報' : '🚑 先行救急隊';
+  document.querySelectorAll('.ems-tl-pre').forEach(el => { el.style.display = fac ? 'none' : ''; });
+  const turnBlock = $('#turn_pattern_block');
+  if (turnBlock) turnBlock.style.display = fac ? 'none' : '';
+  const tt = $('#transport_times');
+  if (tt && !fac) tt.style.display = ['Jターン','Uターン'].includes($('#turn_type').value) ? 'block' : 'none';
+}
 
 const EMS_GEN_GROUPS = {
   head: {normal:['意識清明','顔色良好'], abn:['意識障害','顔面蒼白','チアノーゼ','冷汗','発熱']},
@@ -1066,7 +1089,7 @@ const FD_CPA_GROUPS = {
 
 // 状態
 let state = {
-  request: {type:'', detail:'', time:''},
+  request: {type:'', detail:'', time:'', precedingTeam:''},
   patient: {history:'', medication:'', allergy:'', lastMeal:'', hospital:''},
   heli: {takeoff:'', lz_landing:'', fd_contact:'', turn_type:'Iターン', transport_takeoff:'', hospital_arrival:''},
   ems: {
@@ -2247,7 +2270,7 @@ function updateDestinationDisplay() {
 }
 
 function updateState() {
-  state.request = {type:$('#request_type').value, detail:$('#request_detail').value, time:$('#request_time').value};
+  state.request = {type:$('#request_type').value, detail:$('#request_detail').value, time:$('#request_time').value, precedingTeam:$('#preceding_ems_team').value};
   state.patient = {history:$('#patient_history').value, medication:$('#patient_medication').value, allergy:$('#patient_allergy').value, lastMeal:$('#last_meal_time').value, hospital:$('#patient_hospital').value};
   state.heli = {takeoff:$('#heli_takeoff').value, lz_landing:$('#heli_lz_landing').value, fd_contact:$('#fd_contact').value, turn_type:$('#turn_type').value, transport_takeoff:$('#transport_takeoff').value, hospital_arrival:$('#hospital_arrival').value};
   state.ems.aware=$('#ems_aware').value; state.ems.arrival=$('#ems_arrival').value; state.ems.contact=$('#ems_contact').value; state.ems.lz=$('#ems_lz').value; state.ems.stroke_onset=$('#ems_stroke_onset').value; state.ems.o2_flow=$('#ems_o2_flow').value; state.ems.procedures_detail=$('#ems_procedures_detail').value;
@@ -2281,8 +2304,13 @@ function extractFindings(def, chips) {
 
 // generateReport SpO2半角修正 & ドクター身体所見反映
 function generateReport() {
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v4.2\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n【救急隊活動】\n';
-  if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
+  const facReq = isFacilityTransferRequestType(state.request.type);
+  const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
+  const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v4.3\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  if(facReq) {
+    if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
+  } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
     const tl = [state.ems.aware&&`覚知:${state.ems.aware}`,state.ems.arrival&&`現着:${state.ems.arrival}`,state.ems.contact&&`接触:${state.ems.contact}`,state.ems.lz&&`LZ着:${state.ems.lz}`].filter(Boolean).join(' ');
     r += `タイムライン: ${tl}\n`;
   }
@@ -2467,7 +2495,7 @@ function generateReport() {
   if(state.consideration) r+=`考察：${state.consideration}\n`;
   r += '\n【搬送先】\n'+(state.destination.custom||state.destination.hospital||'--');
   if(state.destination.reason) r += '\n理由：'+state.destination.reason;
-  if(state.heli.turn_type) r += '\n活動パターン：'+state.heli.turn_type;
+  if(state.heli.turn_type && !facReq) r += '\n活動パターン：'+state.heli.turn_type;
   r += '\n━━━━━━━━━━━━━━━━━━━━\n作成：'+new Date().toLocaleString(); return r;
 }
 
@@ -2503,7 +2531,7 @@ function restoreUI() {
     });
   }
   const f=state.fd, e=state.ems;
-  $('#request_type').value=state.request.type; $('#request_detail').value=state.request.detail; $('#request_time').value=state.request.time;
+  $('#request_type').value=state.request.type; $('#request_detail').value=state.request.detail; $('#preceding_ems_team').value=state.request.precedingTeam||''; $('#request_time').value=state.request.time;
   $('#patient_history').value=state.patient.history; $('#patient_medication').value=state.patient.medication; $('#patient_allergy').value=state.patient.allergy; $('#last_meal_time').value=state.patient.lastMeal; $('#patient_hospital').value=state.patient.hospital;
   $('#heli_takeoff').value=state.heli.takeoff; $('#heli_lz_landing').value=state.heli.lz_landing; $('#fd_contact').value=state.heli.fd_contact; $('#turn_type').value=state.heli.turn_type; $('#transport_takeoff').value=state.heli.transport_takeoff; $('#hospital_arrival').value=state.heli.hospital_arrival;
   $('#ems_aware').value=e.aware; $('#ems_arrival').value=e.arrival; $('#ems_contact').value=e.contact; $('#ems_lz').value=e.lz; $('#ems_stroke_onset').value=e.stroke_onset||''; $('#ems_o2_flow').value=e.o2_flow; $('#ems_procedures_detail').value=e.procedures_detail;
@@ -2516,8 +2544,7 @@ function restoreUI() {
   renderEmsVitals(); renderFdVitals(); renderHospitalChips(); renderCpaEvents(); renderAbgPills(); renderProblems(); bindMemos();
   renderProcedureChips('ems_procedures', e.procedures_items, e.procedures); renderProcedureChips('fd_procedures', f.procedures_items, f.procedures); renderProcedureChips('fd_drugs', f.drugs_items, f.drugs); render();
   restoreExamTab('ems', e.exam_tab); restoreExamTab('fd', f.exam_tab);
-  const tt = $('#transport_times');
-  if(tt) tt.style.display = ['Jターン','Uターン'].includes(state.heli.turn_type) ? 'block' : 'none';
+  syncRequestModeUI();
 }
 function restoreExamTab(prefix, tabType) {
   const valid = ['general','trauma','stroke','cpa'].includes(tabType) ? tabType : 'general';
@@ -2554,8 +2581,9 @@ function updateApp() {
 
 function bindInputEvents() {
   // 要請情報
-  $('#request_type').onchange = updateState;
+  $('#request_type').onchange = () => { updateState(); syncRequestModeUI(); };
   $('#request_detail').oninput = updateState;
+  $('#preceding_ems_team').oninput = updateState;
   $('#request_time').onchange = updateState;
   
   // 患者情報
@@ -2569,11 +2597,7 @@ function bindInputEvents() {
   $('#heli_takeoff').onchange = updateState;
   $('#heli_lz_landing').onchange = updateState;
   $('#fd_contact').onchange = updateState;
-  $('#turn_type').onchange = () => {
-    const tt = $('#transport_times');
-    if(tt) tt.style.display = ['Jターン','Uターン'].includes($('#turn_type').value) ? 'block' : 'none';
-    updateState();
-  };
+  $('#turn_type').onchange = () => { updateState(); syncRequestModeUI(); };
   $('#transport_takeoff').onchange = updateState;
   $('#hospital_arrival').onchange = updateState;
   
@@ -2626,6 +2650,8 @@ function bindInputEvents() {
 
 function init() {
   const saved = localStorage.getItem('heliRecordV41'); if(saved) try{state=JSON.parse(saved);}catch(e){}
+  if(!state.request) state.request = {type:'',detail:'',time:'',precedingTeam:''};
+  else if(state.request.precedingTeam === undefined) state.request.precedingTeam = '';
   const EMS_DEF = {aware:'',arrival:'',contact:'',departure:'',lz:'',vitals:[],exam_tab:'general',chips:{},memos:{general:{},trauma:{},stroke:{memo:''},cpa:{memo:''}},stroke_onset:'',procedures:{},procedures_items:['頚椎カラー','全身固定','吸引','酸素投与','BVM換気','気管挿管','LT挿入','静脈路確保','ブドウ糖投与','ショック輸液','圧迫止血','胸骨圧迫','LUCAS装着','除細動','アドレナリン'],o2_flow:'',procedures_detail:''};
   const FD_DEF = {vitals:[],exam_tab:'general',chips:{},memos:{},exams:{bs:false,us:false,ecg:false,fast:false,efast:false},exam_texts:{us:'',ecg:'',fast:'',efast:''},bs:120,abg_type:'',abg_data:[],exam_detail:'',cpaEvents:[],stroke:{},procedures:{},procedures_items:['酸素投与','BVM','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],procedure_detail:'',drugs:{},drugs_items:['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'],drug_detail:''};
   if(!state.ems) { state.ems = Object.assign({}, EMS_DEF); state.ems.vitals = []; state.ems.procedures = {}; state.ems.chips = {}; }
@@ -2849,6 +2875,10 @@ function generatePlainText(data) {
   const requestType = safeGet(data, 'request.type', '');
   const requestDetail = safeGet(data, 'request.detail', '').trim();
   const requestText = requestType ? `${requestType}。${requestDetail || ''}` : requestDetail || '';
+  const precedingTeamName = safeGet(data, 'request.precedingTeam', '').trim();
+  const facTransfer = requestType === '施設間搬送' || requestType === 'ドクターデリバリー';
+  const precedingLabel = facTransfer ? '前医活動情報' : '先行救急隊';
+  const emsActivityHeading = facTransfer ? '【前医活動情報】' : '【先行救急隊活動】';
 
   // 先行救急隊の活動
   const emsVitals = safeGet(data, 'ems.vitals', []);
@@ -2864,10 +2894,14 @@ function generatePlainText(data) {
   const emsContact = safeGet(data, 'ems.contact', '');
   const emsLz = safeGet(data, 'ems.lz', '');
   let emsTimelineText = '';
-  if (emsAware) emsTimelineText += `覚知: ${emsAware}`;
-  if (emsArrival) emsTimelineText += emsTimelineText ? `、現着: ${emsArrival}` : `現着: ${emsArrival}`;
-  if (emsContact) emsTimelineText += emsTimelineText ? `、接触: ${emsContact}` : `接触: ${emsContact}`;
-  if (emsLz) emsTimelineText += emsTimelineText ? `、LZ着: ${emsLz}` : `LZ着: ${emsLz}`;
+  if (facTransfer) {
+    if (emsLz) emsTimelineText = `LZ着: ${emsLz}`;
+  } else {
+    if (emsAware) emsTimelineText += `覚知: ${emsAware}`;
+    if (emsArrival) emsTimelineText += emsTimelineText ? `、現着: ${emsArrival}` : `現着: ${emsArrival}`;
+    if (emsContact) emsTimelineText += emsTimelineText ? `、接触: ${emsContact}` : `接触: ${emsContact}`;
+    if (emsLz) emsTimelineText += emsTimelineText ? `、LZ着: ${emsLz}` : `LZ着: ${emsLz}`;
+  }
   
   // ヘリタイムライン
   const heliTakeoff = safeGet(data, 'heli.takeoff', '');
@@ -2926,12 +2960,14 @@ ${today}
 【要請方法・要請内容】
 ${requestText}
 
+${precedingLabel}：${precedingTeamName || '--'}
+
 【患者情報】
 既往歴: ${safeGet(data, 'patient.history', 'なし')}
 内服: ${safeGet(data, 'patient.medication', 'なし')}
 アレルギー: ${safeGet(data, 'patient.allergy', 'なし')}
 
-【先行救急隊活動】`;
+${emsActivityHeading}`;
 
   if (emsTimelineText) {
     referralText += `\nタイムライン: ${emsTimelineText}`;
