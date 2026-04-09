@@ -457,7 +457,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
       </select>
       <label>要請内容</label>
       <textarea id="request_detail" placeholder="要請の詳細内容を記載"></textarea>
-      <label id="label_preceding_field">先行救急隊</label>
+      <label>先行救急隊</label>
       <textarea id="preceding_ems_team" placeholder="例：指宿救急2、日消救急3"></textarea>
       
       <h3>患者情報</h3>
@@ -1021,8 +1021,6 @@ function syncRequestModeUI() {
   const sel = $('#request_type');
   if (!sel) return;
   const fac = isFacilityTransferRequestType(sel.value);
-  const lp = $('#label_preceding_field');
-  if (lp) lp.textContent = fac ? '前医活動情報' : '先行救急隊';
   const et = $('#ems_section_title');
   if (et) et.textContent = fac ? '🚑 前医活動情報' : '🚑 先行救急隊';
   document.querySelectorAll('.ems-tl-pre').forEach(el => { el.style.display = fac ? 'none' : ''; });
