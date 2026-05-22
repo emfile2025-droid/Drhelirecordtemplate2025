@@ -38,6 +38,7 @@
 <!-- 2026-05-22 | v5.1.4 | 救急隊脳卒中・運動: 麻痺なし+左右上下肢組合せピッカー -->
 <!-- 2026-05-22 | v5.1.4 | 救急隊脳卒中所見見出し: （脳卒中）→（神経学的所見）活動記録・紹介状 -->
 <!-- 2026-05-22 | v5.1.4 | メインタブ切替時はスクロールを先頭にリセット -->
+<!-- 2026-05-22 | v5.1.4 | 更新ボタン: SW/キャッシュのみ削除(入力データは保持)、多数傷リセットでlocalStorage確実削除 -->
 <title>ドクターヘリ活動記録 v5.1.4 多数傷対応</title>
 <style>
 :root{
@@ -1926,6 +1927,14 @@ window.switchTab = switchTab;
 
 const STROKE_BRIDGE_KEY = 'heli_stroke_bridge_v1';
 const STROKE_NOTIFY_PATH = './StrokeNotify_v1.0.html';
+/** 端末に残る下書きキー（更新ボタンでは消さない。リセット時にまとめて削除） */
+const HELI_DRAFT_STORAGE_KEYS = [
+  'heliRecordV5',
+  'heliRecordV41',
+  'heliMciRecordV5',
+  'heli_stroke_bridge_v1',
+  'stroke_notify_to_heli_bridge_v1'
+];
 
 function timeToDatetimeLocal(timeStr) {
   if (!timeStr || typeof timeStr !== 'string') return '';
@@ -5613,7 +5622,16 @@ function loadData() {
     const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onload = ev => { try { state = JSON.parse(ev.target.result); migrateAssessState(); restoreUI(); } catch(err) { alert('読込失敗'); } }; r.readAsText(f); }
   }; i.click();
 }
-function resetData() { if(confirm('データをリセットしますか？')){ localStorage.removeItem('heliRecordV5'); localStorage.removeItem('heliMciRecordV5'); location.reload(); } }
+function clearHeliDraftStorage() {
+  HELI_DRAFT_STORAGE_KEYS.forEach((key) => {
+    try { localStorage.removeItem(key); } catch { /* noop */ }
+  });
+}
+function resetData() {
+  if (!confirm('活動記録・多数傷・連携下書きをすべて消去します。よろしいですか？')) return;
+  clearHeliDraftStorage();
+  location.reload();
+}
 
 function restoreUI() {
   const EMS_DEF = {aware:'',arrival:'',contact:'',lz:'',vitals:[],exam_tab:'general',chips:{},memos:{general:{},trauma:{},stroke:{memo:''},cpa:{memo:''}},stroke_motor:defaultEmsStrokeMotor(),stroke_onset:'',procedures:{},procedures_items:['頚椎カラー','全身固定','吸引','酸素投与','BVM換気','気管挿管','LT挿入','静脈路確保','ブドウ糖投与','ショック輸液','圧迫止血','胸骨圧迫','LUCAS装着','除細動','アドレナリン'],o2_flow:'',procedures_detail:''};
@@ -5691,31 +5709,29 @@ function restoreExamTab(prefix, tabType) {
   state[prefix].exam_tab = valid;
 }
 
-function updateApp() {
-  if(confirm('アプリを最新版に更新しますか？\n（キャッシュを削除して再読み込みします）')) {
-    updateState();
-    saveMciState();
-    // Service Workerの登録を解除
+async function updateApp() {
+  if (!confirm(
+    'アプリを最新版に更新しますか？\n\n' +
+    '・HTML/JSのキャッシュを削除して再読み込みします\n' +
+    '・入力中の記録・多数傷データは端末に残ります\n' +
+    '（訓練データを消す場合は「多数傷」画面のリセット、または出力タブのリセット）'
+  )) return;
+  updateState();
+  try {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        registrations.forEach(registration => {
-          registration.unregister();
-        });
-      });
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister()));
     }
-    // キャッシュを削除
     if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => {
-          caches.delete(name);
-        });
-      });
+      const names = await caches.keys();
+      await Promise.all(names.map((name) => caches.delete(name)));
     }
-    // 強制リロード
-    setTimeout(() => {
-      window.location.reload(true);
-    }, 500);
+  } catch (e) {
+    console.warn('updateApp cache clear:', e);
   }
+  const url = new URL(location.href);
+  url.searchParams.set('_v', String(Date.now()));
+  location.replace(url.toString());
 }
 
 function bindInputEvents() {
@@ -5871,6 +5887,10 @@ function ensureMciDefaults() {
     if(merged.age == null) merged.age = '';
     return merged;
   });
+}
+
+function clearMciLocalStorage() {
+  try { localStorage.removeItem(MCI_STORAGE_KEY); } catch { /* noop */ }
 }
 
 function saveMciState() {
@@ -6582,6 +6602,7 @@ function resetMciBoardExecute() {
     state = cloneRecordState(normalRecordState);
     restoreUI();
   }
+  clearMciLocalStorage();
   mci = defaultMciState();
   ensureMciDefaults();
   currentAppMode = 'mci';
