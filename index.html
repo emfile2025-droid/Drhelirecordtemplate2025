@@ -7,7 +7,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<script src="related-apps.js"></script>
 <!-- 2026-05-05 | v5.0 | 多数傷（トリアージ）モード統合／多数傷病者トリアージボード／患者別詳細タブ -->
 <!-- 2026-05-06 | v5.0 | サマリー:タグのコピー／詳細込み・リセットは下部のみ。タブ行から「＋症例」削除。カード展開部の重複「詳細入力（活動記録フォーム）」削除。詳細入力遷移時に活動記録ビューを先頭スクロール -->
 <!-- 2026-05-07 | v5.0.1 | 転記ロジック安全化：バイタル追記方式・受傷部位は推定サフィックスとメモ記録・要請内容は末尾追記 -->
@@ -39,7 +38,18 @@
 <!-- 2026-05-22 | v5.1.4 | 救急隊脳卒中所見見出し: （脳卒中）→（神経学的所見）活動記録・紹介状 -->
 <!-- 2026-05-22 | v5.1.4 | メインタブ切替時はスクロールを先頭にリセット -->
 <!-- 2026-05-22 | v5.1.4 | 更新ボタン: SW/キャッシュのみ削除(入力データは保持)、多数傷リセットでlocalStorage確実削除 -->
-<title>ドクターヘリ活動記録 v5.1.4 多数傷対応</title>
+<!-- 2026-05-22 | v5.1.4 | 先行救急隊マスタ: 救急車呼称のみ(消防・タンク・ポンプ・火消号車等は非表示) -->
+<!-- 2026-05-22 | v5.1.4 | 出力リセット後は要請タブ先頭、多数傷モードはヘッダー簡略(通常ボタンのみ) -->
+<!-- 2026-05-22 | v5.1.4 | 多数傷: MCIタブバーsticky修正、ボード画面ではタブバー非表示 -->
+<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 年齢性別はバナーのみ、要請タブの年代性別は非表示で同期 -->
+<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 症例切替時はボードカードの年齢性別を正とする(前症例のdetailStateを引き継がない) -->
+<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 症例切替でバナーDOMをクリア、カード→画面は一方向のみ(前症例の値を書き込まない) -->
+<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 保存時カードへ年齢性別を書き戻し、再表示時は空カードでdetailStateを消さない -->
+<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 詳細を開く際の restoreUI 中に updateState が走り p.age/p.sex を空で上書きする不具合を修正 -->
+<!-- 2026-05-23 | v5.1.5 | NPPVカスタムダイアログ: 完了ボタン非表示の不具合修正(id="dialDone"を付与) -->
+<!-- 2026-05-23 | v5.1.5 | StrokeNotify復帰: ?tab=fd を反映後に URL から除去し、以降のリロードでFDタブに飛ばされないように -->
+<!-- 2026-05-23 | v5.1.5 | related-apps.js: 未使用のスクリプト読み込みを削除 -->
+<title>ドクターヘリ活動記録 v5.1.5 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -107,6 +117,14 @@ main#referralView{
 }
 body.has-tabbar main#mainRecordView{bottom:var(--tabbar-h)}
 body.has-mci-nav main#modeMCI{bottom:var(--bottom-nav-h)}
+/* 多数傷モード: タイトル・更新は非表示、通常ボタンのみ（固定ヘッダー） */
+body.mci-mode{--header-h:calc(48px + var(--safe-top))}
+body.mci-mode header{
+  position:fixed;left:0;right:0;top:0;z-index:200;
+  padding:calc(8px + var(--safe-top)) 12px 8px;justify-content:flex-start;
+}
+body.mci-mode header .header-content,
+body.mci-mode header .btn-update{display:none}
 body.has-referral-nav main#referralView{bottom:var(--bottom-nav-h)}
 
 /* ===== タブUI v5.1.0 ===== */
@@ -574,12 +592,14 @@ div.card-body > div[style*="display:flex"] .btn.small {
 .mode-switch:active{opacity:0.8;transform:scale(0.95)}
 .mci-main{display:none}
 .mci-tabs-sticky{
-  position:sticky;top:calc(62px + var(--safe-top));z-index:90;
+  /* modeMCI は既にヘッダー下から始まるため top は 0（header-h だと画面中央に浮く） */
+  position:sticky;top:0;z-index:90;
   background:rgba(242,242,247,0.94);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  padding:8px 0 10px;margin:-12px -12px 12px;padding-left:12px;padding-right:12px;
+  padding:8px 12px 10px;margin:0 0 12px;
   border-bottom:0.5px solid var(--line);
 }
+.mci-tabs-sticky.is-hidden{display:none}
 .mci-tabs{display:flex;gap:8px;overflow-x:auto}
 .mci-tabs-hint{margin:8px 0 0;font-size:11px;color:var(--muted);line-height:1.45}
 .mci-tab{
@@ -809,7 +829,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.4 多数傷対応</p>
+    <p class="sub">heli record v5.1.5 多数傷対応</p>
   </div>
   <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
 </header>
@@ -819,7 +839,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
     <div class="mci-detail-banner-top">
       <div>
         <strong id="mciDetailRecordTitle">多数傷 患者詳細</strong>
-        <div id="mciDetailRecordSub">この通常記録フォームの入力内容は、選択中の傷病者に個別保存されます。救急隊・FDの検査・処置・薬剤は下へスクロールするとあります。</div>
+        <div id="mciDetailRecordSub">年齢・性別はここで入力すると要請文・活動記録に反映されます。その他は下のフォームへ。</div>
       </div>
       <button class="btn small ghost" onclick="openMciBoard()" style="width:auto;padding:8px 12px">← 多数傷ボード</button>
     </div>
@@ -868,12 +888,15 @@ div.card-body > div[style*="display:flex"] .btn.small {
       <textarea id="preceding_ems_team" class="picker-input" placeholder="選択した呼称が入ります（編集可）" style="min-height:44px"></textarea>
       
       <h3>患者情報</h3>
+      <p id="patient_demographics_mci_hint" class="field-hint" style="font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5" hidden>年齢・性別は画面上部のバナーで設定します（要請・記録に自動反映）。</p>
+      <div id="patient_demographics_block">
       <label>年代</label>
       <div class="chips" id="patient_age_chips"></div>
       <input type="text" id="patient_age" class="picker-input" placeholder="例：50代（チップ選択後も編集可）">
       <label>性別</label>
       <div class="chips" id="patient_sex_chips"></div>
       <input type="text" id="patient_sex" class="picker-input" placeholder="例：男性（チップ選択後も編集可）">
+      </div>
       <label>既往歴</label>
       <div class="chips" id="history_chips"></div>
       <textarea id="patient_history" placeholder="既往歴を記載" style="min-height:60px"></textarea>
@@ -1846,7 +1869,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <div class="dial-container" onclick="event.stopPropagation()" ontouchmove="event.stopPropagation()">
     <div class="dial-header">
       <span class="dial-title" id="dialTitle">値を選択</span>
-      <button class="dial-done" onclick="confirmDial()">完了</button>
+      <button id="dialDone" class="dial-done" onclick="confirmDial()">完了</button>
     </div>
     <div class="dial-body" id="dialBody"></div>
   </div>
@@ -1905,6 +1928,14 @@ function scrollAppToTop() {
 
 function setMciBottomNavVisible(visible) {
   document.body.classList.toggle('has-mci-nav', !!visible);
+}
+/** 多数傷ボード表示時のみヘッダーを簡略（通常ボタンのみ）。詳細入力・通常モードは通常ヘッダー */
+function updateMciModeChrome() {
+  const mciEl = $('#modeMCI');
+  const slim = currentAppMode === 'mci'
+    && mciEl && mciEl.style.display !== 'none'
+    && !mciDetailRecordMode;
+  document.body.classList.toggle('mci-mode', slim);
 }
 function setReferralBottomNavVisible(visible) {
   document.body.classList.toggle('has-referral-nav', !!visible);
@@ -4743,7 +4774,7 @@ function renderTriageSeverityChips() {
   renderSeverityChips();
 }
 
-const CALLSIGN_MASTER = {"regions":[{"region":"出水","agency":"","vehicles":[{"dept":"出水消防署","callsign":"いずみしょうぼうきゅうきゅう１","short":"出水救急1","phone":"090-2713-0119"},{"dept":"出水消防署","callsign":"いずみしょうぼうきゅうきゅう２","short":"出水救急2","phone":"080-1764-4236"},{"dept":"出水消防署","callsign":"いずみしょうぼうきゅうきゅう4","short":"出水救急4","phone":""},{"dept":"石坂分署","callsign":"いずみしょうぼうきゅうきゅう３","short":"出水救急3","phone":"090-8833-5039"},{"dept":"出水消防署","callsign":"いずみしょうぼう1","short":"出水消防1","phone":""},{"dept":"出水消防署","callsign":"いずみしょうぼう2","short":"出水消防2","phone":""},{"dept":"出水消防署","callsign":"いずみしょうぼう3","short":"出水消防3","phone":""},{"dept":"出水消防署","callsign":"いずみしょうぼう4","short":"出水消防4","phone":""},{"dept":"出水消防署","callsign":"いずみしょうぼう5","short":"出水消防5","phone":""},{"dept":"出水消防署","callsign":"いずみしょうぼう6","short":"出水消防6","phone":""},{"dept":"出水消防署","callsign":"いずみしょうぼう7","short":"出水消防7","phone":""},{"dept":"石坂分署","callsign":"いずみしょうぼう２１","short":"出水消防21","phone":""},{"dept":"石坂分署","callsign":"いずみしょうぼう２２","short":"出水消防22","phone":""}]},{"region":"さつま町","agency":"","vehicles":[{"dept":"さつま町消防署","callsign":"さつまきゅうきゅう101","short":"さつま町救急101","phone":"090-7291-4094"},{"dept":"さつま町消防署","callsign":"さつまきゅうきゅう102","short":"さつま町救急102","phone":"090-7291-4095"},{"dept":"さつま町消防署","callsign":"さつまきゅうきゅう103","short":"さつま町救急103","phone":"090-8767-9491"}]},{"region":"薩摩川内","agency":"","vehicles":[{"dept":"中央消防署","callsign":"さつませんだいきゅうきゅう１０１","short":"薩摩川内救急101","phone":"０９０－７３９９－４０１５"},{"dept":"南部分署","callsign":"さつませんだいきゅうきゅう２０１","short":"薩摩川内救急201","phone":"０９０－４３４２－１６００"},{"dept":"東部消防署","callsign":"さつませんだいきゅうきゅう５０１","short":"薩摩川内救急501","phone":"０９０－８９１８－４１７１"},{"dept":"祁答院分署","callsign":"さつませんだいきゅうきゅう６０１","short":"薩摩川内救急601","phone":"０８０－１７５１－０１１９"},{"dept":"西部消防署","callsign":"さつませんだいきゅうきゅう７０１","short":"薩摩川内救急701","phone":"０９０－３３２２－７８９２"},{"dept":"上甑分駐所","callsign":"さつませんだいきゅうきゅう３０１","short":"薩摩川内救急301","phone":"０９０－９５６１－９２７２"},{"dept":"下甑分駐所","callsign":"さつませんだいきゅうきゅう４０１","short":"薩摩川内救急401","phone":"０９０－９０７６－６８９８"},{"dept":"中央消防署","callsign":"さつませんだいきゅうきゅう１０３","short":"薩摩川内救急103","phone":"０９０－２７１０－７００７"},{"dept":"警防課","callsign":"さつませんだいしょうぼうけいぼう１","short":"薩摩川内消防1","phone":""},{"dept":"中央消防署","callsign":"さつませんだいしょうぼう１０１","short":"薩摩川内消防101","phone":""},{"dept":"中央消防署","callsign":"さつませんだいしょうぼう１０２","short":"薩摩川内消防102","phone":""},{"dept":"中央消防署","callsign":"さつませんだいしょうぼう１０３","short":"薩摩川内消防103","phone":""},{"dept":"南部分署","callsign":"さつませんだいしょうぼう２０１","short":"薩摩川内消防201","phone":""},{"dept":"南部分署","callsign":"さつませんだいしょうぼう２０３","short":"薩摩川内消防203","phone":""},{"dept":"東部消防署","callsign":"さつませんだいしょうぼう５０１","short":"薩摩川内消防501","phone":""},{"dept":"東部消防署","callsign":"さつませんだいしょうぼう５０３","short":"薩摩川内消防503","phone":""},{"dept":"祁答院分署","callsign":"さつませんだいしょうぼう６０１","short":"薩摩川内消防601","phone":""},{"dept":"祁答院分署","callsign":"さつませんだいしょうぼう６０３","short":"薩摩川内消防603","phone":""},{"dept":"西部消防署","callsign":"さつませんだいしょうぼう７０１","short":"薩摩川内消防701","phone":""},{"dept":"西部消防署","callsign":"さつませんだいしょうぼう７０３","short":"薩摩川内消防703","phone":""}]},{"region":"垂水","agency":"","vehicles":[{"dept":"垂水消防署","callsign":"たるしょうたるみず　救急１","short":"たるしょうたるみず　救急１","phone":"080-1778-2242"},{"dept":"垂水消防署","callsign":"たるしょうたるみず　救急２","short":"たるしょうたるみず　救急２","phone":"090-4516-5613"},{"dept":"牛根分遣所","callsign":"たるしょううしね　救急１","short":"たるしょううしね　救急１","phone":"090-5741-4719"},{"dept":"垂水消防署","callsign":"たるしょうたるみず　しき１","short":"垂水たるしょうたるみず　しき","phone":""},{"dept":"垂水消防署","callsign":"たるしょうたるみず　タンク１","short":"たるしょうたるみず　タンク1","phone":""},{"dept":"垂水消防署","callsign":"たるしょうたるみず　タンク２","short":"たるしょうたるみず　タンク2","phone":""},{"dept":"牛根分遣所","callsign":"たるしょううしね　タンク１","short":"たるしょううしね　タンク1","phone":""},{"dept":"牛根分遣所","callsign":"たるしょううしね　ポンプ１","short":"たるしょううしね　ポンプ1","phone":""}]},{"region":"熊毛","agency":"","vehicles":[{"dept":"西之表消防署","callsign":"くまきゅうにしのおもて１","short":"熊毛くまきゅうにしのおもて1","phone":"090-2583-1489"},{"dept":"西之表消防署","callsign":"くまきゅうにしのおもて２","short":"熊毛くまきゅうにしのおもて2","phone":"090-7294-0390"},{"dept":"中種子分遣所","callsign":"くまきゅうなかたね１","short":"熊毛くまきゅうなかたね1","phone":"090-5294-3938"},{"dept":"中種子分遣所","callsign":"くまきゅうなかたね２","short":"熊毛くまきゅうなかたね2","phone":"090-3328-5321"},{"dept":"南種子分遣所","callsign":"くまきゅうみなみたね１","short":"熊毛くまきゅうみなみたね1","phone":"080-1715-2858"},{"dept":"南種子分遣所","callsign":"くまきゅうみなみたね２","short":"熊毛くまきゅうみなみたね2","phone":"090-5281-5855"},{"dept":"屋久島北分遣所","callsign":"くまきゅうやくきた１","short":"熊毛くまきゅうやくきた1","phone":"080-8952-6013"},{"dept":"屋久島北分遣所","callsign":"くまきゅうやくきた２","short":"熊毛くまきゅうやくきた2","phone":"080-2790-7369"},{"dept":"屋久島南分遣所","callsign":"くまきゅうやくみなみ１","short":"熊毛くまきゅうやくみなみ1","phone":"080-1748-1184"},{"dept":"屋久島南分遣所","callsign":"くまきゅうやくみなみ２","short":"熊毛くまきゅうやくみなみ2","phone":"080-1749-5601"},{"dept":"西之表消防署","callsign":"くましょうにしのおもて１","short":"熊毛くましょうにしのおもて1","phone":""},{"dept":"西之表消防署","callsign":"くましょうにしのおもて２","short":"熊毛くましょうにしのおもて2","phone":""},{"dept":"西之表消防署","callsign":"くましょうにしのおもて３","short":"熊毛くましょうにしのおもて3","phone":""},{"dept":"西之表消防署","callsign":"くましょうにしのおもて19","short":"熊毛くましょうにしのおもて1","phone":""},{"dept":"中種子分遣所","callsign":"くましょうなかたね１","short":"熊毛くましょうなかたね1","phone":""},{"dept":"中種子分遣所","callsign":"くましょうなかたね２","short":"熊毛くましょうなかたね2","phone":""},{"dept":"南種子分遣所","callsign":"くましょうみなみたね２","short":"熊毛くましょうみなみたね2","phone":""},{"dept":"屋久島北分遣所","callsign":"くましょうやくきた１","short":"熊毛くましょうやくきた1","phone":""},{"dept":"屋久島南分遣所","callsign":"くましょうやくみなみ１","short":"熊毛くましょうやくみなみ1","phone":""},{"dept":"屋久島南分遣所","callsign":"くましょうやくみなみ２","short":"熊毛くましょうやくみなみ2","phone":""},{"dept":"屋久島南分遣所","callsign":"くましょうほんぶ２","short":"熊毛くましょうほんぶ2","phone":""}]},{"region":"枕崎","agency":"","vehicles":[{"dept":"枕崎市消防署","callsign":"きゅうきゅうまくらざき１","short":"枕崎救急1","phone":"090-5298-6934"},{"dept":"枕崎市消防署","callsign":"きゅうきゅうまくらざき２","short":"枕崎救急2","phone":"080-2728-3739"},{"dept":"枕崎市消防署","callsign":"きゅうきゅうまくらざき３","short":"枕崎救急3","phone":"090-2396-3404"},{"dept":"枕崎市消防署","callsign":"しょうぼうまくらざき１","short":"枕崎消防1","phone":""},{"dept":"枕崎市消防署","callsign":"しょうぼうまくらざき２","short":"枕崎消防2","phone":""},{"dept":"枕崎市消防署","callsign":"しょうぼうまくらざき３","short":"枕崎消防3","phone":""},{"dept":"枕崎市消防署","callsign":"しょうぼうまくらざき４","short":"枕崎消防4","phone":""}]},{"region":"南さつま","agency":"","vehicles":[{"dept":"南さつま消防署","callsign":"なんしょうかせだきゅうきゅう１","short":"南さつま救急1","phone":"080-1739-0508"},{"dept":"南さつま消防署","callsign":"なんしょうかせだきゅうきゅう２","short":"南さつま救急2","phone":"090-7299-1067"},{"dept":"大笠分遣隊","callsign":"なんしょうだいりゅうきゅうきゅう１","short":"南さつま救急1","phone":"080-1744-3673"},{"dept":"坊津分遣隊","callsign":"なんしょうぼうのつきゅうきゅう１","short":"南さつま救急1","phone":"080-1744-7612"},{"dept":"金峰分遣隊","callsign":"なんしょうきんぽうきゅうきゅう１","short":"南さつま救急1","phone":"090-2511-4528"},{"dept":"南さつま消防署","callsign":"なんしょうかせだたんく１","short":"南さつまなんしょうかせだたんく1","phone":""},{"dept":"南さつま消防署","callsign":"なんしょうかせだぽんぷ１","short":"南さつまなんしょうかせだぽんぷ1","phone":""},{"dept":"南さつま消防署","callsign":"なんしょうかせだきゅうじょ１","short":"南さつまなんしょうかせだきゅうじ","phone":""},{"dept":"大笠分遣隊","callsign":"なんしょうだいりゅうたんく１","short":"南さつまなんしょうだいりゅうたん","phone":""},{"dept":"大笠分遣隊","callsign":"なんしょうだいりゅうしえん１","short":"南さつまなんしょうだいりゅうしえ","phone":""},{"dept":"坊津分遣隊","callsign":"なんしょうぼうのつたんく１","short":"南さつま消防1","phone":""},{"dept":"坊津分遣隊","callsign":"なんしょうぼうのつしえん１","short":"南さつま消防1","phone":""},{"dept":"金峰分遣隊","callsign":"なんしょうきんぽうたんく１","short":"南さつまなんしょうきんぽうたんく","phone":""},{"dept":"金峰分遣隊","callsign":"なんしょうきんぽうしえん１","short":"南さつまなんしょうきんぽうしえん","phone":""}]},{"region":"鹿児島市","agency":"","vehicles":[{"dept":"中央本署救急","callsign":"きゅうきゅうちゅうおう１","short":"中央本署救急","phone":"080-8826-3550"},{"dept":"南林寺救急","callsign":"きゅうきゅうなんりんじ１","short":"南林寺救急","phone":"090-3199-9810"},{"dept":"上町救急","callsign":"きゅうきゅうかんまち１","short":"上町救急","phone":"090-4989-2581"},{"dept":"吉野救急","callsign":"きゅうきゅうよしの１","short":"吉野救急","phone":"090-3320-1993"},{"dept":"吉田救急","callsign":"きゅうきゅうよしだ１","short":"吉田救急","phone":"090-3320-1997"},{"dept":"甲南救急","callsign":"きゅうきゅうこうなん１","short":"甲南救急","phone":"090-3320-1995"},{"dept":"桜島東救急","callsign":"きゅうきゅうさくらじまひがし１","short":"桜島東救急","phone":"090-3320-1996"},{"dept":"桜島西救急","callsign":"きゅうきゅうさくらじまにし１","short":"桜島西救急","phone":"090-7989-5882"},{"dept":"西本署救急","callsign":"きゅうきゅうにし１","short":"西本署救急","phone":"090-5922-1297"},{"dept":"伊敷救急","callsign":"きゅうきゅういしき１","short":"伊敷救急","phone":"090-3320-1994"},{"dept":"松元救急","callsign":"きゅうきゅうまつもと１","short":"松元救急","phone":"080-1700-1297"},{"dept":"郡山救急","callsign":"きゅうきゅうこおりやま１","short":"郡山救急","phone":"080-1700-1997"},{"dept":"南本署救急","callsign":"きゅうきゅうみなみ１","short":"南本署救急","phone":"080-1711-4674"},{"dept":"谷山救急","callsign":"きゅうきゅうたにやま１","short":"谷山救急","phone":"080-8826-3487"},{"dept":"谷山北救急","callsign":"きゅうきゅうたにきた１","short":"谷山北救急","phone":"080-1700-0076"},{"dept":"郡元救急","callsign":"きゅうきゅうこおりもと１","short":"郡元救急","phone":"090-3320-1999"},{"dept":"喜入救急","callsign":"きゅうきゅうきいれ１","short":"喜入救急","phone":"080-1532-3666"},{"dept":"喜入救急予備","callsign":"きゅうきゅうきいれ４","short":"喜入救急予備","phone":"090-4587-2707"},{"dept":"中央本署1号","callsign":"かしょうちゅうおう１","short":"中央本署1号","phone":""},{"dept":"南林寺１号","callsign":"かしょうなんりんじ１","short":"南林寺１号","phone":""},{"dept":"名山1号","callsign":"かしょうめいざん１","short":"名山1号","phone":""},{"dept":"上町１号","callsign":"かしょうかんまち１","short":"上町１号","phone":""},{"dept":"吉野1号","callsign":"かしょうよしの１","short":"吉野1号","phone":""},{"dept":"甲南1号","callsign":"かしょうこうなん１","short":"甲南1号","phone":""},{"dept":"吉田1号","callsign":"かしょうよしだ１","short":"吉田1号","phone":""},{"dept":"桜島東1号","callsign":"かしょうさくらじまひがし１","short":"桜島東1号","phone":""},{"dept":"桜島西1号","callsign":"かしょうさくらじまにし１","short":"桜島西1号","phone":""},{"dept":"西本署1号","callsign":"かしょうにし１","short":"西本署1号","phone":""},{"dept":"伊敷1号","callsign":"かしょういしき１","short":"伊敷1号","phone":""},{"dept":"明和1号","callsign":"かしょうめいわ１","short":"明和1号","phone":""},{"dept":"田上1号","callsign":"かしょうたがみ１","short":"田上1号","phone":""},{"dept":"松元1号","callsign":"かしょうまつもと１","short":"松元1号","phone":""},{"dept":"郡山1号","callsign":"かしょうこおりやま１","short":"郡山1号","phone":""},{"dept":"南本署1号","callsign":"かしょうみなみ１","short":"南本署1号","phone":""},{"dept":"谷山1号","callsign":"かしょうたにやま１","short":"谷山1号","phone":""},{"dept":"脇田1号","callsign":"かしょうわきた１","short":"脇田1号","phone":""},{"dept":"郡元1号","callsign":"かしょうこおりもと１","short":"郡元1号","phone":""},{"dept":"喜入1号","callsign":"かしょうきいれ１","short":"喜入1号","phone":""}]},{"region":"伊佐","agency":"","vehicles":[{"dept":"大口消防署","callsign":"伊佐救急１","short":"伊佐救急１","phone":"080-8956-1119"},{"dept":"大口消防署","callsign":"伊佐救急２","short":"伊佐救急２","phone":"080-8385-1119"},{"dept":"菱刈分遣所","callsign":"伊佐救急３","short":"伊佐救急３","phone":"090-6899-0195"},{"dept":"南消防署","callsign":"湧水救急１","short":"湧水救急１","phone":"090-3190-7550"},{"dept":"吉松分遣所","callsign":"湧水救急２","short":"湧水救急２","phone":"090-6899-0196"},{"dept":"大口消防署","callsign":"伊佐タンク１","short":"伊佐タンク１","phone":""},{"dept":"大口消防署","callsign":"伊佐ポンプ１","short":"伊佐ポンプ１","phone":""},{"dept":"大口消防署","callsign":"伊佐工作１","short":"伊佐工作１","phone":""},{"dept":"大口消防署","callsign":"伊佐指令１","short":"伊佐指令１","phone":""},{"dept":"菱刈分遣所","callsign":"伊佐タンク２","short":"伊佐タンク２","phone":""},{"dept":"南消防署","callsign":"湧水タンク１","short":"湧水タンク１","phone":""},{"dept":"南消防署","callsign":"湧水工作１","short":"湧水工作１","phone":""},{"dept":"南消防署","callsign":"湧水連絡１","short":"湧水連絡１","phone":""},{"dept":"吉松分遣所","callsign":"湧水タンク２","short":"湧水タンク２","phone":""}]},{"region":"曽於","agency":"","vehicles":[{"dept":"曽於消防署","callsign":"曽於消救急１","short":"曽於消救急１","phone":"090-9560-5109"},{"dept":"曽於消防署","callsign":"曽於消救急２","short":"曽於消救急２","phone":"090-4510-0395"},{"dept":"末吉救急分駐所","callsign":"曽於消救急４","short":"曽於消救急４","phone":"080-1780-8632"},{"dept":"財部分署","callsign":"曽於消救急５","short":"曽於消救急５","phone":"080-1714-4901"},{"dept":"志布志消防署","callsign":"曽於消救急６","short":"曽於消救急６","phone":"090-7452-1807"},{"dept":"志布志消防署","callsign":"曽於消救急７","short":"曽於消救急７","phone":"080-1709-4183"},{"dept":"大崎分署","callsign":"曽於消救急９","short":"曽於消救急９","phone":"080-1780-8633"},{"dept":"曽於消防署","callsign":"曽於消指揮２","short":"曽於消指揮２","phone":""},{"dept":"曽於消防署","callsign":"曽於消タンク１","short":"曽於消タンク１","phone":""},{"dept":"曽於消防署","callsign":"曽於消工作１","short":"曽於消工作１","phone":""},{"dept":"志布志消防署","callsign":"曽於消指揮３","short":"曽於消指揮３","phone":""},{"dept":"志布志消防署","callsign":"曽於消タンク４","short":"曽於消タンク４","phone":""},{"dept":"志布志消防署","callsign":"曽於消工作２","short":"曽於消工作２","phone":""}]},{"region":"指宿","agency":"","vehicles":[{"dept":"指宿消防署","callsign":"いぶしょうきゅうきゅう１","short":"指宿救急1","phone":"090-5286-7084"},{"dept":"指宿消防署","callsign":"いぶしょうきゅうきゅう２","short":"指宿救急2","phone":"090-7162-3260"},{"dept":"山川・開聞分遣所","callsign":"いぶしょうきゅうきゅう３","short":"指宿救急3","phone":"090-3196-0864"},{"dept":"山川・開聞分遣所","callsign":"いぶしょうきゅうきゅう４","short":"指宿救急4","phone":"090-8910-1482"},{"dept":"頴娃分遣所","callsign":"いぶしょうきゅうきゅう５","short":"指宿救急5","phone":"090-4588-8201"},{"dept":"南九州消防署","callsign":"いぶしょうきゅうきゅう６","short":"指宿救急6","phone":"080-1535-5228"},{"dept":"南九州消防署","callsign":"いぶしょうきゅうきゅう７","short":"指宿救急7","phone":"080-1781-5865"},{"dept":"川辺分遣所","callsign":"いぶしょうきゅうきゅう８","short":"指宿救急8","phone":"080-1734-0249"},{"dept":"指宿消防署","callsign":"いぶしょうたんく１","short":"指宿いぶしょうたんく1","phone":""},{"dept":"指宿消防署","callsign":"いぶしょうたんく２","short":"指宿いぶしょうたんく2","phone":""},{"dept":"指宿消防署","callsign":"いぶしょうきゅうじょ１","short":"指宿いぶしょうきゅうじょ1","phone":""},{"dept":"指宿消防署","callsign":"いぶしょうしき１","short":"指宿いぶしょうしき1","phone":""},{"dept":"指宿消防署","callsign":"いぶしょうけいぼう１","short":"指宿いぶしょうけいぼう1","phone":""},{"dept":"山川・開聞分遣所","callsign":"いぶしょうたんく３","short":"指宿いぶしょうたんく3","phone":""},{"dept":"山川・開聞分遣所","callsign":"いぶしょうしき２","short":"指宿いぶしょうしき2","phone":""},{"dept":"頴娃分遣所","callsign":"いぶしょうたんく４","short":"指宿いぶしょうたんく4","phone":""},{"dept":"南九州消防署","callsign":"いぶしょうたんく５","short":"指宿いぶしょうたんく5","phone":""},{"dept":"南九州消防署","callsign":"いぶしょうきゅうじょ２","short":"指宿いぶしょうきゅうじょ2","phone":""},{"dept":"南九州消防署","callsign":"いぶしょうしき３","short":"指宿いぶしょうしき3","phone":""},{"dept":"川辺分遣所","callsign":"いぶしょうたんく６","short":"指宿いぶしょうたんく6","phone":""},{"dept":"川辺分遣所","callsign":"いぶしょうせきさい１","short":"指宿いぶしょうせきさい1","phone":""}]},{"region":"いちき","agency":"","vehicles":[{"dept":"いちき串木野市消防署　本署","callsign":"い串消救急１","short":"い串消救急１","phone":"090-3321-5809"},{"dept":"いちき串木野市消防署　いちき分遣所","callsign":"い串消救急２","short":"い串消救急２","phone":"090-3326-0667"},{"dept":"いちき串木野市消防署　本署","callsign":"い串消救急３","short":"い串消救急３","phone":"080-1707-6054"},{"dept":"いちき串木野市消防署　本署","callsign":"い串消指揮１","short":"い串消指揮１","phone":""},{"dept":"いちき串木野市消防署　本署","callsign":"い串消タンク１","short":"い串消タンク１","phone":""},{"dept":"いちき串木野市消防署　本署","callsign":"い串消救助１","short":"い串消救助１","phone":""},{"dept":"いちき串木野市消防署　いちき分遣所","callsign":"い串消ポンプ１","short":"い串消ポンプ１","phone":""},{"dept":"いちき串木野市消防署　本署","callsign":"い串消ポンプ２","short":"い串消ポンプ２","phone":""}]},{"region":"肝属","agency":"","vehicles":[{"dept":"中央消防署","callsign":"中央救急１","short":"中央救急１","phone":"090-2711-1936"},{"dept":"中央消防署","callsign":"中央救急２","short":"中央救急２","phone":"090-7448-2032"},{"dept":"中央消防署","callsign":"中央救急３","short":"中央救急３","phone":"090-7983-9544"},{"dept":"東部消防署","callsign":"東部救急１","short":"東部救急１","phone":"090-5287-6118"},{"dept":"東部消防署","callsign":"東部救急２","short":"東部救急２","phone":"090-7444-2944"},{"dept":"南部消防署","callsign":"南部救急１","short":"南部救急１","phone":"090-3076-6176"},{"dept":"南部消防署","callsign":"南部救急２","short":"南部救急２","phone":"090-7985-3304"},{"dept":"輝北分署","callsign":"輝北救急１","short":"輝北救急１","phone":"080-1533-8507"},{"dept":"内之浦分署","callsign":"内之浦救急１","short":"内之浦救急１","phone":"090-2713-8824"},{"dept":"佐多分署","callsign":"佐多救急１","short":"佐多救急１","phone":"090-2391-3503"},{"dept":"中央消防署","callsign":"中央化学１","short":"中央化学１","phone":""},{"dept":"中央消防署","callsign":"中央工作１","short":"中央工作１","phone":""},{"dept":"東部消防署","callsign":"東部タンク１","short":"東部タンク１","phone":""},{"dept":"東部消防署","callsign":"東部工作１","short":"東部工作１","phone":""},{"dept":"南部消防署","callsign":"南部タンク１","short":"南部タンク１","phone":""},{"dept":"南部消防署","callsign":"南部工作１","short":"南部工作１","phone":""},{"dept":"輝北分署","callsign":"輝北タンク１","short":"輝北タンク１","phone":""},{"dept":"内之浦分署","callsign":"内之浦タンク１","short":"内之浦タンク１","phone":""},{"dept":"佐多分署","callsign":"佐多タンク１","short":"佐多タンク１","phone":""}]},{"region":"霧島","agency":"","vehicles":[{"dept":"中央署　霧消救急１","callsign":"きりしょうきゅうきゅう１","short":"中央署 霧消救急１","phone":"090-4343-3418"},{"dept":"中央署　　霧消救急３","callsign":"きりしょうきゅうきゅう３","short":"中央署  霧消救急３","phone":"080-1547-6652"},{"dept":"隼人分遣所　霧消救急２","callsign":"きりしょうきゅうきゅう２","short":"隼人分遣所 霧消救急２","phone":"080-1729-4368"},{"dept":"福山分遣所　霧消救急４","callsign":"きりしょうきゅうきゅう４","short":"福山分遣所 霧消救急４","phone":"080-1533-5611"},{"dept":"北署　霧消救急５","callsign":"きりしょうきゅうきゅう５","short":"北署 霧消救急５","phone":"090-8919-6778"},{"dept":"霧島分遣所　霧消救急６","callsign":"きりしょうきゅうきゅう６","short":"霧島分遣所 霧消救急６","phone":"090-5383-5674"},{"dept":"溝辺分遣所　霧消救急７","callsign":"きりしょうきゅうきゅう７","short":"溝辺分遣所 霧消救急７","phone":"090-9074-7202"},{"dept":"横川分遣所　霧消救急８","callsign":"きりしょうきゅうきゅう８","short":"横川分遣所 霧消救急８","phone":"090-9074-0758"},{"dept":"中央署　霧消指揮１","callsign":"きりしょうしき１","short":"中央署 霧消指揮１","phone":""},{"dept":"中央署　　　霧消中央１","callsign":"きりしょうちゅうおう１","short":"中央署   霧消中央１","phone":""},{"dept":"中央署　　　霧消中央２","callsign":"きりしょうちゅうおう２","short":"中央署   霧消中央２","phone":""},{"dept":"隼人分遣所　霧消機動１","callsign":"きりしょうきどう１","short":"隼人分遣所 霧消機動１","phone":""},{"dept":"隼人分遣所　　　霧消救助１","callsign":"きりしょうきゅうじょ１","short":"隼人分遣所   霧消救助１","phone":""},{"dept":"隼人分遣所　　　霧消隼人１","callsign":"きりしょうはやと１","short":"隼人分遣所   霧消隼人１","phone":""},{"dept":"福山分遣所　霧消福山１","callsign":"きりしょうふくやま１","short":"福山分遣所 霧消福山１","phone":""},{"dept":"溝辺分遣所　霧消溝辺１","callsign":"きりしょうみぞべ１","short":"溝辺分遣所 霧消溝辺１","phone":""},{"dept":"北署　　霧消指揮２","callsign":"きりしょうしき２","short":"北署  霧消指揮２","phone":""},{"dept":"北署　　　霧消北１","callsign":"きりしょうきた１","short":"北署   霧消北１","phone":""},{"dept":"北署　　　霧消救助２","callsign":"きりしょうきょうじょ２","short":"北署   霧消救助２","phone":""},{"dept":"霧島分遣所　霧消霧島１","callsign":"きりしょうきりしま１","short":"霧島分遣所 霧消霧島１","phone":""}]},{"region":"日置","agency":"","vehicles":[{"dept":"日置市消防署","callsign":"日消救急１","short":"日消救急１","phone":"090-4991-4784"},{"dept":"日置市消防署","callsign":"日消救急２","short":"日消救急２","phone":"非常用車両"},{"dept":"北分遣所","callsign":"日消救急北１","short":"日消救急北１","phone":"090-2586-0809"},{"dept":"南分遣所","callsign":"日消救急南１","short":"日消救急南１","phone":"090-2505-3755"},{"dept":"日置市消防署","callsign":"日消１（半年毎に運用変更）","short":"日消１（半年毎に運用変更）","phone":""},{"dept":"日置市消防署","callsign":"日消２（半年毎に運用変更）","short":"日消２（半年毎に運用変更）","phone":""},{"dept":"北分遣所","callsign":"日消北１","short":"日消北１","phone":""},{"dept":"南分遣所","callsign":"日消南１","short":"日消南１","phone":""}]},{"region":"姶良","agency":"","vehicles":[{"dept":"中央消防署","callsign":"救急中央１","short":"救急中央１","phone":"080-2747-4600"},{"dept":"中央消防署","callsign":"救急中央３","short":"救急中央３","phone":"090-5924-4243"},{"dept":"姶良分遣所","callsign":"救急姶良１","short":"救急姶良１","phone":"090-3010-9181"},{"dept":"蒲生分遣所","callsign":"救急蒲生１","short":"救急蒲生１","phone":"090-7441-6280"},{"dept":"中央消防署","callsign":"姶消中央１号（姶消中央13）","short":"姶消中央１号（姶消中央13）","phone":""},{"dept":"中央消防署","callsign":"姶消中央３号（姶消中央15）","short":"姶消中央３号（姶消中央15）","phone":""},{"dept":"中央消防署","callsign":"中央救助1号（姶消中央12、16）","short":"中央救助1号（姶消中央12、16）","phone":""},{"dept":"姶良分遣所","callsign":"姶消姶良1（姶消姶良15、16）","short":"姶消姶良1（姶消姶良15、16）","phone":""},{"dept":"蒲生分遣所","callsign":"姶消蒲生1号（姶消蒲生11、12）","short":"姶消蒲生1号（姶消蒲生11、12）","phone":""}]}]};
+const CALLSIGN_MASTER = {"regions":[{"region":"出水","agency":"","vehicles":[{"dept":"出水消防署","callsign":"いずみしょうぼうきゅうきゅう１","short":"出水救急1","phone":"090-2713-0119"},{"dept":"出水消防署","callsign":"いずみしょうぼうきゅうきゅう２","short":"出水救急2","phone":"080-1764-4236"},{"dept":"出水消防署","callsign":"いずみしょうぼうきゅうきゅう4","short":"出水救急4","phone":""},{"dept":"石坂分署","callsign":"いずみしょうぼうきゅうきゅう３","short":"出水救急3","phone":"090-8833-5039"}]},{"region":"さつま町","agency":"","vehicles":[{"dept":"さつま町消防署","callsign":"さつまきゅうきゅう101","short":"さつま町救急101","phone":"090-7291-4094"},{"dept":"さつま町消防署","callsign":"さつまきゅうきゅう102","short":"さつま町救急102","phone":"090-7291-4095"},{"dept":"さつま町消防署","callsign":"さつまきゅうきゅう103","short":"さつま町救急103","phone":"090-8767-9491"}]},{"region":"薩摩川内","agency":"","vehicles":[{"dept":"中央消防署","callsign":"さつませんだいきゅうきゅう１０１","short":"薩摩川内救急101","phone":"０９０－７３９９－４０１５"},{"dept":"南部分署","callsign":"さつませんだいきゅうきゅう２０１","short":"薩摩川内救急201","phone":"０９０－４３４２－１６００"},{"dept":"東部消防署","callsign":"さつませんだいきゅうきゅう５０１","short":"薩摩川内救急501","phone":"０９０－８９１８－４１７１"},{"dept":"祁答院分署","callsign":"さつませんだいきゅうきゅう６０１","short":"薩摩川内救急601","phone":"０８０－１７５１－０１１９"},{"dept":"西部消防署","callsign":"さつませんだいきゅうきゅう７０１","short":"薩摩川内救急701","phone":"０９０－３３２２－７８９２"},{"dept":"上甑分駐所","callsign":"さつませんだいきゅうきゅう３０１","short":"薩摩川内救急301","phone":"０９０－９５６１－９２７２"},{"dept":"下甑分駐所","callsign":"さつませんだいきゅうきゅう４０１","short":"薩摩川内救急401","phone":"０９０－９０７６－６８９８"},{"dept":"中央消防署","callsign":"さつませんだいきゅうきゅう１０３","short":"薩摩川内救急103","phone":"０９０－２７１０－７００７"}]},{"region":"垂水","agency":"","vehicles":[{"dept":"垂水消防署","callsign":"たるしょうたるみず　救急１","short":"たるしょうたるみず　救急１","phone":"080-1778-2242"},{"dept":"垂水消防署","callsign":"たるしょうたるみず　救急２","short":"たるしょうたるみず　救急２","phone":"090-4516-5613"},{"dept":"牛根分遣所","callsign":"たるしょううしね　救急１","short":"たるしょううしね　救急１","phone":"090-5741-4719"}]},{"region":"熊毛","agency":"","vehicles":[{"dept":"西之表消防署","callsign":"くまきゅうにしのおもて１","short":"熊毛くまきゅうにしのおもて1","phone":"090-2583-1489"},{"dept":"西之表消防署","callsign":"くまきゅうにしのおもて２","short":"熊毛くまきゅうにしのおもて2","phone":"090-7294-0390"},{"dept":"中種子分遣所","callsign":"くまきゅうなかたね１","short":"熊毛くまきゅうなかたね1","phone":"090-5294-3938"},{"dept":"中種子分遣所","callsign":"くまきゅうなかたね２","short":"熊毛くまきゅうなかたね2","phone":"090-3328-5321"},{"dept":"南種子分遣所","callsign":"くまきゅうみなみたね１","short":"熊毛くまきゅうみなみたね1","phone":"080-1715-2858"},{"dept":"南種子分遣所","callsign":"くまきゅうみなみたね２","short":"熊毛くまきゅうみなみたね2","phone":"090-5281-5855"},{"dept":"屋久島北分遣所","callsign":"くまきゅうやくきた１","short":"熊毛くまきゅうやくきた1","phone":"080-8952-6013"},{"dept":"屋久島北分遣所","callsign":"くまきゅうやくきた２","short":"熊毛くまきゅうやくきた2","phone":"080-2790-7369"},{"dept":"屋久島南分遣所","callsign":"くまきゅうやくみなみ１","short":"熊毛くまきゅうやくみなみ1","phone":"080-1748-1184"},{"dept":"屋久島南分遣所","callsign":"くまきゅうやくみなみ２","short":"熊毛くまきゅうやくみなみ2","phone":"080-1749-5601"}]},{"region":"枕崎","agency":"","vehicles":[{"dept":"枕崎市消防署","callsign":"きゅうきゅうまくらざき１","short":"枕崎救急1","phone":"090-5298-6934"},{"dept":"枕崎市消防署","callsign":"きゅうきゅうまくらざき２","short":"枕崎救急2","phone":"080-2728-3739"},{"dept":"枕崎市消防署","callsign":"きゅうきゅうまくらざき３","short":"枕崎救急3","phone":"090-2396-3404"}]},{"region":"南さつま","agency":"","vehicles":[{"dept":"南さつま消防署","callsign":"なんしょうかせだきゅうきゅう１","short":"南さつま救急1","phone":"080-1739-0508"},{"dept":"南さつま消防署","callsign":"なんしょうかせだきゅうきゅう２","short":"南さつま救急2","phone":"090-7299-1067"},{"dept":"大笠分遣隊","callsign":"なんしょうだいりゅうきゅうきゅう１","short":"南さつま救急1","phone":"080-1744-3673"},{"dept":"坊津分遣隊","callsign":"なんしょうぼうのつきゅうきゅう１","short":"南さつま救急1","phone":"080-1744-7612"},{"dept":"金峰分遣隊","callsign":"なんしょうきんぽうきゅうきゅう１","short":"南さつま救急1","phone":"090-2511-4528"}]},{"region":"鹿児島市","agency":"","vehicles":[{"dept":"中央本署救急","callsign":"きゅうきゅうちゅうおう１","short":"中央本署救急","phone":"080-8826-3550"},{"dept":"南林寺救急","callsign":"きゅうきゅうなんりんじ１","short":"南林寺救急","phone":"090-3199-9810"},{"dept":"上町救急","callsign":"きゅうきゅうかんまち１","short":"上町救急","phone":"090-4989-2581"},{"dept":"吉野救急","callsign":"きゅうきゅうよしの１","short":"吉野救急","phone":"090-3320-1993"},{"dept":"吉田救急","callsign":"きゅうきゅうよしだ１","short":"吉田救急","phone":"090-3320-1997"},{"dept":"甲南救急","callsign":"きゅうきゅうこうなん１","short":"甲南救急","phone":"090-3320-1995"},{"dept":"桜島東救急","callsign":"きゅうきゅうさくらじまひがし１","short":"桜島東救急","phone":"090-3320-1996"},{"dept":"桜島西救急","callsign":"きゅうきゅうさくらじまにし１","short":"桜島西救急","phone":"090-7989-5882"},{"dept":"西本署救急","callsign":"きゅうきゅうにし１","short":"西本署救急","phone":"090-5922-1297"},{"dept":"伊敷救急","callsign":"きゅうきゅういしき１","short":"伊敷救急","phone":"090-3320-1994"},{"dept":"松元救急","callsign":"きゅうきゅうまつもと１","short":"松元救急","phone":"080-1700-1297"},{"dept":"郡山救急","callsign":"きゅうきゅうこおりやま１","short":"郡山救急","phone":"080-1700-1997"},{"dept":"南本署救急","callsign":"きゅうきゅうみなみ１","short":"南本署救急","phone":"080-1711-4674"},{"dept":"谷山救急","callsign":"きゅうきゅうたにやま１","short":"谷山救急","phone":"080-8826-3487"},{"dept":"谷山北救急","callsign":"きゅうきゅうたにきた１","short":"谷山北救急","phone":"080-1700-0076"},{"dept":"郡元救急","callsign":"きゅうきゅうこおりもと１","short":"郡元救急","phone":"090-3320-1999"},{"dept":"喜入救急","callsign":"きゅうきゅうきいれ１","short":"喜入救急","phone":"080-1532-3666"},{"dept":"喜入救急予備","callsign":"きゅうきゅうきいれ４","short":"喜入救急予備","phone":"090-4587-2707"}]},{"region":"伊佐","agency":"","vehicles":[{"dept":"大口消防署","callsign":"伊佐救急１","short":"伊佐救急１","phone":"080-8956-1119"},{"dept":"大口消防署","callsign":"伊佐救急２","short":"伊佐救急２","phone":"080-8385-1119"},{"dept":"菱刈分遣所","callsign":"伊佐救急３","short":"伊佐救急３","phone":"090-6899-0195"},{"dept":"南消防署","callsign":"湧水救急１","short":"湧水救急１","phone":"090-3190-7550"},{"dept":"吉松分遣所","callsign":"湧水救急２","short":"湧水救急２","phone":"090-6899-0196"}]},{"region":"曽於","agency":"","vehicles":[{"dept":"曽於消防署","callsign":"曽於消救急１","short":"曽於消救急１","phone":"090-9560-5109"},{"dept":"曽於消防署","callsign":"曽於消救急２","short":"曽於消救急２","phone":"090-4510-0395"},{"dept":"末吉救急分駐所","callsign":"曽於消救急４","short":"曽於消救急４","phone":"080-1780-8632"},{"dept":"財部分署","callsign":"曽於消救急５","short":"曽於消救急５","phone":"080-1714-4901"},{"dept":"志布志消防署","callsign":"曽於消救急６","short":"曽於消救急６","phone":"090-7452-1807"},{"dept":"志布志消防署","callsign":"曽於消救急７","short":"曽於消救急７","phone":"080-1709-4183"},{"dept":"大崎分署","callsign":"曽於消救急９","short":"曽於消救急９","phone":"080-1780-8633"}]},{"region":"指宿","agency":"","vehicles":[{"dept":"指宿消防署","callsign":"いぶしょうきゅうきゅう１","short":"指宿救急1","phone":"090-5286-7084"},{"dept":"指宿消防署","callsign":"いぶしょうきゅうきゅう２","short":"指宿救急2","phone":"090-7162-3260"},{"dept":"山川・開聞分遣所","callsign":"いぶしょうきゅうきゅう３","short":"指宿救急3","phone":"090-3196-0864"},{"dept":"山川・開聞分遣所","callsign":"いぶしょうきゅうきゅう４","short":"指宿救急4","phone":"090-8910-1482"},{"dept":"頴娃分遣所","callsign":"いぶしょうきゅうきゅう５","short":"指宿救急5","phone":"090-4588-8201"},{"dept":"南九州消防署","callsign":"いぶしょうきゅうきゅう６","short":"指宿救急6","phone":"080-1535-5228"},{"dept":"南九州消防署","callsign":"いぶしょうきゅうきゅう７","short":"指宿救急7","phone":"080-1781-5865"},{"dept":"川辺分遣所","callsign":"いぶしょうきゅうきゅう８","short":"指宿救急8","phone":"080-1734-0249"}]},{"region":"いちき","agency":"","vehicles":[{"dept":"いちき串木野市消防署　本署","callsign":"い串消救急１","short":"い串消救急１","phone":"090-3321-5809"},{"dept":"いちき串木野市消防署　いちき分遣所","callsign":"い串消救急２","short":"い串消救急２","phone":"090-3326-0667"},{"dept":"いちき串木野市消防署　本署","callsign":"い串消救急３","short":"い串消救急３","phone":"080-1707-6054"}]},{"region":"肝属","agency":"","vehicles":[{"dept":"中央消防署","callsign":"中央救急１","short":"中央救急１","phone":"090-2711-1936"},{"dept":"中央消防署","callsign":"中央救急２","short":"中央救急２","phone":"090-7448-2032"},{"dept":"中央消防署","callsign":"中央救急３","short":"中央救急３","phone":"090-7983-9544"},{"dept":"東部消防署","callsign":"東部救急１","short":"東部救急１","phone":"090-5287-6118"},{"dept":"東部消防署","callsign":"東部救急２","short":"東部救急２","phone":"090-7444-2944"},{"dept":"南部消防署","callsign":"南部救急１","short":"南部救急１","phone":"090-3076-6176"},{"dept":"南部消防署","callsign":"南部救急２","short":"南部救急２","phone":"090-7985-3304"},{"dept":"輝北分署","callsign":"輝北救急１","short":"輝北救急１","phone":"080-1533-8507"},{"dept":"内之浦分署","callsign":"内之浦救急１","short":"内之浦救急１","phone":"090-2713-8824"},{"dept":"佐多分署","callsign":"佐多救急１","short":"佐多救急１","phone":"090-2391-3503"}]},{"region":"霧島","agency":"","vehicles":[{"dept":"中央署　霧消救急１","callsign":"きりしょうきゅうきゅう１","short":"中央署 霧消救急１","phone":"090-4343-3418"},{"dept":"中央署　　霧消救急３","callsign":"きりしょうきゅうきゅう３","short":"中央署  霧消救急３","phone":"080-1547-6652"},{"dept":"隼人分遣所　霧消救急２","callsign":"きりしょうきゅうきゅう２","short":"隼人分遣所 霧消救急２","phone":"080-1729-4368"},{"dept":"福山分遣所　霧消救急４","callsign":"きりしょうきゅうきゅう４","short":"福山分遣所 霧消救急４","phone":"080-1533-5611"},{"dept":"北署　霧消救急５","callsign":"きりしょうきゅうきゅう５","short":"北署 霧消救急５","phone":"090-8919-6778"},{"dept":"霧島分遣所　霧消救急６","callsign":"きりしょうきゅうきゅう６","short":"霧島分遣所 霧消救急６","phone":"090-5383-5674"},{"dept":"溝辺分遣所　霧消救急７","callsign":"きりしょうきゅうきゅう７","short":"溝辺分遣所 霧消救急７","phone":"090-9074-7202"},{"dept":"横川分遣所　霧消救急８","callsign":"きりしょうきゅうきゅう８","short":"横川分遣所 霧消救急８","phone":"090-9074-0758"}]},{"region":"日置","agency":"","vehicles":[{"dept":"日置市消防署","callsign":"日消救急１","short":"日消救急１","phone":"090-4991-4784"},{"dept":"日置市消防署","callsign":"日消救急２","short":"日消救急２","phone":"非常用車両"},{"dept":"北分遣所","callsign":"日消救急北１","short":"日消救急北１","phone":"090-2586-0809"},{"dept":"南分遣所","callsign":"日消救急南１","short":"日消救急南１","phone":"090-2505-3755"}]},{"region":"姶良","agency":"","vehicles":[{"dept":"中央消防署","callsign":"救急中央１","short":"救急中央１","phone":"080-2747-4600"},{"dept":"中央消防署","callsign":"救急中央３","short":"救急中央３","phone":"090-5924-4243"},{"dept":"姶良分遣所","callsign":"救急姶良１","short":"救急姶良１","phone":"090-3010-9181"},{"dept":"蒲生分遣所","callsign":"救急蒲生１","short":"救急蒲生１","phone":"090-7441-6280"}]}]};
 const AGE_RANGE_ITEMS = ['10代','20代','30代','40代','50代','60代','70代','80代','90代以上'];
 const SEX_ITEMS = ['男性','女性','不明'];
 const REQUEST_CONTENT_ITEMS = [
@@ -5240,39 +5271,165 @@ function updateDestinationDisplay() {
   if(h) { display.style.display = 'block'; selected.textContent = h; } else display.style.display = 'none';
 }
 
-function syncMciBannerToPatient() {
-  const elA = $('#mci_detail_age');
-  const elS = $('#mci_detail_sex');
-  if(!elA || !elS || !currentMciPatientId) return;
-  const p = getMciPatient(currentMciPatientId);
-  if(!p) return;
-  const hid = elA.value.trim();
-  if(/^\d+$/.test(hid)) p.age = hid;
-  else {
-    const cur = String(p.age || '').trim();
-    if(/^\d+$/.test(cur)) p.age = '';
-  }
-  p.sex = elS.value;
+function mciSexToPatientSex(sex) {
+  const s = (sex || '').trim();
+  if(s === '男') return '男性';
+  if(s === '女') return '女性';
+  return '不明';
 }
 
-function applyMciPatientLineToRequestDetail() {
+function mciAgeToPatientAge(age) {
+  return formatMciAgeSegment(age) === '年齢不詳' ? '' : formatMciAgeSegment(age);
+}
+
+function clearMciBannerDom() {
+  const inp = $('#mci_detail_age');
+  const sel = $('#mci_detail_sex');
+  if(inp) inp.value = '';
+  if(sel) sel.value = '';
+  refreshMciAgeBannerUI();
+}
+
+/** 詳細を開く・閉じる初期化中はバナー→カードへの書き戻しを抑止する */
+let mciDetailLoading = false;
+
+/** バナー入力をボード上の症例カード(p.age/p.sex)へ保存 */
+function persistMciBannerToCard(p) {
+  if(!p) return;
+  if(mciDetailLoading) return;
+  const elA = $('#mci_detail_age');
+  const elS = $('#mci_detail_sex');
+  if(elA) {
+    const hid = elA.value.trim();
+    p.age = /^\d+$/.test(hid) ? hid : '';
+  }
+  if(elS) p.sex = elS.value;
+}
+
+function syncMciBannerToPatient() {
+  const p = currentMciPatientId ? getMciPatient(currentMciPatientId) : null;
+  if(!p) return;
+  persistMciBannerToCard(p);
+}
+
+/** バナーの年齢性別を要請タブの患者情報（非表示欄）と state 用表示に同期 */
+function applyMciBannerToPatientForm() {
+  if(!mciDetailRecordMode || !currentMciPatientId) return;
+  syncMciBannerToPatient();
   const p = getMciPatient(currentMciPatientId);
+  if(!p) return;
+  const ageStr = mciAgeToPatientAge(p.age);
+  const sexStr = mciSexToPatientSex(p.sex);
+  if($('#patient_age')) $('#patient_age').value = ageStr;
+  if($('#patient_sex')) $('#patient_sex').value = sexStr;
+  if(state && state.patient) {
+    state.patient.age = ageStr;
+    state.patient.sex = sexStr;
+  }
+  syncPickerExpandedFromValues();
+}
+
+function updateMciDetailDemographicsUI() {
+  const block = $('#patient_demographics_block');
+  const hint = $('#patient_demographics_mci_hint');
+  const hide = !!mciDetailRecordMode;
+  if(block) block.style.display = hide ? 'none' : '';
+  if(hint) hint.hidden = !hide;
+}
+
+function buildMciPatientRequestLine(p) {
+  if(!p) return '';
+  const tagLabel = MCI_TAGS[p.tag]?.label || '未分類';
+  return `【トリアージ区分：${tagLabel}】No.${p.id} ${formatMciAgeSegment(p.age)}/${p.sex || '性別不詳'}`;
+}
+
+function patchMciRequestDetailLines(detailText, p) {
+  const patientLine = buildMciPatientRequestLine(p);
+  if(!patientLine) return detailText || '';
+  const lines = (detailText || '').split('\n');
+  const idx = lines.findIndex(l => l.includes(`No.${p.id}`) && l.includes('トリアージ'));
+  if(idx >= 0) lines[idx] = patientLine;
+  else lines.unshift(patientLine);
+  return lines.join('\n');
+}
+
+function mciCardHasDemographics(p) {
+  const age = p && p.age != null ? String(p.age).trim() : '';
+  const sex = p && p.sex != null ? String(p.sex).trim() : '';
+  return age !== '' || sex !== '';
+}
+
+/** 保存済み detailState からボードカード(p.age/p.sex)を復元 */
+function syncMciCardDemographicsFromDetailState(p) {
+  if(!p?.detailState?.patient) return;
+  if(mciCardHasDemographics(p)) return;
+  const pat = p.detailState.patient;
+  const ageLabel = (pat.age || '').trim();
+  const m = ageLabel.match(/^(\d+)歳/);
+  if(m) p.age = m[1];
+  else if(/^\d+$/.test(ageLabel)) p.age = ageLabel;
+  const sexLabel = pat.sex || '';
+  if(sexLabel === '男性') p.sex = '男';
+  else if(sexLabel === '女性') p.sex = '女';
+  else if(sexLabel && sexLabel !== '不明') p.sex = sexLabel;
+}
+
+/** カードに値があるときだけ detailState の年齢性別を更新（空カードで保存内容を消さない） */
+function mergeMciCardDemographicsIntoDetailState(p) {
+  if(!p) return;
+  if(!p.detailState) p.detailState = createMciDetailState(p);
+  syncMciCardDemographicsFromDetailState(p);
+  if(!mciCardHasDemographics(p)) return;
+  const ageStr = mciAgeToPatientAge(p.age);
+  const sexStr = mciSexToPatientSex(p.sex);
+  if(!p.detailState.patient) p.detailState.patient = {};
+  p.detailState.patient.age = ageStr;
+  p.detailState.patient.sex = sexStr;
+  if(!p.detailState.request) p.detailState.request = {type:'', detail:'', time:'', precedingTeam:''};
+  p.detailState.request.detail = patchMciRequestDetailLines(p.detailState.request.detail, p);
+}
+
+function resetMciBannerFromPatient(p) {
+  const inp = $('#mci_detail_age');
+  const sel = $('#mci_detail_sex');
+  if(inp) inp.value = getMciConfirmedAgeDigits(p);
+  if(sel) sel.value = p && p.sex != null ? String(p.sex) : '';
+  refreshMciAgeBannerUI();
+}
+
+/** ボードカードの年齢性別のみを詳細画面へ反映（バナー→カード方向はここでは行わない） */
+function loadMciDetailDemographicsFromCard(p) {
+  if(!p) return;
+  syncMciCardDemographicsFromDetailState(p);
+  const ageStr = mciAgeToPatientAge(p.age);
+  const sexStr = mciSexToPatientSex(p.sex);
+  resetMciBannerFromPatient(p);
+  if(state && state.patient) {
+    state.patient.age = ageStr;
+    state.patient.sex = sexStr;
+  }
+  if($('#patient_age')) $('#patient_age').value = ageStr;
+  if($('#patient_sex')) $('#patient_sex').value = sexStr;
+  const ta = $('#request_detail');
+  if(ta) {
+    ta.value = patchMciRequestDetailLines(ta.value, p);
+    if(state && state.request) state.request.detail = ta.value;
+  }
+  syncPickerExpandedFromValues();
+}
+
+function applyMciPatientLineToRequestDetail(pOverride) {
+  const p = pOverride || getMciPatient(currentMciPatientId);
   if(!p) return;
   const ta = $('#request_detail');
   if(!ta) return;
-  const tagLabel = MCI_TAGS[p.tag]?.label || '未分類';
-  const patientLine = `【トリアージ区分：${tagLabel}】No.${p.id} ${formatMciAgeSegment(p.age)}/${p.sex || '性別不詳'}`;
-  const lines = (ta.value || '').split('\n');
-  const idx = lines.findIndex(l => l.includes(`No.${p.id}`) && l.includes('トリアージ'));
-  if(idx >= 0) lines[idx] = patientLine;
-  else if(lines.length && lines[0].includes('【トリアージ区分')) lines[0] = patientLine;
-  else lines.unshift(patientLine);
-  ta.value = lines.join('\n');
+  ta.value = patchMciRequestDetailLines(ta.value, p);
+  if(state && state.request) state.request.detail = ta.value;
 }
 
 function updateState() {
   if(mciDetailRecordMode && currentMciPatientId) {
-    syncMciBannerToPatient();
+    applyMciBannerToPatientForm();
     applyMciPatientLineToRequestDetail();
   }
   state.request = {type:$('#request_type').value, detail:$('#request_detail').value, time:$('#request_time').value, precedingTeam:$('#preceding_ems_team').value};
@@ -5408,7 +5565,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.4\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.5\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
@@ -5630,7 +5787,9 @@ function clearHeliDraftStorage() {
 function resetData() {
   if (!confirm('活動記録・多数傷・連携下書きをすべて消去します。よろしいですか？')) return;
   clearHeliDraftStorage();
-  location.reload();
+  const url = new URL(location.href);
+  url.searchParams.delete('tab');
+  location.replace(url.pathname + url.search + url.hash);
 }
 
 function restoreUI() {
@@ -5919,10 +6078,9 @@ function recordStateHasContent(data) {
 }
 
 function buildMciPatientIntro(p) {
-  const tagLabel = MCI_TAGS[p.tag]?.label || '未分類';
   const common = [mci.incident.commonText, mci.incident.extraText].filter(Boolean).join('\n');
   return [
-    `【トリアージ区分：${tagLabel}】No.${p.id} ${formatMciAgeSegment(p.age)}/${p.sex || '性別不詳'}`,
+    buildMciPatientRequestLine(p),
     common,
     p.injury.length ? `受傷部位：${p.injury.join('、')}` : '',
     p.treatment.length ? `処置：${p.treatment.join('、')}` : '',
@@ -5948,18 +6106,23 @@ function createMciDetailState(p) {
     if(data.ems.procedures_items.includes(item)) data.ems.procedures[item] = true;
     if(data.fd.procedures_items.includes(item)) data.fd.procedures[item] = true;
   });
+  data.patient.age = mciAgeToPatientAge(p.age);
+  data.patient.sex = mciSexToPatientSex(p.sex);
   return data;
 }
 
 function saveCurrentMciDetailRecord() {
   if(!mciDetailRecordMode || !currentMciPatientId) return;
-  syncMciBannerToPatient();
+  const pSave = getMciPatient(currentMciPatientId);
+  persistMciBannerToCard(pSave);
+  applyMciBannerToPatientForm();
   applyMciPatientLineToRequestDetail();
   if(state && state.request) state.request.detail = $('#request_detail').value;
   const p = getMciPatient(currentMciPatientId);
   if(!p) return;
   p.detailState = cloneRecordState(state);
   p.hasDetailTab = true;
+  syncMciCardDemographicsFromDetailState(p);
   syncMciPatientCardFromDetail(p);
   saveMciState();
 }
@@ -6116,8 +6279,11 @@ function switchAppMode(forceMode) {
   setReferralBottomNavVisible(false);
   setMainTabBarVisible(!isMci);
   $('#mciDetailRecordBanner').style.display = 'none';
+  updateMciDetailDemographicsUI();
   $('#modeToggleBtn').textContent = isMci ? '通常' : '多数傷';
   $('#modeToggleBtn').classList.toggle('active', isMci);
+  updateMciModeChrome();
+  if (isMci) scrollAppToTop();
   if(leavingMciDetailForm) {
     state = cloneRecordState(normalRecordState);
     restoreUI();
@@ -6233,12 +6399,13 @@ function toggleMciPatientCard(id) {
 
 function openMciBoard() {
   const leavingMciDetailForm = mciDetailRecordMode;
-  if(mciDetailRecordMode) {
-    updateState();
+  if(mciDetailRecordMode && currentMciPatientId) {
+    saveCurrentMciDetailRecord();
     mciDetailRecordMode = false;
   } else {
     updateCurrentMciPatientFromUI();
   }
+  clearMciBannerDom();
   currentMciPatientId = null;
   mci.activeTab = 'board';
   saveMciState();
@@ -6248,6 +6415,7 @@ function openMciBoard() {
   $('#mciBoardPanel').style.display = 'block';
   $('#mciPatientPanel').classList.remove('active');
   $('#mciDetailRecordBanner').style.display = 'none';
+  updateMciDetailDemographicsUI();
   $('#bottomNav').style.display = 'none';
   $('#mciBottomNav').style.display = 'flex';
   setMciBottomNavVisible(true);
@@ -6256,22 +6424,23 @@ function openMciBoard() {
     state = cloneRecordState(normalRecordState);
     restoreUI();
   }
+  updateMciModeChrome();
   renderMci();
 }
 
 function openMciPatient(id) {
-  if(mciDetailRecordMode) {
-    updateState();
+  const nextId = Number(id);
+  if(mciDetailRecordMode && currentMciPatientId && currentMciPatientId !== nextId) {
     saveCurrentMciDetailRecord();
   } else if(currentAppMode === 'normal') {
     updateState();
     normalRecordState = cloneRecordState(state);
   }
-  const p = getMciPatient(id);
+  const p = getMciPatient(nextId);
   if(!p) return;
   p.hasDetailTab = true;
-  if(!p.detailState) p.detailState = createMciDetailState(p);
-  currentMciPatientId = id;
+  mergeMciCardDemographicsIntoDetailState(p);
+  currentMciPatientId = nextId;
   mci.activeTab = String(id);
   currentAppMode = 'mci';
   mciDetailRecordMode = true;
@@ -6291,12 +6460,20 @@ function openMciPatient(id) {
   $('#mciDetailRecordSub').textContent = 'この通常記録フォームの入力内容は、この傷病者に個別保存されます。救急隊・FDの検査・処置・薬剤は下へスクロールするとあります。';
   $('#modeToggleBtn').textContent = '通常';
   $('#modeToggleBtn').classList.add('active');
-  restoreUI();
-  if($('#mci_detail_age')) $('#mci_detail_age').value = getMciConfirmedAgeDigits(p);
-  refreshMciAgeBannerUI();
-  if($('#mci_detail_sex')) $('#mci_detail_sex').value = p.sex || '';
-  renderMciTabs();
-  switchTab('request');
+  /* バナー DOM を p の値で先に埋める。restoreUI 内 toggleAbg→updateState が走っても
+     persistMciBannerToCard が空で p.age/p.sex を消さないようにするため。 */
+  mciDetailLoading = true;
+  try {
+    resetMciBannerFromPatient(p);
+    restoreUI();
+    loadMciDetailDemographicsFromCard(p);
+    updateMciDetailDemographicsUI();
+    renderMciTabs();
+    switchTab('request');
+    updateMciModeChrome();
+  } finally {
+    mciDetailLoading = false;
+  }
   scrollMainRecordViewToTop();
 }
 
@@ -6436,13 +6613,18 @@ function renderMci() {
 
 function renderMciTabs() {
   const tabs = $('#mciTabs');
+  const sticky = document.querySelector('.mci-tabs-sticky');
   if(!tabs) return;
   const withDetail = mci.patients.filter(p => p.hasDetailTab);
+  const onBoard = mci.activeTab === 'board';
+  /* ボードのみのときは「多数傷」タブ1個だけになり画面中央に浮いて邪魔になるため非表示 */
+  const showSticky = !onBoard || withDetail.length > 0;
+  if(sticky) sticky.classList.toggle('is-hidden', !showSticky);
   const patientTabs = withDetail.map(p => {
     const tag = MCI_TAGS[p.tag] || MCI_TAGS[''];
     return `<button type="button" class="mci-tab ${tag.className} ${mci.activeTab === String(p.id) ? 'active' : ''}" onclick="openMciPatient(${p.id})">${tag.icon}<span>No.${p.id}</span><span class="mci-tab-text--suffix">詳細</span></button>`;
   }).join('');
-  tabs.innerHTML = `<button type="button" class="mci-tab ${mci.activeTab === 'board' ? 'active' : ''}" onclick="openMciBoard()">多数傷</button>${patientTabs}`;
+  tabs.innerHTML = `<button type="button" class="mci-tab ${mci.activeTab === 'board' ? 'active' : ''}" onclick="openMciBoard()">ボード</button>${patientTabs}`;
   const hint = $('#mciTabsHint');
   if(hint) hint.hidden = withDetail.length === 0;
 }
@@ -6617,6 +6799,8 @@ function resetMciBoardExecute() {
   setMciBottomNavVisible(true);
   $('#modeToggleBtn').textContent = '通常';
   $('#modeToggleBtn').classList.add('active');
+  setMainTabBarVisible(false);
+  updateMciModeChrome();
   saveMciState();
   renderMci();
 }
@@ -6671,14 +6855,27 @@ function init() {
   bindFdExamFormEvents();
   updateStrokeNotifyButtonVisibility();
   try {
-    const tabParam = new URLSearchParams(location.search).get('tab');
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
     if (tabParam === 'fd') {
       switchTab('fd');
       const exam = state.fd?.exam_tab || 'general';
       const fdTab = document.querySelector(`#fd_examTabs .exam-tab[data-exam="${exam}"]`);
       if (fdTab) fdTab.click();
+    } else {
+      switchTab('request');
+      scrollAppToTop();
     }
-  } catch { /* noop */ }
+    if (tabParam) {
+      params.delete('tab');
+      const qs = params.toString();
+      const newUrl = location.pathname + (qs ? '?' + qs : '') + location.hash;
+      history.replaceState({}, '', newUrl);
+    }
+  } catch {
+    switchTab('request');
+    scrollAppToTop();
+  }
 }
 // 紹介状送信先Gmailアドレス（ここに指定したアドレスを書き込む）
 const REFERRAL_EMAIL = 'kchcenter.drheli.drcar@gmail.com'; // ← ここに送信先Gmailアドレスを記入してください
