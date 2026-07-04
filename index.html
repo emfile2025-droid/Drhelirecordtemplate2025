@@ -2715,18 +2715,38 @@ function openVitalDial(type, idx, field) {
   const v = state[type].vitals[idx];
   let wheels = [];
   let title = '';
+  let opts = null;
   
+  const getDigitWheels = (val, digits, maxHundreds) => {
+    let numStr = String(val);
+    if(numStr === 'undefined' || numStr === 'null' || numStr === '') numStr = '0';
+    numStr = numStr.padStart(digits, '0');
+    const parts = numStr.split('');
+    const d09 = Array.from({length:10}, (_,i)=>({label:i.toString(), value:i.toString()}));
+    const wArr = [];
+    if (digits >= 3) wArr.push({ narrow: true, options: Array.from({length:maxHundreds+1}, (_,i)=>({label:i.toString(), value:i.toString()})), selected: parts[parts.length-3] });
+    if (digits >= 2) wArr.push({ narrow: true, options: d09, selected: parts[parts.length-2] });
+    wArr.push({ narrow: true, options: d09, selected: parts[parts.length-1] });
+    return wArr;
+  };
+
   switch(field) {
     case 'bp':
       title = '血圧';
-      wheels = [
-        {options: genRange(0, 250, 1), selected: v.sbp, unit: '/'},
-        {options: genRange(0, 150, 1), selected: v.dbp, unit: 'mmHg'}
-      ];
+      const sbpWheels = getDigitWheels(v.sbp || 120, 3, 2);
+      const dbpWheels = getDigitWheels(v.dbp || 80, 3, 2);
+      sbpWheels[2].unit = '/';
+      dbpWheels[0].sepBefore = ' ';
+      dbpWheels[2].unit = 'mmHg';
+      wheels = [...sbpWheels, ...dbpWheels];
+      opts = { compact: true };
       break;
     case 'hr':
       title = '心拍数';
-      wheels = [{options: genRange(0, 250, 1), selected: v.hr, unit: 'bpm'}];
+      const hrWheels = getDigitWheels(v.hr || 80, 3, 2);
+      hrWheels[2].unit = 'bpm';
+      wheels = hrWheels;
+      opts = { compact: true };
       break;
     case 'rr':
       title = '呼吸数';
@@ -2764,8 +2784,13 @@ function openVitalDial(type, idx, field) {
   
   openDial(title, wheels, vals => {
     switch(field) {
-      case 'bp': v.sbp = vals[0]; v.dbp = vals[1]; break;
-      case 'hr': v.hr = vals[0]; break;
+      case 'bp': 
+        v.sbp = parseInt(vals.slice(0,3).join(''), 10); 
+        v.dbp = parseInt(vals.slice(3,6).join(''), 10); 
+        break;
+      case 'hr': 
+        v.hr = parseInt(vals.join(''), 10); 
+        break;
       case 'rr': v.rr = vals[0]; break;
       case 'spo2': v.spo2 = vals[0]; break;
       case 'bt': v.bt = vals[0]; break;
@@ -2777,7 +2802,7 @@ function openVitalDial(type, idx, field) {
     if(type === 'ems') renderEmsVitals();
     else renderFdVitals();
     updateState();
-  });
+  }, opts);
 }
 
 function genRange(from, to, step) {
@@ -4959,10 +4984,12 @@ function getSelectedCallsigns() {
 }
 
 function togglePrecedingCallsign(callsign) {
-  const next = new Set(getSelectedCallsigns());
-  if (next.has(callsign)) next.delete(callsign);
-  else next.add(callsign);
-  setPrecedingTeamText(Array.from(next).join('、'));
+  const current = getSelectedCallsigns()[0];
+  if (current === callsign) {
+    setPrecedingTeamText('');
+  } else {
+    setPrecedingTeamText(callsign);
+  }
   renderPrecedingCallsignPicker();
   updateState();
 }
@@ -5003,14 +5030,63 @@ function renderPrecedingCallsignPicker() {
   const titleEl = $('#preceding_vehicle_panel_title');
   if (!regionEl || typeof CALLSIGN_MASTER === 'undefined') return;
 
-  regionEl.innerHTML = '';
-  (CALLSIGN_MASTER.regions || []).forEach(reg => {
+  const selected = getSelectedCallsigns();
+  if (selected.length > 0) {
+    regionEl.innerHTML = '';
+    if (panel) panel.style.display = 'none';
+
     const chip = document.createElement('div');
-    chip.className = 'chip region-chip' + (precedingCallsignOpenRegion === reg.region ? ' active' : '');
-    chip.textContent = formatCallsignRegionLabel(reg);
-    chip.onclick = () => togglePrecedingRegion(reg.region);
+    chip.className = 'chip active proc';
+    chip.textContent = selected[0];
+    chip.onclick = () => {
+      setPrecedingTeamText('');
+      renderPrecedingCallsignPicker();
+      updateState();
+    };
     regionEl.appendChild(chip);
-  });
+
+    const changeBtn = document.createElement('div');
+    changeBtn.className = 'chip';
+    changeBtn.style.cssText = 'background:#f3f4f6;color:#6b7280;border:1.5px solid #d1d5db';
+    changeBtn.textContent = '変更';
+    changeBtn.onclick = () => {
+      setPrecedingTeamText('');
+      renderPrecedingCallsignPicker();
+      updateState();
+    };
+    regionEl.appendChild(changeBtn);
+    return;
+  }
+
+  regionEl.innerHTML = '';
+  if (precedingCallsignOpenRegion) {
+    const reg = (CALLSIGN_MASTER.regions || []).find(r => r.region === precedingCallsignOpenRegion);
+    if (reg) {
+      const chip = document.createElement('div');
+      chip.className = 'chip region-chip active';
+      chip.textContent = formatCallsignRegionLabel(reg);
+      chip.onclick = () => togglePrecedingRegion(reg.region);
+      regionEl.appendChild(chip);
+
+      const changeBtn = document.createElement('div');
+      changeBtn.className = 'chip';
+      changeBtn.style.cssText = 'background:#f3f4f6;color:#6b7280;border:1.5px solid #d1d5db';
+      changeBtn.textContent = '変更';
+      changeBtn.onclick = () => {
+        precedingCallsignOpenRegion = null;
+        renderPrecedingCallsignPicker();
+      };
+      regionEl.appendChild(changeBtn);
+    }
+  } else {
+    (CALLSIGN_MASTER.regions || []).forEach(reg => {
+      const chip = document.createElement('div');
+      chip.className = 'chip region-chip';
+      chip.textContent = formatCallsignRegionLabel(reg);
+      chip.onclick = () => togglePrecedingRegion(reg.region);
+      regionEl.appendChild(chip);
+    });
+  }
 
   const openReg = (CALLSIGN_MASTER.regions || []).find(r => r.region === precedingCallsignOpenRegion);
   if (!openReg || !panel || !vehicleEl) {
