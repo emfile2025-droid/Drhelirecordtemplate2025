@@ -6960,12 +6960,10 @@ function sendReferralEmail() {
   }
 
   const subject = encodeURIComponent('診療情報提供書');
-  const instruction = '※紹介状本文はクリップボードにコピーされています。\nここに「ペースト（貼り付け）」をして送信してください。\n\n--------------------------------\n\n';
-  const shortBody = encodeURIComponent(instruction);
-  const mailtoLink = `mailto:${REFERRAL_EMAIL}?bcc=${BCC_EMAIL}&subject=${subject}&body=${shortBody}`;
+  const mailtoLink = `mailto:${REFERRAL_EMAIL}?bcc=${BCC_EMAIL}&subject=${subject}`;
 
   const done = () => {
-    alert('紹介状本文をコピーしました。\nメールアプリが開いたら、本文エリアに「貼り付け」をして送信してください。');
+    alert('紹介状本文のコピーが完了しました。\n\nメールアプリが起動します。\n本文は空の状態になりますので、画面をタップして「ペースト（貼り付け）」を行ってから送信してください。');
     window.location.href = mailtoLink;
   };
 
