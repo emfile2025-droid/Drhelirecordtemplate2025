@@ -2736,9 +2736,8 @@ function openVitalDial(type, idx, field) {
       const sbpWheels = getDigitWheels(v.sbp || 120, 3, 2);
       const dbpWheels = getDigitWheels(v.dbp || 80, 3, 2);
       sbpWheels[2].unit = '/';
-      dbpWheels[0].sepBefore = ' ';
       dbpWheels[2].unit = 'mmHg';
-      wheels = [...sbpWheels, ...dbpWheels];
+      wheels = [...sbpWheels, { sepBefore: ' ' }, ...dbpWheels];
       opts = { compact: true };
       break;
     case 'hr':
@@ -3621,6 +3620,7 @@ document.addEventListener('focusin', (e) => {
     const baseTime = getBaseTimeForInput(e.target);
     if (baseTime) {
       e.target.value = baseTime;
+      e.target.dispatchEvent(new Event('change', { bubbles: true }));
       if(typeof updateState === 'function') updateState();
     }
   }
