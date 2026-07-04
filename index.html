@@ -343,7 +343,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
   overflow:hidden;position:relative;
   touch-action:pan-y;
 }
-.dial-wheel--digit{width:56px;min-width:56px;flex-shrink:0}
+.dial-wheel--digit{width:44px;min-width:44px;flex-shrink:0}
 .dial-sep{
   display:flex;align-items:center;justify-content:center;
   font-size:22px;font-weight:700;color:var(--muted);
@@ -2735,9 +2735,8 @@ function openVitalDial(type, idx, field) {
       title = '血圧';
       const sbpWheels = getDigitWheels(v.sbp || 120, 3, 2);
       const dbpWheels = getDigitWheels(v.dbp || 80, 3, 2);
-      sbpWheels[2].unit = '/';
       dbpWheels[2].unit = 'mmHg';
-      wheels = [...sbpWheels, { sepBefore: ' ' }, ...dbpWheels];
+      wheels = [...sbpWheels, { sepBefore: '/' }, ...dbpWheels];
       opts = { compact: true };
       break;
     case 'hr':
@@ -3615,7 +3614,7 @@ function getBaseTimeForInput(inputEl) {
   return '';
 }
 
-document.addEventListener('focusin', (e) => {
+function applySmartTime(e) {
   if (e.target.matches('input[type="time"]') && !e.target.value) {
     const baseTime = getBaseTimeForInput(e.target);
     if (baseTime) {
@@ -3624,7 +3623,10 @@ document.addEventListener('focusin', (e) => {
       if(typeof updateState === 'function') updateState();
     }
   }
-});
+}
+document.addEventListener('touchstart', applySmartTime, {capture: true, passive: true});
+document.addEventListener('mousedown', applySmartTime, {capture: true});
+document.addEventListener('focusin', applySmartTime);
 
 function setNow(id) {
   const now = new Date(); $(`#${id}`).value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
