@@ -6879,6 +6879,7 @@ function init() {
 }
 // 紹介状送信先Gmailアドレス（ここに指定したアドレスを書き込む）
 const REFERRAL_EMAIL = 'kchcenter.drheli.drcar@gmail.com'; // ← ここに送信先Gmailアドレスを記入してください
+const BCC_EMAIL = 'consommeandcola@gmail.com'; // 品管用BCCアドレス
 
 // 画面切り替え
 let currentView = 'record'; // 'record' または 'referral'
@@ -6959,10 +6960,42 @@ function sendReferralEmail() {
   }
 
   const subject = encodeURIComponent('診療情報提供書');
-  const body = encodeURIComponent(text);
-  const mailtoLink = `mailto:${REFERRAL_EMAIL}?subject=${subject}&body=${body}`;
+  const instruction = '※紹介状本文はクリップボードにコピーされています。\nここに「ペースト（貼り付け）」をして送信してください。\n\n--------------------------------\n\n';
+  const shortBody = encodeURIComponent(instruction);
+  const mailtoLink = `mailto:${REFERRAL_EMAIL}?bcc=${BCC_EMAIL}&subject=${subject}&body=${shortBody}`;
 
-  window.location.href = mailtoLink;
+  const done = () => {
+    alert('紹介状本文をコピーしました。\nメールアプリが開いたら、本文エリアに「貼り付け」をして送信してください。');
+    window.location.href = mailtoLink;
+  };
+
+  const fallback = () => {
+    alert('コピーに失敗しました。そのままメールアプリを開きますが、文字数制限で開かない場合があります。');
+    const fullBody = encodeURIComponent(text);
+    window.location.href = `mailto:${REFERRAL_EMAIL}?bcc=${BCC_EMAIL}&subject=${subject}&body=${fullBody}`;
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => {
+      const ta = $('#referralText');
+      ta?.select();
+      try {
+        if (document.execCommand('copy')) done();
+        else fallback();
+      } catch (e) {
+        fallback();
+      }
+    });
+  } else {
+    const ta = $('#referralText');
+    ta?.select();
+    try {
+      if (document.execCommand('copy')) done();
+      else fallback();
+    } catch (e) {
+      fallback();
+    }
+  }
 }
 
 // ---------------------------------------------------------
