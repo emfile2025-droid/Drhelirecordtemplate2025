@@ -3512,7 +3512,7 @@ function createVitalCard(type, idx, v) {
   const gcsSum = gcs.v === 'T' ? `${gcs.e + gcs.m}T` : (gcs.e + (parseInt(gcs.v)||0) + gcs.m);
   const spo2Display = v.spo2 === 0 ? '--' : (v.spo2 ?? '--');
   card.innerHTML = `
-    <div class="vital-header"><div class="vital-time"><input type="time" value="${v.time}" onchange="state.${type}.vitals[${idx}].time=this.value;updateState()"></div>
+    <div class="vital-header"><div class="vital-time"><input type="time" id="${type}_vital_time_${idx}" value="${v.time}" onchange="state.${type}.vitals[${idx}].time=this.value;updateState()"></div>
       <button class="vital-del" onclick="removeVital('${type}',${idx})">削除</button></div>
     <div class="vital-grid">
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'bp')"><div class="vital-label">BP</div><div class="vital-value">${v.sbp}/${v.dbp}</div><div class="vital-unit">mmHg</div></div>
@@ -3526,6 +3526,80 @@ function createVitalCard(type, idx, v) {
         <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_m')"><span class="lbl">M</span><span class="val">${gcs.m}</span></div><div class="gcs-sum">${gcsSum}</div></div>
     </div>`; return card;
 }
+
+// スマート時刻入力: 空の時刻フィールドがタップ（フォーカス）された時、直前の関連時刻を初期値としてセットする
+function getBaseTimeForInput(inputEl) {
+  if (inputEl.id.startsWith('ems_vital_time_')) {
+    const tab = inputEl.closest('.tab-content');
+    if (tab) {
+      const vitals = Array.from(tab.querySelectorAll('input[type="time"]'));
+      const myIndex = vitals.indexOf(inputEl);
+      for(let i = myIndex - 1; i >= 0; i--) {
+        if(vitals[i].id.startsWith('ems_vital_time_') && vitals[i].value) return vitals[i].value;
+      }
+    }
+    const emsContact = document.getElementById('ems_contact');
+    if (emsContact && emsContact.value) return emsContact.value;
+  }
+  
+  if (inputEl.id.startsWith('fd_vital_time_')) {
+    const tab = inputEl.closest('.tab-content');
+    if (tab) {
+      const vitals = Array.from(tab.querySelectorAll('input[type="time"]'));
+      const myIndex = vitals.indexOf(inputEl);
+      for(let i = myIndex - 1; i >= 0; i--) {
+        if(vitals[i].id.startsWith('fd_vital_time_') && vitals[i].value) return vitals[i].value;
+      }
+    }
+    const fdContact = document.getElementById('fd_contact');
+    if (fdContact && fdContact.value) return fdContact.value;
+  }
+
+  const fallbacks = {
+    'heli_takeoff': 'request_time',
+    'heli_lz_landing': 'heli_takeoff',
+    'fd_contact': 'heli_lz_landing',
+    'transport_takeoff': 'fd_contact',
+    'hospital_arrival': 'transport_takeoff',
+    
+    'ems_arrival': 'ems_aware',
+    'ems_contact': 'ems_arrival',
+    'ems_lz': 'ems_contact'
+  };
+
+  let currentId = inputEl.id;
+  while (fallbacks[currentId]) {
+    const fallbackId = fallbacks[currentId];
+    const fallbackEl = document.getElementById(fallbackId);
+    if (fallbackEl && fallbackEl.value) {
+      return fallbackEl.value;
+    }
+    currentId = fallbackId;
+  }
+
+  const tab = inputEl.closest('.tab-content');
+  if (tab) {
+    const allTimeInputs = Array.from(tab.querySelectorAll('input[type="time"]'));
+    const myIndex = allTimeInputs.indexOf(inputEl);
+    for (let i = myIndex - 1; i >= 0; i--) {
+      if (allTimeInputs[i].value) {
+        return allTimeInputs[i].value;
+      }
+    }
+  }
+
+  return '';
+}
+
+document.addEventListener('focusin', (e) => {
+  if (e.target.matches('input[type="time"]') && !e.target.value) {
+    const baseTime = getBaseTimeForInput(e.target);
+    if (baseTime) {
+      e.target.value = baseTime;
+      if(typeof updateState === 'function') updateState();
+    }
+  }
+});
 
 function setNow(id) {
   const now = new Date(); $(`#${id}`).value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -4245,10 +4319,9 @@ window.openIntubationDial = () => { // グローバル化
   // state.fd.intubationの存在を保証
   if (!state.fd.intubation) state.fd.intubation = {time: '', size: '7.0'};
   
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const currentTime = state.fd.intubation.time || `${hh}:${mm}`;
+  const fdContact = document.getElementById('fd_contact');
+  const fallback = (fdContact && fdContact.value) ? fdContact.value : `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
+  const currentTime = state.fd.intubation.time || fallback;
   const [h, m] = currentTime.split(':');
   
   const sizes = [];
