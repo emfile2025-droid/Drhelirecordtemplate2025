@@ -388,6 +388,18 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
   font-size:14px;color:var(--muted);
   align-self:center;
 }
+.dial-missing-actions{
+  display:flex;gap:8px;justify-content:center;
+  padding:0 20px 18px;
+}
+.dial-missing-btn{
+  width:auto;min-width:92px;
+  border:1.5px solid var(--line);border-radius:10px;
+  background:#fff;color:var(--ink);
+  padding:10px 14px;font-size:14px;font-weight:700;
+}
+.dial-missing-btn:active{transform:scale(0.97);background:var(--chip)}
+.vital-item.is-missing .vital-value{color:var(--muted);font-size:18px}
 
 /* 所見タブ */
 .exam-tabs{
@@ -807,11 +819,19 @@ div.card-body > div[style*="display:flex"] .btn.small {
 
 /* 広い画面ではカードを読みやすく */
 @media (min-width: 960px){
-  main{max-width:1280px;margin:0 auto;padding:16px}
+  header{padding-left:max(16px,calc((100vw - 1280px)/2 + 16px));padding-right:max(16px,calc((100vw - 1280px)/2 + 16px))}
+  main#mainRecordView,
+  main#modeMCI,
+  main#referralView{
+    left:50%;right:auto;
+    width:min(100vw,1280px);
+    transform:translateX(-50%);
+    padding:18px 20px;
+  }
   .tab-content.active{
     display:grid;
     grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:12px;
+    gap:16px;
     align-items:start;
   }
   .tab-content.active .card{
@@ -819,6 +839,25 @@ div.card-body > div[style*="display:flex"] .btn.small {
   }
   .result{
     min-height:420px;
+  }
+  .vital-grid{grid-template-columns:repeat(6,1fr)}
+  .vital-gcs{grid-column:span 6}
+  .tab-bar{
+    left:50%;right:auto;
+    width:min(100vw,1280px);
+    transform:translateX(-50%);
+    border-left:0.5px solid var(--line);
+    border-right:0.5px solid var(--line);
+  }
+}
+
+@media (min-width: 1180px){
+  .tab-content.active{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .tab-content.active[data-tab="output"],
+  .tab-content.active[data-tab="referral-tab"]{
+    grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
 
@@ -2468,6 +2507,7 @@ function openDial(title, wheels, callback, opts) {
   dialWheels = wheels.filter(w => w && w.options);
   $('#dialTitle').textContent = title;
   const body = $('#dialBody');
+  document.querySelectorAll('.dial-missing-actions').forEach(el => el.remove());
   body.innerHTML = '';
   body.className = opts && opts.compact ? 'dial-body dial-body--abg' : 'dial-body';
   
@@ -2519,6 +2559,8 @@ function openDial(title, wheels, callback, opts) {
     let currentOffset = -currentIndex * 40;
     let velocityY = 0;
     let animationId = null;
+    let wheelDeltaBuffer = 0;
+    let lastWheelStepAt = 0;
     
     const stopAnimation = () => {
       if(animationId) {
@@ -2627,7 +2669,15 @@ function openDial(title, wheels, callback, opts) {
       e.preventDefault();
       stopAnimation();
       scroll.style.transition = 'none';
-      const delta = e.deltaY > 0 ? 1 : -1;
+      const multiplier = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? 80 : 1);
+      wheelDeltaBuffer += e.deltaY * multiplier;
+      const threshold = 120;
+      if(Math.abs(wheelDeltaBuffer) < threshold) return;
+      const now = Date.now();
+      if(now - lastWheelStepAt < 85) return;
+      const delta = wheelDeltaBuffer > 0 ? 1 : -1;
+      wheelDeltaBuffer = 0;
+      lastWheelStepAt = now;
       currentIndex = Math.max(0, Math.min(w.options.length - 1, currentIndex + delta));
       currentOffset = -currentIndex * 40;
       w.selected = w.options[currentIndex].value;
@@ -2653,6 +2703,29 @@ function openDial(title, wheels, callback, opts) {
     scroll.style.transform = `translateY(${currentOffset}px)`;
     updateDialSelection(scroll, currentIndex);
   });
+
+  if(opts && opts.missingChoices && opts.missingChoices.length) {
+    const actions = document.createElement('div');
+    actions.className = 'dial-missing-actions';
+    opts.missingChoices.forEach(choice => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dial-missing-btn';
+      btn.textContent = choice.label;
+      btn.onclick = () => {
+        $('#dialOverlay').classList.remove('show');
+        $('#dialOverlay').ontouchmove = null;
+        document.querySelectorAll('.dial-missing-actions').forEach(el => el.remove());
+        document.body.classList.remove('dial-open');
+        document.body.style.top = '';
+        setAppScrollTop(scrollPosition);
+        dialCallback = null;
+        if(typeof opts.onMissing === 'function') opts.onMissing(choice.value);
+      };
+      actions.appendChild(btn);
+    });
+    body.after(actions);
+  }
   
   $('#dialOverlay').classList.add('show');
   $('#dialOverlay').ontouchmove = e => e.preventDefault();
@@ -2670,6 +2743,7 @@ function closeDial(e) {
   if(e && e.target !== $('#dialOverlay')) return;
   $('#dialOverlay').classList.remove('show');
   $('#dialOverlay').ontouchmove = null;
+  document.querySelectorAll('.dial-missing-actions').forEach(el => el.remove());
   document.body.classList.remove('dial-open');
   document.body.style.top = '';
   setAppScrollTop(scrollPosition);
@@ -2681,6 +2755,7 @@ function confirmDial() {
   dialCallback = null;
   $('#dialOverlay').classList.remove('show');
   $('#dialOverlay').ontouchmove = null;
+  document.querySelectorAll('.dial-missing-actions').forEach(el => el.remove());
   document.body.classList.remove('dial-open');
   document.body.style.top = '';
   setAppScrollTop(scrollPosition);
@@ -2711,6 +2786,38 @@ function forceUnlockScrollIfNeeded() {
 }
 
 // SpO2表記を半角に修正
+const VITAL_MISSING_VALUES = ['未測定', '×'];
+
+function isVitalMissingValue(value) {
+  return VITAL_MISSING_VALUES.includes(String(value));
+}
+
+function formatVitalValue(value, fallback = '--') {
+  if (value === undefined || value === null || value === '') return fallback;
+  return String(value);
+}
+
+function formatVitalBp(v) {
+  if (!v) return '--';
+  if (isVitalMissingValue(v.sbp)) return String(v.sbp);
+  if (isVitalMissingValue(v.dbp)) return String(v.dbp);
+  return `${formatVitalValue(v.sbp)}/${formatVitalValue(v.dbp)}`;
+}
+
+function setVitalMissing(type, idx, field, value) {
+  const vital = state[type].vitals[idx];
+  if(!vital) return;
+  if(field === 'bp') {
+    vital.sbp = value;
+    vital.dbp = value;
+  } else {
+    vital[field] = value;
+  }
+  if(type === 'ems') renderEmsVitals();
+  else renderFdVitals();
+  updateState();
+}
+
 function openVitalDial(type, idx, field) {
   const v = state[type].vitals[idx];
   let wheels = [];
@@ -2718,6 +2825,7 @@ function openVitalDial(type, idx, field) {
   let opts = null;
   
   const getDigitWheels = (val, digits, maxHundreds) => {
+    if(isVitalMissingValue(val)) val = '';
     let numStr = String(val);
     if(numStr === 'undefined' || numStr === 'null' || numStr === '') numStr = '0';
     numStr = numStr.padStart(digits, '0');
@@ -2737,7 +2845,11 @@ function openVitalDial(type, idx, field) {
       const dbpWheels = getDigitWheels(v.dbp || 80, 3, 2);
       dbpWheels[2].unit = 'mmHg';
       wheels = [...sbpWheels, { sepBefore: '/' }, ...dbpWheels];
-      opts = { compact: true };
+      opts = {
+        compact: true,
+        missingChoices: [{label:'未測定', value:'未測定'}, {label:'×', value:'×'}],
+        onMissing: value => setVitalMissing(type, idx, 'bp', value)
+      };
       break;
     case 'hr':
       title = '心拍数';
@@ -2749,6 +2861,10 @@ function openVitalDial(type, idx, field) {
     case 'rr':
       title = '呼吸数';
       wheels = [{options: genRange(0, 65, 1), selected: v.rr, unit: '/min'}];
+      opts = {
+        missingChoices: [{label:'未測定', value:'未測定'}, {label:'×', value:'×'}],
+        onMissing: value => setVitalMissing(type, idx, 'rr', value)
+      };
       break;
     case 'spo2':
       title = 'SpO2'; // 修正
@@ -3534,13 +3650,17 @@ function createVitalCard(type, idx, v) {
   const gcs = v.gcs && (v.gcs.e !== undefined && v.gcs.v !== undefined && v.gcs.m !== undefined) ? v.gcs : {e:4,v:5,m:6};
   const gcsSum = gcs.v === 'T' ? `${gcs.e + gcs.m}T` : (gcs.e + (parseInt(gcs.v)||0) + gcs.m);
   const spo2Display = v.spo2 === 0 ? '--' : (v.spo2 ?? '--');
+  const bpDisplay = formatVitalBp(v);
+  const rrDisplay = formatVitalValue(v.rr);
+  const bpMissingClass = isVitalMissingValue(v.sbp) || isVitalMissingValue(v.dbp) ? ' is-missing' : '';
+  const rrMissingClass = isVitalMissingValue(v.rr) ? ' is-missing' : '';
   card.innerHTML = `
     <div class="vital-header"><div class="vital-time"><input type="time" id="${type}_vital_time_${idx}" value="${v.time}" onchange="state.${type}.vitals[${idx}].time=this.value;updateState()"></div>
       <button class="vital-del" onclick="removeVital('${type}',${idx})">削除</button></div>
     <div class="vital-grid">
-      <div class="vital-item" onclick="openVitalDial('${type}',${idx},'bp')"><div class="vital-label">BP</div><div class="vital-value">${v.sbp}/${v.dbp}</div><div class="vital-unit">mmHg</div></div>
+      <div class="vital-item${bpMissingClass}" onclick="openVitalDial('${type}',${idx},'bp')"><div class="vital-label">BP</div><div class="vital-value">${bpDisplay}</div><div class="vital-unit">mmHg</div></div>
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'hr')"><div class="vital-label">HR</div><div class="vital-value">${v.hr}</div><div class="vital-unit">bpm</div></div>
-      <div class="vital-item" onclick="openVitalDial('${type}',${idx},'rr')"><div class="vital-label">RR</div><div class="vital-value">${v.rr}</div><div class="vital-unit">/min</div></div>
+      <div class="vital-item${rrMissingClass}" onclick="openVitalDial('${type}',${idx},'rr')"><div class="vital-label">RR</div><div class="vital-value">${rrDisplay}</div><div class="vital-unit">/min</div></div>
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'spo2')"><div class="vital-label">SpO2</div><div class="vital-value">${spo2Display}</div><div class="vital-unit">%</div></div>
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'bt')"><div class="vital-label">BT</div><div class="vital-value">${v.bt}</div><div class="vital-unit">℃</div></div>
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'jcs')"><div class="vital-label">JCS</div><div class="vital-value">${v.jcs ?? '--'}</div></div>
@@ -5654,6 +5774,13 @@ function formatVitalSpo2(spo2) {
   return `${spo2 ?? '--'}%`;
 }
 
+function formatVitalLine(v) {
+  if(!v) return '';
+  const g = v.gcs && v.gcs.e != null && v.gcs.v != null && v.gcs.m != null ? v.gcs : {e:4,v:5,m:6};
+  const gcs = g.v === 'T' ? `E${g.e}VTM${g.m}(${g.e+g.m}T)` : `E${g.e}V${g.v}M${g.m}(${g.e+(parseInt(g.v)||0)+g.m})`;
+  return `[${v.time||'--'}] BP:${formatVitalBp(v)} HR:${formatVitalValue(v.hr)} RR:${formatVitalValue(v.rr)} SpO2:${formatVitalSpo2(v.spo2)} BT:${formatVitalValue(v.bt)}℃ GCS:${gcs} JCS:${formatVitalValue(v.jcs)}`;
+}
+
 function appendAllEmsExamSections(r, ems) {
   const chips = ems.chips || {};
   const gMemo = ems.memos?.general || {};
@@ -5725,9 +5852,7 @@ function generateReport() {
   }
   if (state.ems.vitals.length > 0) r += '＜バイタル＞\n';
   state.ems.vitals.forEach(v => {
-    const g = v.gcs && v.gcs.e != null && v.gcs.v != null && v.gcs.m != null ? v.gcs : {e:4,v:5,m:6};
-    const gcs = g.v === 'T' ? `E${g.e}VTM${g.m}(${g.e+g.m}T)` : `E${g.e}V${g.v}M${g.m}(${g.e+(parseInt(g.v)||0)+g.m})`;
-    r += `[${v.time||'--'}] BP:${v.sbp??'--'}/${v.dbp??'--'} HR:${v.hr??'--'} RR:${v.rr??'--'} SpO2:${formatVitalSpo2(v.spo2)} BT:${v.bt??'--'}℃ GCS:${gcs} JCS:${v.jcs??'--'}\n`;
+    r += `${formatVitalLine(v)}\n`;
   });
   r = appendAllEmsExamSections(r, state.ems);
   const emsProcList = (state.ems.procedures_items || []).filter(k => state.ems.procedures[k]);
@@ -5743,9 +5868,7 @@ function generateReport() {
   // フライトドクタータイムライン
   if(state.heli.fd_contact) r += `FD接触: ${state.heli.fd_contact}\n`;
   state.fd.vitals.forEach(v => {
-    const g = v.gcs && v.gcs.e != null && v.gcs.v != null && v.gcs.m != null ? v.gcs : {e:4,v:5,m:6};
-    const gcs = g.v === 'T' ? `E${g.e}VTM${g.m}(${g.e+g.m}T)` : `E${g.e}V${g.v}M${g.m}(${g.e+(parseInt(g.v)||0)+g.m})`;
-    r += `[${v.time||'--'}] BP:${v.sbp??'--'}/${v.dbp??'--'} HR:${v.hr??'--'} RR:${v.rr??'--'} SpO2:${v.spo2??'--'}% BT:${v.bt??'--'}℃ GCS:${gcs} JCS:${v.jcs??'--'}\n`;
+    r += `${formatVitalLine(v)}\n`;
   });
   // ドクター身体所見出力ロジック追加
   r += '【身体所見】\n';
@@ -7155,12 +7278,7 @@ function safeGet(obj, path, defaultVal = '') {
 }
 
 function formatReferralVitalLine(v) {
-  if (!v) return '';
-  const g = v.gcs && v.gcs.e != null && v.gcs.v != null && v.gcs.m != null ? v.gcs : { e: 4, v: 5, m: 6 };
-  const gcs = g.v === 'T'
-    ? `E${g.e}VTM${g.m}(${g.e + g.m}T)`
-    : `E${g.e}V${g.v}M${g.m}(${g.e + (parseInt(g.v, 10) || 0) + g.m})`;
-  return `[${v.time || '--'}] BP:${v.sbp ?? '--'}/${v.dbp ?? '--'} HR:${v.hr ?? '--'} RR:${v.rr ?? '--'} SpO2:${formatVitalSpo2(v.spo2)} BT:${v.bt ?? '--'}℃ GCS:${gcs} JCS:${v.jcs ?? '--'}`;
+  return formatVitalLine(v);
 }
 
 function buildReferralVitalsBlock(vitals) {
