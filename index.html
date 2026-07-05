@@ -837,6 +837,43 @@ div.card-body > div[style*="display:flex"] .btn.small {
   .tab-content.active .card{
     margin-bottom:0;
   }
+  .tab-content.active[data-tab="ems"],
+  .tab-content.active[data-tab="fd"]{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .tab-content.active[data-tab="ems"] .ems-card,
+  .tab-content.active[data-tab="fd"] .fd-card{
+    grid-column:1 / -1;
+  }
+  .ems-card .card-body,
+  .fd-card .card-body{
+    padding:16px 20px 20px;
+  }
+  .ems-card .exam-pane.active,
+  .fd-card .exam-pane.active{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px 16px;
+    align-items:start;
+  }
+  .ems-card .exam-pane.active h3,
+  .fd-card .exam-pane.active h3{
+    grid-column:span 2;
+    margin-top:12px;
+  }
+  .ems-card .exam-pane.active .chips,
+  .fd-card .exam-pane.active .chips,
+  .ems-card .exam-pane.active .memo,
+  .fd-card .exam-pane.active .memo,
+  .ems-card .exam-pane.active .grid2,
+  .fd-card .exam-pane.active .grid2,
+  .ems-card .exam-pane.active details,
+  .fd-card .exam-pane.active details{
+    grid-column:span 2;
+  }
+  .fd-card .exam-pane[data-pane="stroke"].active .grid2{
+    grid-column:span 1;
+  }
   .result{
     min-height:420px;
   }
@@ -854,6 +891,29 @@ div.card-body > div[style*="display:flex"] .btn.small {
 @media (min-width: 1180px){
   .tab-content.active{
     grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .tab-content.active[data-tab="ems"],
+  .tab-content.active[data-tab="fd"]{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .ems-card .exam-pane.active,
+  .fd-card .exam-pane.active{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .ems-card .exam-pane.active h3,
+  .fd-card .exam-pane.active h3,
+  .ems-card .exam-pane.active .chips,
+  .fd-card .exam-pane.active .chips,
+  .ems-card .exam-pane.active .memo,
+  .fd-card .exam-pane.active .memo,
+  .ems-card .exam-pane.active .grid2,
+  .fd-card .exam-pane.active .grid2,
+  .ems-card .exam-pane.active details,
+  .fd-card .exam-pane.active details{
+    grid-column:span 3;
+  }
+  .fd-card .exam-pane[data-pane="stroke"].active .grid2{
+    grid-column:span 1;
   }
   .tab-content.active[data-tab="output"],
   .tab-content.active[data-tab="referral-tab"]{
