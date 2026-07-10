@@ -49,7 +49,10 @@
 <!-- 2026-05-23 | v5.1.5 | NPPVカスタムダイアログ: 完了ボタン非表示の不具合修正(id="dialDone"を付与) -->
 <!-- 2026-05-23 | v5.1.5 | StrokeNotify復帰: ?tab=fd を反映後に URL から除去し、以降のリロードでFDタブに飛ばされないように -->
 <!-- 2026-05-23 | v5.1.5 | related-apps.js: 未使用のスクリプト読み込みを削除 -->
-<title>ドクターヘリ活動記録 v5.1.5 多数傷対応</title>
+<!-- 2026-07-10 | v5.1.6 | 利用メトリクス収集(sendMetrics)追加、ヘリ記録state(ems/fd)に合わせて集計修正 -->
+<!-- 2026-07-10 | v5.1.7 | バイタル欠損値: HR/SpO2/BTでも未測定・×を選択可能に（BP/RRと同様） -->
+<!-- 2026-07-10 | v5.1.8 | バイタル時刻の初期値を現在時刻ではなく各タイムライン入力値から設定 -->
+<title>ドクターヘリ活動記録 v5.1.8 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -988,7 +991,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.5 多数傷対応</p>
+    <p class="sub">heli record v5.1.8 多数傷対応</p>
   </div>
   <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
 </header>
@@ -2039,6 +2042,97 @@ div.card-body > div[style*="display:flex"] .btn.small {
 </div>
 
 <script>
+
+// ====== 利用メトリクス収集機能 ======
+const METRICS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzk4tnPmpKU20y-Fa-DSDmzIHZ3A4j-x6JdWa-S2jO43xkfOl1nBykEy1uIKuTudHgHyg/exec';
+const APP_NAME = 'heli';
+
+function initMetricsSession() {
+  if (!localStorage.getItem('metrics_start_ts')) {
+    localStorage.setItem('metrics_start_ts', new Date().toISOString());
+    localStorage.setItem('metrics_session_id', Math.random().toString(36).substring(2, 10));
+  }
+}
+document.addEventListener('input', initMetricsSession);
+document.addEventListener('change', initMetricsSession);
+document.addEventListener('click', (e) => {
+  const t = e.target.tagName;
+  if(t === 'BUTTON' || t === 'INPUT' || t === 'SELECT' || e.target.closest('.chip') || e.target.closest('.mci-row')) {
+    initMetricsSession();
+  }
+});
+
+function countMetricsActiveFlags(obj) {
+  if (!obj || typeof obj !== 'object') return 0;
+  return Object.values(obj).filter(Boolean).length;
+}
+
+function collectHeliMetricsCounts() {
+  let vital_count = 0;
+  let proc_count = 0;
+  if (typeof state === 'undefined') return { vital_count, proc_count };
+  try {
+    if (Array.isArray(state.ems?.vitals)) vital_count += state.ems.vitals.length;
+    if (Array.isArray(state.fd?.vitals)) vital_count += state.fd.vitals.length;
+    proc_count += countMetricsActiveFlags(state.ems?.procedures);
+    proc_count += countMetricsActiveFlags(state.fd?.procedures);
+  } catch (e) { /* メトリクス集計失敗で記録操作を止めない */ }
+  return { vital_count, proc_count };
+}
+
+function getHeliMetricsMode() {
+  try {
+    if (typeof currentAppMode !== 'undefined' && currentAppMode === 'mci') return 'mci';
+  } catch (e) { /* noop */ }
+  return 'normal';
+}
+
+async function sendMetrics(action) {
+  if (!METRICS_ENDPOINT) return;
+  const startTs = localStorage.getItem('metrics_start_ts');
+  const duration_sec = startTs ? Math.floor((Date.now() - new Date(startTs).getTime()) / 1000) : null;
+  const session_id = localStorage.getItem('metrics_session_id') || '';
+  const app_version = document.title;
+  const { vital_count, proc_count } = collectHeliMetricsCounts();
+  const mode = getHeliMetricsMode();
+  
+  const payload = {
+    client_ts: new Date().toISOString(), app: APP_NAME, action: action,
+    duration_sec: duration_sec, vital_count: vital_count, proc_count: proc_count,
+    mode: mode, session_id: session_id, app_version: app_version, queued: 0
+  };
+  
+  const queueKey = 'metrics_queue_v1';
+  let queue = [];
+  try { queue = JSON.parse(localStorage.getItem(queueKey) || '[]'); } catch (e) {}
+  queue.push(payload);
+  if (queue.length > 100) queue = queue.slice(queue.length - 100);
+  localStorage.setItem(queueKey, JSON.stringify(queue));
+
+  const doFetch = async (data) => {
+    return fetch(METRICS_ENDPOINT, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(data) });
+  };
+
+  (async () => {
+    let currentQueue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+    let successIndices = [];
+    for (let i = 0; i < currentQueue.length; i++) {
+      let qData = currentQueue[i];
+      qData.queued = (i < currentQueue.length - 1) ? 1 : 0;
+      try {
+        await doFetch(qData);
+        successIndices.push(i);
+      } catch (e) { break; }
+    }
+    if (successIndices.length > 0) {
+      let finalQueue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+      finalQueue.splice(0, successIndices.length);
+      localStorage.setItem(queueKey, JSON.stringify(finalQueue));
+    }
+  })();
+}
+// ===================================
+
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
@@ -2911,6 +3005,7 @@ function forceUnlockScrollIfNeeded() {
 
 // SpO2表記を半角に修正
 const VITAL_MISSING_VALUES = ['未測定', '×'];
+const VITAL_MISSING_CHOICES = [{label:'未測定', value:'未測定'}, {label:'×', value:'×'}];
 
 function isVitalMissingValue(value) {
   return VITAL_MISSING_VALUES.includes(String(value));
@@ -2971,7 +3066,7 @@ function openVitalDial(type, idx, field) {
       wheels = [...sbpWheels, { sepBefore: '/' }, ...dbpWheels];
       opts = {
         compact: true,
-        missingChoices: [{label:'未測定', value:'未測定'}, {label:'×', value:'×'}],
+        missingChoices: VITAL_MISSING_CHOICES,
         onMissing: value => setVitalMissing(type, idx, 'bp', value)
       };
       break;
@@ -2980,23 +3075,35 @@ function openVitalDial(type, idx, field) {
       const hrWheels = getDigitWheels(v.hr || 80, 3, 2);
       hrWheels[2].unit = 'bpm';
       wheels = hrWheels;
-      opts = { compact: true };
+      opts = {
+        compact: true,
+        missingChoices: VITAL_MISSING_CHOICES,
+        onMissing: value => setVitalMissing(type, idx, 'hr', value)
+      };
       break;
     case 'rr':
       title = '呼吸数';
-      wheels = [{options: genRange(0, 65, 1), selected: v.rr, unit: '/min'}];
+      wheels = [{options: genRange(0, 65, 1), selected: isVitalMissingValue(v.rr) ? undefined : v.rr, unit: '/min'}];
       opts = {
-        missingChoices: [{label:'未測定', value:'未測定'}, {label:'×', value:'×'}],
+        missingChoices: VITAL_MISSING_CHOICES,
         onMissing: value => setVitalMissing(type, idx, 'rr', value)
       };
       break;
     case 'spo2':
       title = 'SpO2'; // 修正
-      wheels = [{options: genRange(40, 100, 1), selected: v.spo2, unit: '%'}];
+      wheels = [{options: genRange(40, 100, 1), selected: isVitalMissingValue(v.spo2) ? undefined : v.spo2, unit: '%'}];
+      opts = {
+        missingChoices: VITAL_MISSING_CHOICES,
+        onMissing: value => setVitalMissing(type, idx, 'spo2', value)
+      };
       break;
     case 'bt':
       title = '体温';
-      wheels = [{options: genRangeBT(), selected: v.bt, unit: '℃'}];
+      wheels = [{options: genRangeBT(), selected: isVitalMissingValue(v.bt) ? undefined : v.bt, unit: '℃'}];
+      opts = {
+        missingChoices: VITAL_MISSING_CHOICES,
+        onMissing: value => setVitalMissing(type, idx, 'bt', value)
+      };
       break;
     case 'gcs_e':
       title = 'GCS - E';
@@ -3727,7 +3834,7 @@ function calcNihssSum() {
 }
 
 function addEmsVital() {
-  const now = new Date(); const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const time = getDefaultVitalTime('ems');
   let newVital;
   if(state.ems.vitals.length > 0) {
     const prev = state.ems.vitals[state.ems.vitals.length-1];
@@ -3739,7 +3846,7 @@ function addEmsVital() {
 }
 
 function addFdVital() {
-  const now = new Date(); const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const time = getDefaultVitalTime('fd');
   let newVital;
   if(state.fd.vitals.length > 0) {
     const prev = state.fd.vitals[state.fd.vitals.length-1];
@@ -3773,20 +3880,25 @@ function createVitalCard(type, idx, v) {
   const card = document.createElement('div'); card.className = 'vital-card';
   const gcs = v.gcs && (v.gcs.e !== undefined && v.gcs.v !== undefined && v.gcs.m !== undefined) ? v.gcs : {e:4,v:5,m:6};
   const gcsSum = gcs.v === 'T' ? `${gcs.e + gcs.m}T` : (gcs.e + (parseInt(gcs.v)||0) + gcs.m);
-  const spo2Display = v.spo2 === 0 ? '--' : (v.spo2 ?? '--');
+  const spo2Display = isVitalMissingValue(v.spo2) ? String(v.spo2) : (v.spo2 === 0 ? '--' : (v.spo2 ?? '--'));
   const bpDisplay = formatVitalBp(v);
+  const hrDisplay = formatVitalValue(v.hr);
   const rrDisplay = formatVitalValue(v.rr);
+  const btDisplay = formatVitalValue(v.bt);
   const bpMissingClass = isVitalMissingValue(v.sbp) || isVitalMissingValue(v.dbp) ? ' is-missing' : '';
+  const hrMissingClass = isVitalMissingValue(v.hr) ? ' is-missing' : '';
   const rrMissingClass = isVitalMissingValue(v.rr) ? ' is-missing' : '';
+  const spo2MissingClass = isVitalMissingValue(v.spo2) ? ' is-missing' : '';
+  const btMissingClass = isVitalMissingValue(v.bt) ? ' is-missing' : '';
   card.innerHTML = `
     <div class="vital-header"><div class="vital-time"><input type="time" id="${type}_vital_time_${idx}" value="${v.time}" onchange="state.${type}.vitals[${idx}].time=this.value;updateState()"></div>
       <button class="vital-del" onclick="removeVital('${type}',${idx})">削除</button></div>
     <div class="vital-grid">
       <div class="vital-item${bpMissingClass}" onclick="openVitalDial('${type}',${idx},'bp')"><div class="vital-label">BP</div><div class="vital-value">${bpDisplay}</div><div class="vital-unit">mmHg</div></div>
-      <div class="vital-item" onclick="openVitalDial('${type}',${idx},'hr')"><div class="vital-label">HR</div><div class="vital-value">${v.hr}</div><div class="vital-unit">bpm</div></div>
+      <div class="vital-item${hrMissingClass}" onclick="openVitalDial('${type}',${idx},'hr')"><div class="vital-label">HR</div><div class="vital-value">${hrDisplay}</div><div class="vital-unit">bpm</div></div>
       <div class="vital-item${rrMissingClass}" onclick="openVitalDial('${type}',${idx},'rr')"><div class="vital-label">RR</div><div class="vital-value">${rrDisplay}</div><div class="vital-unit">/min</div></div>
-      <div class="vital-item" onclick="openVitalDial('${type}',${idx},'spo2')"><div class="vital-label">SpO2</div><div class="vital-value">${spo2Display}</div><div class="vital-unit">%</div></div>
-      <div class="vital-item" onclick="openVitalDial('${type}',${idx},'bt')"><div class="vital-label">BT</div><div class="vital-value">${v.bt}</div><div class="vital-unit">℃</div></div>
+      <div class="vital-item${spo2MissingClass}" onclick="openVitalDial('${type}',${idx},'spo2')"><div class="vital-label">SpO2</div><div class="vital-value">${spo2Display}</div><div class="vital-unit">%</div></div>
+      <div class="vital-item${btMissingClass}" onclick="openVitalDial('${type}',${idx},'bt')"><div class="vital-label">BT</div><div class="vital-value">${btDisplay}</div><div class="vital-unit">℃</div></div>
       <div class="vital-item" onclick="openVitalDial('${type}',${idx},'jcs')"><div class="vital-label">JCS</div><div class="vital-value">${v.jcs ?? '--'}</div></div>
       <div class="vital-gcs"><div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_e')"><span class="lbl">E</span><span class="val">${gcs.e}</span></div>
         <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_v')"><span class="lbl">V</span><span class="val">${gcs.v}</span></div>
@@ -3794,32 +3906,50 @@ function createVitalCard(type, idx, v) {
     </div>`; return card;
 }
 
-// スマート時刻入力: 空の時刻フィールドがタップ（フォーカス）された時、直前の関連時刻を初期値としてセットする
-function getBaseTimeForInput(inputEl) {
-  if (inputEl.id.startsWith('ems_vital_time_')) {
-    const tab = inputEl.closest('.tab-content');
-    if (tab) {
-      const vitals = Array.from(tab.querySelectorAll('input[type="time"]'));
-      const myIndex = vitals.indexOf(inputEl);
-      for(let i = myIndex - 1; i >= 0; i--) {
-        if(vitals[i].id.startsWith('ems_vital_time_') && vitals[i].value) return vitals[i].value;
-      }
-    }
-    const emsContact = document.getElementById('ems_contact');
-    if (emsContact && emsContact.value) return emsContact.value;
+// スマート時刻入力: 空の時刻フィールドがタップ（フォーカス）された時、タイムライン等から初期値をセット
+const EMS_VITAL_TIMELINE_IDS = ['ems_aware', 'ems_arrival', 'ems_contact', 'ems_lz'];
+const FD_VITAL_TIMELINE_IDS = ['request_time', 'heli_takeoff', 'heli_lz_landing', 'fd_contact', 'transport_takeoff', 'hospital_arrival'];
+
+function getTimelineTimeFromDom(ids) {
+  for (let i = ids.length - 1; i >= 0; i--) {
+    const el = document.getElementById(ids[i]);
+    if (el && el.value) return el.value;
   }
-  
-  if (inputEl.id.startsWith('fd_vital_time_')) {
-    const tab = inputEl.closest('.tab-content');
-    if (tab) {
-      const vitals = Array.from(tab.querySelectorAll('input[type="time"]'));
-      const myIndex = vitals.indexOf(inputEl);
-      for(let i = myIndex - 1; i >= 0; i--) {
-        if(vitals[i].id.startsWith('fd_vital_time_') && vitals[i].value) return vitals[i].value;
-      }
-    }
-    const fdContact = document.getElementById('fd_contact');
-    if (fdContact && fdContact.value) return fdContact.value;
+  return '';
+}
+
+function getTimelineTimeFromState(type) {
+  if (type === 'ems') {
+    const e = state.ems || {};
+    return e.lz || e.contact || e.arrival || e.aware || '';
+  }
+  const h = state.heli || {};
+  return h.hospital_arrival || h.transport_takeoff || h.fd_contact || h.lz_landing || h.takeoff || state.request?.time || '';
+}
+
+function parseVitalTimeInputId(id) {
+  const m = String(id || '').match(/^(ems|fd)_vital_time_(\d+)$/);
+  return m ? { type: m[1], idx: parseInt(m[2], 10) } : null;
+}
+
+function getDefaultVitalTime(type, idx) {
+  const vitals = state[type]?.vitals || [];
+  if (typeof idx === 'number' && idx > 0 && vitals[idx - 1]?.time) {
+    return vitals[idx - 1].time;
+  }
+  if (vitals.length > 0 && idx === undefined) {
+    const prev = vitals[vitals.length - 1];
+    if (prev?.time) return prev.time;
+  }
+  const ids = type === 'ems' ? EMS_VITAL_TIMELINE_IDS : FD_VITAL_TIMELINE_IDS;
+  return getTimelineTimeFromDom(ids) || getTimelineTimeFromState(type) || '';
+}
+
+function getBaseTimeForInput(inputEl) {
+  const vitalParsed = parseVitalTimeInputId(inputEl.id);
+  if (vitalParsed) {
+    const vitalTime = getDefaultVitalTime(vitalParsed.type, vitalParsed.idx);
+    if (vitalTime) return vitalTime;
   }
 
   const fallbacks = {
@@ -5894,6 +6024,7 @@ function extractFindings(def, chips) {
 }
 
 function formatVitalSpo2(spo2) {
+  if (isVitalMissingValue(spo2)) return String(spo2);
   if (spo2 === 0 || spo2 === '0') return '測定不能';
   return `${spo2 ?? '--'}%`;
 }
@@ -5967,7 +6098,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.5\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.8\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
@@ -6185,6 +6316,8 @@ function clearHeliDraftStorage() {
 function resetData() {
   if (!confirm('活動記録・多数傷・連携下書きをすべて消去します。よろしいですか？')) return;
   clearHeliDraftStorage();
+  localStorage.removeItem('metrics_start_ts');
+  localStorage.removeItem('metrics_session_id');
   const url = new URL(location.href);
   url.searchParams.delete('tab');
   location.replace(url.pathname + url.search + url.hash);
@@ -7151,6 +7284,7 @@ function renderMciSummary() {
 function copyMciSummary(tag, includeDetail = false) {
   updateCurrentMciPatientFromUI();
   const text = generateMciSummary(tag, includeDetail);
+  sendMetrics('copy');
   navigator.clipboard.writeText(text).then(() => showMciCopyToast(includeDetail)).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -7243,7 +7377,7 @@ function init() {
   renderEmsStrokeMotorPicker();
   [['#fd-gen-head',FD_GEN_GROUPS.head],['#fd-gen-resp',FD_GEN_GROUPS.resp],['#fd-gen-card',FD_GEN_GROUPS.card],['#fd-gen-abd',FD_GEN_GROUPS.abd],['#fd-gen-limb',FD_GEN_GROUPS.limb],['#fd-gen-neuro',FD_GEN_GROUPS.neuro],['#fd-tra-head',FD_TRA_GROUPS.head],['#fd-tra-neck',FD_TRA_GROUPS.neck],['#fd-tra-chest',FD_TRA_GROUPS.chest],['#fd-tra-abd',FD_TRA_GROUPS.abd],['#fd-tra-pelvis',FD_TRA_GROUPS.pelvis],['#fd-tra-limb',FD_TRA_GROUPS.limb],['#fd-str-cn',FD_STR_GROUPS.cn],['#fd-str-higher',FD_STR_GROUPS.higher]].forEach(x=>mountChips(x[0],x[1],'fd'));
   setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); bindNihssDetails(); restoreUI(); bindInputEvents(); loadMciState(); renderMci();
-  $('#copyOut').onclick=()=>{ navigator.clipboard.writeText($('#outText').textContent); const b=$('#copyOut'); b.textContent='✓ コピーしました'; setTimeout(()=>b.textContent='📋 活動記録をコピー',1500); };
+  $('#copyOut').onclick=()=>{ sendMetrics('copy'); navigator.clipboard.writeText($('#outText').textContent); const b=$('#copyOut'); b.textContent='✓ コピーしました'; setTimeout(()=>b.textContent='📋 活動記録をコピー',1500); };
   // v5.1.0：初期はタブバー表示、要請タブをアクティブに
   setMciBottomNavVisible(false);
   setReferralBottomNavVisible(false);
@@ -7338,7 +7472,8 @@ function copyReferralText() {
       setTimeout(() => { btn.textContent = prev; }, 1500);
     }
   };
-  navigator.clipboard.writeText(text).then(done).catch(() => {
+  sendMetrics('copy');
+    navigator.clipboard.writeText(text).then(done).catch(() => {
     const ta = $('#referralText');
     ta.select();
     try {
@@ -7362,12 +7497,14 @@ function sendReferralEmail() {
 
   const done = () => {
     alert('紹介状本文のコピーが完了しました。\n\nメールアプリが起動します。\n本文は空の状態になりますので、画面をタップして「ペースト（貼り付け）」を行ってから送信してください。');
+    sendMetrics('mail');
     window.location.href = mailtoLink;
   };
 
   const fallback = () => {
     alert('コピーに失敗しました。そのままメールアプリを開きますが、文字数制限で開かない場合があります。');
     const fullBody = encodeURIComponent(text);
+    sendMetrics('mail');
     window.location.href = `mailto:${REFERRAL_EMAIL}?bcc=${BCC_EMAIL}&subject=${subject}&body=${fullBody}`;
   };
 
