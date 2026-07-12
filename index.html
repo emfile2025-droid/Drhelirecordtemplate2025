@@ -2269,10 +2269,13 @@ async function flushMetricsQueue() {
           method: 'POST', mode: 'no-cors', keepalive: true,
           headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(outgoing)
         });
-        queue.shift();
+        // 送信中に別イベントが追加されるため、古い配列で上書きせず最新キューから送信済みIDだけを除く。
+        queue = readMetricsQueue().filter(entry => entry?.payload?.event_id !== item.payload.event_id);
         writeMetricsQueue(queue);
       } catch (e) {
-        item.attempts = (item.attempts || 0) + 1;
+        queue = readMetricsQueue();
+        const failedItem = queue.find(entry => entry?.payload?.event_id === item.payload.event_id);
+        if (failedItem) failedItem.attempts = (failedItem.attempts || 0) + 1;
         writeMetricsQueue(queue);
         break;
       }
