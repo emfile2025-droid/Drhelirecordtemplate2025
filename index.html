@@ -84,10 +84,11 @@ header{
 }
 .header-content{
   flex:1;
+  min-width:0;
   text-align:center;
 }
-h1{margin:0;font-size:17px;font-weight:600}
-.sub{margin:4px 0 0;color:var(--muted);font-size:12px}
+h1{margin:0;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{margin:4px 0 0;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn-update{
   background:var(--brand);
   color:#fff;
@@ -101,9 +102,36 @@ h1{margin:0;font-size:17px;font-weight:600}
   white-space:nowrap;
   min-width:60px;
 }
-.btn-update:active{
+.header-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:0 0 auto;
+}
+.btn-reset-header{
+  background:var(--danger-bg);
+  color:var(--danger);
+  border:1px solid rgba(220,38,38,0.35);
+  border-radius:8px;
+  padding:7px 10px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.2s;
+  white-space:nowrap;
+  min-width:60px;
+}
+.btn-update:active,
+.btn-reset-header:active{
   opacity:0.8;
   transform:scale(0.95);
+}
+@media (max-width:420px){
+  header{padding-left:10px;padding-right:10px;gap:6px}
+  h1{font-size:15px}
+  .sub{font-size:11px}
+  .header-actions{gap:4px}
+  .btn-update,.btn-reset-header{min-width:52px;padding-left:7px;padding-right:7px;font-size:11px}
 }
 /* メインコンテンツ（PCホイール・タッチ両対応のスクロール領域） */
 main#mainRecordView,
@@ -127,7 +155,7 @@ body.mci-mode header{
   padding:calc(8px + var(--safe-top)) 12px 8px;justify-content:flex-start;
 }
 body.mci-mode header .header-content,
-body.mci-mode header .btn-update{display:none}
+body.mci-mode header .header-actions{display:none}
 body.has-referral-nav main#referralView{bottom:var(--bottom-nav-h)}
 
 /* ===== タブUI v5.1.0 ===== */
@@ -993,7 +1021,10 @@ div.card-body > div[style*="display:flex"] .btn.small {
     <h1>🚁 ドクターヘリ活動記録</h1>
     <p class="sub">heli record v5.1.8 多数傷対応</p>
   </div>
-  <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
+  <div class="header-actions">
+    <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
+    <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
+  </div>
 </header>
 
 <main id="mainRecordView">
