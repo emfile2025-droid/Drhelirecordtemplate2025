@@ -52,7 +52,8 @@
 <!-- 2026-07-10 | v5.1.6 | 利用メトリクス収集(sendMetrics)追加、ヘリ記録state(ems/fd)に合わせて集計修正 -->
 <!-- 2026-07-10 | v5.1.7 | バイタル欠損値: HR/SpO2/BTでも未測定・×を選択可能に（BP/RRと同様） -->
 <!-- 2026-07-10 | v5.1.8 | バイタル時刻の初期値を現在時刻ではなく各タイムライン入力値から設定 -->
-<title>ドクターヘリ活動記録 v5.1.8 多数傷対応</title>
+<!-- 2026-07-14 | v5.1.9 | 搬送スキーム初期値を未選択化、要請キャンセル終了と必要書類メトリクスを追加 -->
+<title>ドクターヘリ活動記録 v5.1.9 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -249,6 +250,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .btn.ghost{background:var(--chip);color:var(--ink)}
 .btn.ghost.active{background:var(--brand);color:#fff}
 .btn.small{padding:10px 16px;font-size:14px}
+.btn.request-cancel-action{
+  margin-top:16px;
+  background:var(--danger-bg);
+  color:var(--danger);
+  border:1px solid rgba(220,38,38,0.35);
+}
+body.mci-mode .request-cancel-action{display:none}
 .btn-row{display:flex;gap:10px;margin-top:12px}
 .btn-row .btn{flex:1}
 
@@ -1019,7 +1027,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.8 多数傷対応</p>
+    <p class="sub">heli record v5.1.9 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
@@ -1079,6 +1087,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
         <div class="chips callsign-chip-grid" id="preceding_vehicle_chips"></div>
       </div>
       <textarea id="preceding_ems_team" class="picker-input" placeholder="選択した呼称が入ります（編集可）" style="min-height:44px"></textarea>
+      <button type="button" class="btn request-cancel-action" onclick="cancelRequestAndReset()">要請キャンセルとして終了</button>
     </div>
   </div>
 
@@ -1807,6 +1816,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
       <div id="turn_pattern_block">
       <h3>活動パターン</h3>
       <select id="turn_type">
+        <option value="">選択してください</option>
         <option value="Iターン">Iターン</option>
         <option value="Jターン">Jターン</option>
         <option value="Uターン">Uターン</option>
@@ -2213,6 +2223,7 @@ function collectHeliMetricsProperties(extra = {}) {
     destination: !!(state?.destination?.custom || state?.destination?.hospital)
   };
   const completedSections = Object.keys(sections).filter(key => sections[key]);
+  const transportScheme = String(state?.heli?.turn_type || '').trim();
   return Object.assign({
     ems_vital_rows: emsVitals,
     doctor_vital_rows: fdVitals,
@@ -2221,7 +2232,12 @@ function collectHeliMetricsProperties(extra = {}) {
     completed_section_count: completedSections.length,
     total_section_count: Object.keys(sections).length,
     completion_rate: Math.round((completedSections.length / Object.keys(sections).length) * 100) / 100,
-    completed_sections: completedSections
+    completed_sections: completedSections,
+    transport_scheme: transportScheme || null,
+    scheme_selected: !!transportScheme,
+    cancelled: false,
+    report_required: true,
+    referral_required: transportScheme ? transportScheme !== 'Uターン' : null
   }, extra);
 }
 
@@ -2342,8 +2358,19 @@ function trackMetricsCaseCompletion(source) {
   trackMetricsEvent('case_complete', { completion_source: source || 'activity_report' });
 }
 
-function resetMetricsCase() {
-  trackMetricsEvent('case_reset');
+function resetMetricsCase(options = {}) {
+  if (options.cancelled) {
+    trackMetricsEvent('case_cancel', {
+      close_reason: 'request_cancelled',
+      transport_scheme: null,
+      scheme_selected: false,
+      cancelled: true,
+      report_required: false,
+      referral_required: false
+    });
+  } else {
+    trackMetricsEvent('case_reset');
+  }
   try {
     [METRICS_CASE_KEY, METRICS_CASE_START_KEY, METRICS_ACTIVE_KEY, METRICS_LAST_ACTIVITY_KEY,
       METRICS_FIRST_INPUT_KEY, METRICS_COMPLETED_KEY,
@@ -2879,7 +2906,7 @@ let state = {
     anticoagulant:'', anticoagulant_drugs:[], antiplatelet:'', antiplatelet_drugs:[],
     food_allergy:'', drug_allergy:''
   },
-  heli: {takeoff:'', lz_landing:'', fd_contact:'', turn_type:'Iターン', transport_takeoff:'', hospital_arrival:''},
+  heli: {takeoff:'', lz_landing:'', fd_contact:'', turn_type:'', transport_takeoff:'', hospital_arrival:''},
   ems: {
     aware:'', arrival:'', contact:'', departure:'', lz:'',
     vitals: [],
@@ -6329,7 +6356,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.8\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.9\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
@@ -6551,6 +6578,26 @@ function resetData() {
   const url = new URL(location.href);
   url.searchParams.delete('tab');
   location.replace(url.pathname + url.search + url.hash);
+}
+
+function cancelRequestAndReset() {
+  if (!confirm('要請キャンセルとして終了します。\n活動記録・診療情報提供書は作成せず、入力データを消去します。よろしいですか？')) return;
+  resetMetricsCase({ cancelled: true });
+  clearHeliDraftStorage();
+  const url = new URL(location.href);
+  url.searchParams.delete('tab');
+  location.replace(url.pathname + url.search + url.hash);
+}
+
+function ensureTransportSchemeSelected() {
+  const block = $('#turn_pattern_block');
+  if (!block || block.style.display === 'none') return true;
+  const scheme = String($('#turn_type')?.value || '').trim();
+  if (scheme) return true;
+  alert('活動記録・診療情報提供書を作成する前に、搬送スキーム（I・J・Uターン）を選択してください。');
+  switchTab('dest');
+  setTimeout(() => $('#turn_type')?.focus(), 0);
+  return false;
 }
 
 function restoreUI() {
@@ -7608,7 +7655,13 @@ function init() {
   renderEmsStrokeMotorPicker();
   [['#fd-gen-head',FD_GEN_GROUPS.head],['#fd-gen-resp',FD_GEN_GROUPS.resp],['#fd-gen-card',FD_GEN_GROUPS.card],['#fd-gen-abd',FD_GEN_GROUPS.abd],['#fd-gen-limb',FD_GEN_GROUPS.limb],['#fd-gen-neuro',FD_GEN_GROUPS.neuro],['#fd-tra-head',FD_TRA_GROUPS.head],['#fd-tra-neck',FD_TRA_GROUPS.neck],['#fd-tra-chest',FD_TRA_GROUPS.chest],['#fd-tra-abd',FD_TRA_GROUPS.abd],['#fd-tra-pelvis',FD_TRA_GROUPS.pelvis],['#fd-tra-limb',FD_TRA_GROUPS.limb],['#fd-str-cn',FD_STR_GROUPS.cn],['#fd-str-higher',FD_STR_GROUPS.higher]].forEach(x=>mountChips(x[0],x[1],'fd'));
   setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); bindNihssDetails(); restoreUI(); bindInputEvents(); loadMciState(); renderMci();
-  $('#copyOut').onclick=()=>{ sendMetrics('copy'); navigator.clipboard.writeText($('#outText').textContent); const b=$('#copyOut'); b.textContent='✓ コピーしました'; setTimeout(()=>b.textContent='📋 活動記録をコピー',1500); };
+  $('#copyOut').onclick=()=>{
+    if (!ensureTransportSchemeSelected()) return;
+    updateState();
+    sendMetrics('copy');
+    navigator.clipboard.writeText($('#outText').textContent);
+    const b=$('#copyOut'); b.textContent='✓ コピーしました'; setTimeout(()=>b.textContent='📋 活動記録をコピー',1500);
+  };
   // v5.1.0：初期はタブバー表示、要請タブをアクティブに
   setMciBottomNavVisible(false);
   setReferralBottomNavVisible(false);
@@ -7648,6 +7701,7 @@ const BCC_EMAIL = 'consommeandcola@gmail.com'; // 品管用BCCアドレス
 let currentView = 'record'; // 'record' または 'referral'
 
 function openReferral() {
+  if (!ensureTransportSchemeSelected()) return;
   updateState(); // 最新の入力内容を保存
   trackMetricsEvent('referral_open');
   switchToReferralView();
