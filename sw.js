@@ -1,5 +1,5 @@
-/* 2026-05-22 | v5.1.4 | ネットワーク優先(HTML/JS)で古いindexが残らないよう変更 */
-const CACHE_NAME = 'heli-record-v5.1.4';
+/* 2026-07-14 | v5.1.9 | 搬送スキーム未選択・要請キャンセル終了を反映 */
+const CACHE_NAME = 'heli-record-v5.1.9';
 const urlsToCache = [
   './index.html',
   './manifest.json',
