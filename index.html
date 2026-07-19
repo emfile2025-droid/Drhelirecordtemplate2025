@@ -54,8 +54,9 @@
 <!-- 2026-07-10 | v5.1.8 | バイタル時刻の初期値を現在時刻ではなく各タイムライン入力値から設定 -->
 <!-- 2026-07-19 | v5.1.10 | メトリクス信頼性: case_start自己修復・完了属性同梱・同一event_idの遅延再送 -->
 <!-- 2026-07-19 | v5.1.11 | 入力済み臨床時刻と搬送スキーム別活動終了時刻を匿名メトリクスへ追加 -->
+<!-- 2026-07-19 | v5.1.12 | Iターンは活動終了時刻を自動推定せず欠損理由を記録 -->
 <!-- 2026-07-14 | v5.1.9 | 搬送スキーム初期値を未選択化、要請キャンセル終了と必要書類メトリクスを追加 -->
-<title>ドクターヘリ活動記録 v5.1.11 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.12 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -2238,9 +2239,8 @@ function collectHeliMetricsCounts() {
       activityEndSource = hospitalArrivalTime ? 'hospital_arrival' : null;
       activityEndMissingReason = hospitalArrivalTime ? null : 'hospital_arrival_missing';
     } else if (scheme === 'Iターン') {
-      activityEndTime = emsDepartureTime;
-      activityEndSource = emsDepartureTime ? 'ems_departure' : null;
-      activityEndMissingReason = emsDepartureTime ? null : 'ems_departure_missing';
+      // 先行救急隊の現発はRPへの出発も含み得るため、活動終了には使用しない。
+      activityEndMissingReason = 'i_turn_not_observable';
     } else {
       activityEndMissingReason = 'transport_scheme_missing';
     }
