@@ -1,5 +1,6 @@
+/* 2026-07-19 | v5.1.10 | メトリクス信頼性改善版を確実に配信 */
 /* 2026-07-14 | v5.1.9 | 搬送スキーム未選択・要請キャンセル終了を反映 */
-const CACHE_NAME = 'heli-record-v5.1.9';
+const CACHE_NAME = 'heli-record-v5.1.10';
 const urlsToCache = [
   './index.html',
   './manifest.json',
