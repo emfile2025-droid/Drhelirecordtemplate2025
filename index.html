@@ -52,8 +52,9 @@
 <!-- 2026-07-10 | v5.1.6 | 利用メトリクス収集(sendMetrics)追加、ヘリ記録state(ems/fd)に合わせて集計修正 -->
 <!-- 2026-07-10 | v5.1.7 | バイタル欠損値: HR/SpO2/BTでも未測定・×を選択可能に（BP/RRと同様） -->
 <!-- 2026-07-10 | v5.1.8 | バイタル時刻の初期値を現在時刻ではなく各タイムライン入力値から設定 -->
+<!-- 2026-07-19 | v5.1.10 | メトリクス信頼性: case_start自己修復・完了属性同梱・同一event_idの遅延再送 -->
 <!-- 2026-07-14 | v5.1.9 | 搬送スキーム初期値を未選択化、要請キャンセル終了と必要書類メトリクスを追加 -->
-<title>ドクターヘリ活動記録 v5.1.9 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.10 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -2091,6 +2092,9 @@ const METRICS_SCHEMA_VERSION = 2;
 const METRICS_QUEUE_KEY = 'metrics_queue_v2';
 const METRICS_INSTALLATION_KEY = 'metrics_installation_id_v2';
 const METRICS_CASE_KEY = 'metrics_case_id_v2';
+const METRICS_CASE_START_SENT_KEY = 'metrics_case_start_sent_v2';
+const METRICS_MAX_SEND_ATTEMPTS = 3;
+const METRICS_RETRY_BASE_MS = 30 * 1000;
 const METRICS_CASE_START_KEY = 'metrics_case_start_ts_v2';
 const METRICS_ACTIVE_KEY = 'metrics_active_ms_v2';
 const METRICS_LAST_ACTIVITY_KEY = 'metrics_last_activity_ts_v2';
@@ -2118,22 +2122,30 @@ const metricsRuntime = {
   installationId: getOrCreateMetricsStorageId(METRICS_INSTALLATION_KEY),
   appSessionId: createMetricsId(),
   sending: false,
+  retryTimer: null,
   firstInputSent: false,
   openedTabs: new Set()
 };
 
 function initMetricsSession() {
   let caseId = '';
+  let lastActivity = 0;
+  let startSentForCase = '';
   try {
     caseId = localStorage.getItem(METRICS_CASE_KEY) || '';
-    const lastActivity = Number(localStorage.getItem(METRICS_LAST_ACTIVITY_KEY) || 0);
+    lastActivity = Number(localStorage.getItem(METRICS_LAST_ACTIVITY_KEY) || 0);
+    startSentForCase = localStorage.getItem(METRICS_CASE_START_SENT_KEY) || '';
     if (caseId && lastActivity && Date.now() - lastActivity > METRICS_CASE_EXPIRY_MS) {
-      [METRICS_CASE_KEY, METRICS_CASE_START_KEY, METRICS_ACTIVE_KEY, METRICS_LAST_ACTIVITY_KEY,
-        METRICS_FIRST_INPUT_KEY, METRICS_COMPLETED_KEY, 'metrics_start_ts', 'metrics_session_id']
+      [METRICS_CASE_KEY, METRICS_CASE_START_KEY, METRICS_CASE_START_SENT_KEY,
+        METRICS_ACTIVE_KEY, METRICS_LAST_ACTIVITY_KEY, METRICS_FIRST_INPUT_KEY,
+        METRICS_COMPLETED_KEY, 'metrics_start_ts', 'metrics_session_id']
         .forEach(key => localStorage.removeItem(key));
       caseId = '';
+      startSentForCase = '';
     }
   } catch (e) {}
+
+  const recoveredExistingCase = !!caseId;
   if (!caseId) {
     caseId = createMetricsId();
     const now = new Date().toISOString();
@@ -2146,11 +2158,14 @@ function initMetricsSession() {
       localStorage.setItem('metrics_start_ts', now);
       localStorage.setItem('metrics_session_id', caseId);
     } catch (e) {}
-    trackMetricsEvent('case_start');
+  }
+
+  if (startSentForCase !== caseId) {
+    try { localStorage.setItem(METRICS_CASE_START_SENT_KEY, caseId); } catch (e) {}
+    trackMetricsEvent('case_start', { recovered_existing_case: recoveredExistingCase });
   }
   return caseId;
 }
-
 function registerMetricsActivity() {
   const now = Date.now();
   let last = 0;
@@ -2272,35 +2287,58 @@ function writeMetricsQueue(queue) {
   try { localStorage.setItem(METRICS_QUEUE_KEY, JSON.stringify(queue.slice(-200))); } catch (e) {}
 }
 
-async function flushMetricsQueue() {
-  if (metricsRuntime.sending || !METRICS_ENDPOINT) return;
-  metricsRuntime.sending = true;
-  try {
-    let queue = readMetricsQueue();
-    while (queue.length) {
-      const item = queue[0];
-      const outgoing = Object.assign({}, item.payload, { queued: item.attempts > 0 ? 1 : 0 });
-      try {
-        await fetch(METRICS_ENDPOINT, {
-          method: 'POST', mode: 'no-cors', keepalive: true,
-          headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(outgoing)
-        });
-        // 送信中に別イベントが追加されるため、古い配列で上書きせず最新キューから送信済みIDだけを除く。
-        queue = readMetricsQueue().filter(entry => entry?.payload?.event_id !== item.payload.event_id);
-        writeMetricsQueue(queue);
-      } catch (e) {
-        queue = readMetricsQueue();
-        const failedItem = queue.find(entry => entry?.payload?.event_id === item.payload.event_id);
-        if (failedItem) failedItem.attempts = (failedItem.attempts || 0) + 1;
-        writeMetricsQueue(queue);
-        break;
-      }
-    }
-  } finally {
-    metricsRuntime.sending = false;
+function scheduleMetricsFlush(queue = readMetricsQueue()) {
+  if (metricsRuntime.retryTimer) clearTimeout(metricsRuntime.retryTimer);
+  if (!queue.length) {
+    metricsRuntime.retryTimer = null;
+    return;
   }
+  const nextAttempt = Math.min(...queue.map(item => Number(item.next_attempt_ts || 0)));
+  const delay = Math.max(0, Math.min(nextAttempt - Date.now(), 60 * 1000));
+  metricsRuntime.retryTimer = setTimeout(() => {
+    metricsRuntime.retryTimer = null;
+    flushMetricsQueue();
+  }, delay);
 }
 
+async function flushMetricsQueue() {
+  if (metricsRuntime.sending || !METRICS_ENDPOINT) return;
+  let queue = readMetricsQueue();
+  if (!queue.length) return;
+
+  const now = Date.now();
+  const item = queue.find(entry => Number(entry.next_attempt_ts || 0) <= now);
+  if (!item) {
+    scheduleMetricsFlush(queue);
+    return;
+  }
+
+  metricsRuntime.sending = true;
+  const outgoing = Object.assign({}, item.payload, { queued: item.attempts > 0 ? 1 : 0 });
+  try {
+    await fetch(METRICS_ENDPOINT, {
+      method: 'POST', mode: 'no-cors', keepalive: true,
+      headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(outgoing)
+    });
+  } catch (e) {
+    // no-corsではGASの応答本文を確認できないため、同じevent_idで規定回数送る。
+  } finally {
+    queue = readMetricsQueue();
+    const queuedItem = queue.find(entry => entry?.payload?.event_id === item.payload.event_id);
+    if (queuedItem) {
+      queuedItem.attempts = Number(queuedItem.attempts || 0) + 1;
+      if (queuedItem.attempts >= METRICS_MAX_SEND_ATTEMPTS) {
+        queue = queue.filter(entry => entry?.payload?.event_id !== item.payload.event_id);
+      } else {
+        queuedItem.next_attempt_ts =
+          Date.now() + METRICS_RETRY_BASE_MS * Math.pow(2, queuedItem.attempts - 1);
+      }
+      writeMetricsQueue(queue);
+    }
+    metricsRuntime.sending = false;
+    scheduleMetricsFlush(queue);
+  }
+}
 function trackMetricsEvent(eventName, properties = {}) {
   if (!METRICS_ENDPOINT) return;
   let caseId = '';
@@ -2335,15 +2373,23 @@ function trackMetricsEvent(eventName, properties = {}) {
     queued: 0
   };
   const queue = readMetricsQueue();
-  queue.push({ payload, attempts: 0 });
+  queue.push({ payload, attempts: 0, next_attempt_ts: 0 });
   writeMetricsQueue(queue);
   flushMetricsQueue();
 }
 
 function sendMetrics(action) {
   const eventName = action === 'mail' ? 'mail_open' : 'report_copy';
-  trackMetricsEvent(eventName);
-  if (eventName === 'report_copy') trackMetricsCaseCompletion('activity_report');
+  if (eventName === 'report_copy') {
+    trackMetricsEvent(eventName, {
+      completed: true,
+      completion_source: 'activity_report'
+    });
+    // GAS v3との互換性のため、集計側更新までは従来イベントも併送する。
+    trackMetricsCaseCompletion('activity_report');
+  } else {
+    trackMetricsEvent(eventName);
+  }
 }
 
 function trackMetricsCaseCompletion(source) {
@@ -2372,7 +2418,7 @@ function resetMetricsCase(options = {}) {
     trackMetricsEvent('case_reset');
   }
   try {
-    [METRICS_CASE_KEY, METRICS_CASE_START_KEY, METRICS_ACTIVE_KEY, METRICS_LAST_ACTIVITY_KEY,
+    [METRICS_CASE_KEY, METRICS_CASE_START_KEY, METRICS_CASE_START_SENT_KEY, METRICS_ACTIVE_KEY, METRICS_LAST_ACTIVITY_KEY,
       METRICS_FIRST_INPUT_KEY, METRICS_COMPLETED_KEY,
       'metrics_start_ts', 'metrics_session_id'].forEach(key => localStorage.removeItem(key));
   } catch (e) {}
