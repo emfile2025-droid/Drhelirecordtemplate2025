@@ -471,6 +471,45 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
   box-shadow:0 2px 6px rgba(91,33,182,0.35);
 }
 .stroke-notify-btn[hidden]{display:none !important}
+.stroke-lvo-card{
+  margin:0 0 14px;padding:12px;
+  border:1px solid #ddd6fe;border-radius:12px;
+  background:#faf8ff;
+}
+.stroke-lvo-title{
+  display:flex;align-items:center;gap:7px;
+  margin-bottom:8px;color:#5b21b6;
+  font-size:13px;font-weight:700;
+}
+.stroke-lvo-number{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:6px;
+  background:#ede9fe;color:#6d28d9;font-size:12px;
+}
+.stroke-lvo-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;
+}
+.stroke-lvo-btn{
+  min-height:34px;padding:7px 6px;
+  border:1px solid #c4b5fd;border-radius:8px;
+  background:#fff;color:var(--ink);
+  font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;
+}
+.stroke-lvo-btn[aria-pressed="true"]{
+  border-color:#7c3aed;background:#7c3aed;color:#fff;
+}
+.stroke-lvo-total{
+  display:flex;align-items:center;gap:6px;
+  margin-top:8px;color:#475569;font-size:12px;font-weight:700;
+}
+.stroke-lvo-total-value{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:42px;height:30px;border:1px solid #c4b5fd;border-radius:8px;
+  background:#fff;color:#5b21b6;font-size:15px;
+}
+@media(max-width:560px){
+  .stroke-lvo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 .ems-motor-picker{margin-bottom:8px}
 .ems-motor-picker .picker-line{margin-top:8px}
 .ems-motor-picker .picker-label{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:4px}
@@ -1381,6 +1420,19 @@ div.card-body > div[style*="display:flex"] .btn.small {
       </div>
 
       <div class="exam-pane" data-pane="stroke">
+        <section class="stroke-lvo-card" aria-labelledby="stroke_lvo_title">
+          <div class="stroke-lvo-title" id="stroke_lvo_title">
+            <span class="stroke-lvo-number">2</span>
+            <span>LVO scale / 意識</span>
+          </div>
+          <div class="stroke-lvo-grid" id="stroke_lvo_group" role="group" aria-label="LVO scale"></div>
+          <div class="stroke-lvo-total">
+            <span>合計</span>
+            <span class="stroke-lvo-total-value" id="stroke_lvo_total">0</span>
+            <span>/6</span>
+          </div>
+        </section>
+
         <h3>脳神経所見</h3>
         <div class="chips" id="fd-str-cn"></div>
         <textarea class="memo" id="memo-fd-str-cn" placeholder="脳神経メモ（視力・視野、眼球運動など）"></textarea>
@@ -2556,7 +2608,16 @@ function switchTab(tab) {
 window.switchTab = switchTab;
 
 const STROKE_BRIDGE_KEY = 'heli_stroke_bridge_v1';
+const STROKE_TO_HELI_BRIDGE_KEY = 'stroke_notify_to_heli_bridge_v1';
 const STROKE_NOTIFY_PATH = './StrokeNotify_v1.0.html';
+const STROKE_LVO_ITEMS = [
+  { key: 'arrhythmia', label: '不整脈' },
+  { key: 'gaze', label: '共同偏視' },
+  { key: 'neglect', label: '半側空間無視' },
+  { key: 'aphasia', label: '失語' },
+  { key: 'facial', label: '顔面麻痺' },
+  { key: 'arm', label: '上肢麻痺' }
+];
 /** 端末に残る下書きキー（更新ボタンでは消さない。リセット時にまとめて削除） */
 const HELI_DRAFT_STORAGE_KEYS = [
   'heliRecordV5',
@@ -2587,22 +2648,65 @@ function latestVitalForStroke() {
   return null;
 }
 
-function buildStrokeNotifySnapshot() {
-  updateState();
-  const p = state.patient || {};
+function inferStrokeLvoFromFindings() {
   const fd = state.fd || {};
-  const ems = state.ems || {};
-  const vital = latestVitalForStroke();
   const chips = fd.chips || {};
   const pos = Object.keys(chips).filter(k => chips[k] === '+');
   const lvo = [];
   if (pos.some(k => k.includes('顔面麻痺'))) lvo.push('facial');
   if (pos.some(k => /失語/.test(k))) lvo.push('aphasia');
   if (pos.some(k => k.includes('半側空間無視'))) lvo.push('neglect');
-  if ((fd.stroke?.gaze || '').trim()) lvo.push('gaze');
+  if ((fd.stroke?.gaze || '').trim() && fd.stroke.gaze !== 'なし') lvo.push('gaze');
   const mmt = fd.stroke?.mmt || {};
   if ([mmt.ru, mmt.lu].some(v => v != null && Number(v) < 5)) lvo.push('arm');
   if (pos.some(k => /不整|心房/.test(k))) lvo.push('arrhythmia');
+  return lvo;
+}
+
+function getStrokeLvoSelection() {
+  const stroke = state.fd?.stroke;
+  if (stroke?.lvoSelectionManual && Array.isArray(stroke.lvo)) return [...stroke.lvo];
+  return inferStrokeLvoFromFindings();
+}
+
+function renderStrokeLvo() {
+  const group = $('#stroke_lvo_group');
+  if (!group) return;
+  const selected = getStrokeLvoSelection();
+  group.innerHTML = '';
+  STROKE_LVO_ITEMS.forEach(item => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'stroke-lvo-btn';
+    btn.dataset.lvo = item.key;
+    btn.textContent = item.label;
+    btn.setAttribute('aria-pressed', selected.includes(item.key) ? 'true' : 'false');
+    btn.onclick = () => toggleStrokeLvo(item.key);
+    group.appendChild(btn);
+  });
+  const total = $('#stroke_lvo_total');
+  if (total) total.textContent = String(selected.length);
+}
+
+function toggleStrokeLvo(key) {
+  if (!state.fd.stroke) state.fd.stroke = {};
+  const selected = getStrokeLvoSelection();
+  const i = selected.indexOf(key);
+  if (i >= 0) selected.splice(i, 1);
+  else selected.push(key);
+  state.fd.stroke.lvo = selected;
+  state.fd.stroke.lvoSelectionManual = true;
+  renderStrokeLvo();
+  updateState();
+}
+
+function buildStrokeNotifySnapshot() {
+  updateState();
+  const p = state.patient || {};
+  const fd = state.fd || {};
+  const ems = state.ems || {};
+  const vital = latestVitalForStroke();
+  const lvo = getStrokeLvoSelection();
   const hasIv = ['ems', 'fd'].some(prefix => {
     const proc = state[prefix]?.procedures || {};
     return !!(proc['静脈路確保'] || proc['IV']);
@@ -2633,7 +2737,7 @@ function buildStrokeNotifySnapshot() {
       antiplatelet: p.antiplatelet || '',
       antiplatelet_drugs: Array.isArray(p.antiplatelet_drugs) ? [...p.antiplatelet_drugs] : [],
       lvo,
-      lvo_manual: lvo.length > 0,
+      lvo_manual: false,
       checks: { hotline: false, iv: !!hasIv },
       preadl: []
     }
@@ -2664,11 +2768,11 @@ function datetimeLocalToTime(v) {
 /** Notify先行入力時: 戻るリンクで保存されたドラフトをヘリ記録へ反映（空欄のみ） */
 function applyStrokeNotifyFromBridge() {
   let raw;
-  try { raw = localStorage.getItem('stroke_notify_to_heli_bridge_v1'); } catch { return; }
-  if (!raw) return;
+  try { raw = localStorage.getItem(STROKE_TO_HELI_BRIDGE_KEY); } catch { return false; }
+  if (!raw) return false;
   try {
     const data = JSON.parse(raw);
-    localStorage.removeItem('stroke_notify_to_heli_bridge_v1');
+    localStorage.removeItem(STROKE_TO_HELI_BRIDGE_KEY);
     const fields = data.fields || {};
     const st = data.state || {};
     const onset = datetimeLocalToTime(fields.onset_time);
@@ -2704,9 +2808,16 @@ function applyStrokeNotifyFromBridge() {
       state.ems.procedures['静脈路確保'] = true;
     }
     if (!state.fd.stroke) state.fd.stroke = { mmt: {}, nihss: {} };
+    if (Array.isArray(st.lvo)) {
+      state.fd.stroke.lvo = st.lvo.filter(key => STROKE_LVO_ITEMS.some(item => item.key === key));
+      state.fd.stroke.lvoSelectionManual = true;
+    }
     if (Array.isArray(st.lvo) && st.lvo.includes('gaze') && !state.fd.stroke.gaze) state.fd.stroke.gaze = 'あり';
     state.fd.exam_tab = 'stroke';
-  } catch { /* noop */ }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function updateStrokeNotifyButtonVisibility() {
@@ -3017,7 +3128,8 @@ let state = {
       pupilL:3, pupilR:3, plrL:'', plrR:'', gaze:'', nyst:'',
       mmt:{ru:5, lu:5, rl:5, ll:5},
       btr:'', ptr:'', babinski:false, chaddock:false,
-      nihss:{}, nihssMemo:'', nihssExpanded:false
+      nihss:{}, nihssMemo:'', nihssExpanded:false,
+      lvo:[], lvoSelectionManual:false
     },
     procedures: {},
     procedures_items: ['酸素投与','BVM','NPPV','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],
@@ -5264,6 +5376,7 @@ function setupExamTabs(prefix) {
       const card = tab.closest('.card'); card.querySelectorAll('.exam-pane').forEach(p => p.classList.remove('active'));
       card.querySelector(`.exam-pane[data-pane="${type}"]`)?.classList.add('active');
       if(type === 'cpa') { setCpaVitalDefaults(); if(prefix === 'fd' && state.fd.cpaEvents.length === 0) addCpaEvent(); }
+      if(prefix === 'fd' && type === 'stroke') renderStrokeLvo();
       updateState();
       if (prefix === 'fd') updateStrokeNotifyButtonVisibility();
     };
@@ -5598,8 +5711,8 @@ const REQUEST_CONTENT_ITEMS = [
   '意識障害','片麻痺','構音障害','四肢麻痺',
   '交通外傷','墜落外傷','転落外傷','刺傷','熱傷','けいれん'
 ];
-const HISTORY_ITEMS = ['高血圧','糖尿病','脂質異常症','虚血性心疾患','脳血管障害','喘息','COPD','悪性腫瘍','てんかん','緑内障'];
-const MEDICATION_ITEMS = ['抗凝固薬','抗血小板薬'];
+const HISTORY_ITEMS = ['なし','高血圧','糖尿病','脂質異常症','虚血性心疾患','脳血管障害','喘息','COPD','悪性腫瘍','てんかん','緑内障'];
+const MEDICATION_ITEMS = ['なし','抗凝固薬','抗血小板薬'];
 const ALLERGY_ITEMS = ['食物アレルギー','薬剤アレルギー'];
 const ANTICOAGULANT_DRUGS = ['ワーファリン','イグザレルト','エリキュース','リクシアナ','プラザキサ'];
 const ANTIPLATELET_DRUGS = ['バイアスピリン','プラビックス','エフィエント','チクロピジン','プレタール','アンプラーグ','プロレナール','コンプラビン配合錠'];
@@ -5832,8 +5945,15 @@ function renderToggleListChips(containerId, items, textareaId) {
     chip.textContent = item;
     chip.onclick = () => {
       const next = new Set(parseListText(ta.value));
-      if(next.has(item)) next.delete(item);
-      else next.add(item);
+      if(next.has(item)) {
+        next.delete(item);
+      } else if(item === 'なし') {
+        next.clear();
+        next.add(item);
+      } else {
+        next.delete('なし');
+        next.add(item);
+      }
       ta.value = Array.from(next).join('、');
       renderRequestAssistChips();
       updateState();
@@ -5935,11 +6055,36 @@ function renderMedicationStructureChips() {
   if(!Array.isArray(state.patient.antiplatelet_drugs)) state.patient.antiplatelet_drugs = [];
   c.innerHTML = '';
 
+  const medicationTextarea = $('#patient_medication');
+  const removeMedicationNone = () => {
+    if(!medicationTextarea) return;
+    medicationTextarea.value = parseListText(medicationTextarea.value).filter(item => item !== 'なし').join('、');
+  };
+
+  const noneChip = document.createElement('div');
+  noneChip.className = 'chip';
+  const medicationItems = parseListText(medicationTextarea?.value || '');
+  if(medicationItems.includes('なし')) noneChip.dataset.state = 'proc';
+  noneChip.textContent = 'なし';
+  noneChip.onclick = () => {
+    const selected = parseListText(medicationTextarea?.value || '').includes('なし');
+    state.patient.anticoagulant = '';
+    state.patient.anticoagulant_drugs = [];
+    state.patient.antiplatelet = '';
+    state.patient.antiplatelet_drugs = [];
+    if(medicationTextarea) medicationTextarea.value = selected ? '' : 'なし';
+    state.patient.medication = medicationTextarea?.value || '';
+    renderRequestAssistChips({skipTextSync:true});
+    updateState();
+  };
+  c.appendChild(noneChip);
+
   const anticoagulantChip = document.createElement('div');
   anticoagulantChip.className = 'chip';
   colorTriStateChip(anticoagulantChip, state.patient.anticoagulant);
   anticoagulantChip.textContent = '抗凝固薬' + (state.patient.anticoagulant ? `(${state.patient.anticoagulant})` : '');
   anticoagulantChip.onclick = () => {
+    removeMedicationNone();
     const cur = state.patient.anticoagulant || '';
     if(cur === '') state.patient.anticoagulant = 'なし';
     else if(cur === 'なし') state.patient.anticoagulant = 'あり';
@@ -5956,6 +6101,7 @@ function renderMedicationStructureChips() {
   colorTriStateChip(antiplateletChip, state.patient.antiplatelet);
   antiplateletChip.textContent = '抗血小板薬' + (state.patient.antiplatelet ? `(${state.patient.antiplatelet})` : '');
   antiplateletChip.onclick = () => {
+    removeMedicationNone();
     const cur = state.patient.antiplatelet || '';
     if(cur === '') state.patient.antiplatelet = 'なし';
     else if(cur === 'なし') state.patient.antiplatelet = 'あり';
@@ -6378,6 +6524,29 @@ function formatVitalLine(v) {
   return `[${v.time||'--'}] BP:${formatVitalBp(v)} HR:${formatVitalValue(v.hr)} RR:${formatVitalValue(v.rr)} SpO2:${formatVitalSpo2(v.spo2)} BT:${formatVitalValue(v.bt)}℃ GCS:${gcs} JCS:${formatVitalValue(v.jcs)}`;
 }
 
+/** 出力用: 入力画面の登録順は変えず、有効な時刻を昇順、時刻未入力を末尾に並べる */
+function sortVitalsByTime(vitals) {
+  if (!Array.isArray(vitals)) return [];
+  const toMinutes = value => {
+    const m = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const hour = Number(m[1]);
+    const minute = Number(m[2]);
+    return hour >= 0 && hour < 24 && minute >= 0 && minute < 60
+      ? hour * 60 + minute
+      : null;
+  };
+  return vitals
+    .map((vital, index) => ({ vital, index, minutes: toMinutes(vital?.time) }))
+    .sort((a, b) => {
+      if (a.minutes == null && b.minutes == null) return a.index - b.index;
+      if (a.minutes == null) return 1;
+      if (b.minutes == null) return -1;
+      return a.minutes - b.minutes || a.index - b.index;
+    })
+    .map(item => item.vital);
+}
+
 function appendAllEmsExamSections(r, ems) {
   const chips = ems.chips || {};
   const gMemo = ems.memos?.general || {};
@@ -6448,7 +6617,7 @@ function generateReport() {
     r += `タイムライン: ${tl}\n`;
   }
   if (state.ems.vitals.length > 0) r += '＜バイタル＞\n';
-  state.ems.vitals.forEach(v => {
+  sortVitalsByTime(state.ems.vitals).forEach(v => {
     r += `${formatVitalLine(v)}\n`;
   });
   r = appendAllEmsExamSections(r, state.ems);
@@ -6464,7 +6633,7 @@ function generateReport() {
   r += '\n【フライトドクター活動】\n';
   // フライトドクタータイムライン
   if(state.heli.fd_contact) r += `FD接触: ${state.heli.fd_contact}\n`;
-  state.fd.vitals.forEach(v => {
+  sortVitalsByTime(state.fd.vitals).forEach(v => {
     r += `${formatVitalLine(v)}\n`;
   });
   // ドクター身体所見出力ロジック追加
@@ -7738,7 +7907,7 @@ function init() {
   [['#ems-gen-head',EMS_GEN_GROUPS.head],['#ems-gen-resp',EMS_GEN_GROUPS.resp],['#ems-gen-card',EMS_GEN_GROUPS.card],['#ems-gen-abd',EMS_GEN_GROUPS.abd],['#ems-gen-limb',EMS_GEN_GROUPS.limb],['#ems-gen-neuro',EMS_GEN_GROUPS.neuro],['#ems-tra-head',EMS_TRA_GROUPS.head],['#ems-tra-neck',EMS_TRA_GROUPS.neck],['#ems-tra-chest',EMS_TRA_GROUPS.chest],['#ems-tra-abd',EMS_TRA_GROUPS.abd],['#ems-tra-pelvis',EMS_TRA_GROUPS.pelvis],['#ems-tra-limb',EMS_TRA_GROUPS.limb],['#ems-cpa-rhythm',EMS_CPA_GROUPS.rhythm],['#ems-cpa-witness',EMS_CPA_GROUPS.witness],['#ems-cpa-airway',EMS_CPA_GROUPS.airway],['#ems-cpa-circulation',EMS_CPA_GROUPS.circulation],['#ems-cpa-chest',EMS_CPA_GROUPS.chest],['#ems-str-conscious',EMS_STR_GROUPS.conscious],['#ems-str-face',EMS_STR_GROUPS.face],['#ems-str-other',EMS_STR_GROUPS.other]].forEach(x=>mountChips(x[0],x[1],'ems'));
   renderEmsStrokeMotorPicker();
   [['#fd-gen-head',FD_GEN_GROUPS.head],['#fd-gen-resp',FD_GEN_GROUPS.resp],['#fd-gen-card',FD_GEN_GROUPS.card],['#fd-gen-abd',FD_GEN_GROUPS.abd],['#fd-gen-limb',FD_GEN_GROUPS.limb],['#fd-gen-neuro',FD_GEN_GROUPS.neuro],['#fd-tra-head',FD_TRA_GROUPS.head],['#fd-tra-neck',FD_TRA_GROUPS.neck],['#fd-tra-chest',FD_TRA_GROUPS.chest],['#fd-tra-abd',FD_TRA_GROUPS.abd],['#fd-tra-pelvis',FD_TRA_GROUPS.pelvis],['#fd-tra-limb',FD_TRA_GROUPS.limb],['#fd-str-cn',FD_STR_GROUPS.cn],['#fd-str-higher',FD_STR_GROUPS.higher]].forEach(x=>mountChips(x[0],x[1],'fd'));
-  setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); bindNihssDetails(); restoreUI(); bindInputEvents(); loadMciState(); renderMci();
+  setupExamTabs('ems'); setupExamTabs('fd'); bindMemos(); bindNihssDetails(); restoreUI(); renderStrokeLvo(); bindInputEvents(); loadMciState(); renderMci();
   $('#copyOut').onclick=()=>{
     if (!ensureTransportSchemeSelected()) return;
     updateState();
@@ -7914,7 +8083,7 @@ function formatReferralVitalLine(v) {
 
 function buildReferralVitalsBlock(vitals) {
   if (!vitals || vitals.length === 0) return '';
-  return vitals.map(formatReferralVitalLine).filter(Boolean).join('\n');
+  return sortVitalsByTime(vitals).map(formatReferralVitalLine).filter(Boolean).join('\n');
 }
 
 /** 救急隊所見: appendAllEmsExamSections と同一ロジック */
