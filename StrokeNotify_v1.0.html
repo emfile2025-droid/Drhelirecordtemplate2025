@@ -1,0 +1,2087 @@
+<!DOCTYPE html>
+<!-- 作成: 2026-05-22 | 更新: 2026-05-22 | v1.3 | GitHub Pages 用・ヘリ記録連携（LIFF 削除） -->
+<!-- 2026-05-22 | v1.3 | ヘリ記録双方向: bridge取込・戻るでto_heli_bridge保存 -->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Stroke Notify v1.3</title>
+<meta name="theme-color" content="#5b21b6">
+<meta name="description" content="脳卒中通知チェックリスト｜GitHub Pages / ヘリ記録連携">
+<meta property="og:title" content="Stroke Notify">
+<meta property="og:description" content="脳卒中通知チェックリスト">
+<meta property="og:type" content="website">
+<link rel="manifest" href="manifest-stroke.json">
+<script src="related-apps.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --primary-color: #5b21b6;
+    --primary-dim: #ede9fe;
+    --accent-color: #7c3aed;
+    --bg: #f3f0fa;
+    --surface: #ffffff;
+    --border: #d4c8ec;
+    --text: #0f1628;
+    --text-sub: #4a5878;
+    --success: #15803d;
+    --warn: #b45309;
+    --radius: 10px;
+    --space-xs: 4px;
+    --space-sm: 6px;
+    --space-md: 8px;
+    --space-lg: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: max(env(safe-area-inset-top), 10px) 10px max(env(safe-area-inset-bottom), 16px);
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: var(--space-sm) 0 var(--space-md);
+  }
+  header .icon {
+    width: 32px;
+    height: 32px;
+    background: var(--primary-color);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 16px rgba(91, 33, 182, 0.35);
+  }
+  header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
+  header p { font-size: 11px; color: var(--text-sub); margin-top: 1px; }
+  header .header-actions { margin-left: auto; display: flex; gap: 6px; }
+  .btn-update {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .nav-back {
+    display: block;
+    margin-bottom: var(--space-sm);
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--primary-color);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+  }
+  .nav-back[hidden] { display: none !important; }
+
+  #status-bar {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-sub);
+    padding: 0 0 var(--space-sm);
+  }
+  #status-bar.error { color: #dc2626; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-md);
+    overflow: hidden;
+  }
+
+  .section {
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border);
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary-color);
+    letter-spacing: 0.04em;
+    margin-bottom: var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .section-title .num {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: var(--primary-dim);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .field-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-sub);
+    margin: var(--space-sm) 0 var(--space-xs);
+  }
+  .field-label:first-child,
+  .field-block:first-child .field-label { margin-top: 0; }
+
+  .field-hint {
+    font-size: 10px;
+    color: var(--text-sub);
+    line-height: 1.35;
+    margin: 0 0 var(--space-xs);
+  }
+
+  .field-block { margin-bottom: var(--space-sm); }
+  .field-block:last-child { margin-bottom: 0; }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: minmax(88px, 34%) 1fr;
+    gap: var(--space-xs) var(--space-sm);
+    align-items: center;
+    margin-bottom: var(--space-sm);
+  }
+  .field-row .field-label { margin: 0; }
+
+  .inline-yn {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-sm);
+    margin-bottom: var(--space-sm);
+  }
+  .inline-yn .field-label {
+    margin: 0;
+    min-width: 72px;
+    flex-shrink: 0;
+  }
+  .inline-yn .preset-group { flex: 1; min-width: 0; }
+
+  .text-input,
+  .text-area {
+    width: 100%;
+    background: #faf8ff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 7px 9px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .text-input:focus,
+  .text-area:focus { border-color: var(--accent-color); }
+  .text-area { min-height: 44px; resize: vertical; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-sm); }
+
+  .preset-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .preset-btn {
+    padding: 5px 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .preset-btn.selected {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: transparent;
+  }
+  .preset-btn.sm { font-size: 11px; padding: 4px 8px; }
+  .preset-btn.xs { font-size: 11px; padding: 3px 7px; }
+
+  .check-group { display: flex; flex-direction: column; gap: var(--space-xs); }
+  .chip-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xs);
+  }
+  .lvo-pill-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .pill-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 4px 3px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .pill-toggle.checked {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    font-weight: 700;
+  }
+  .action-pill-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .action-pill-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .check-item.checked {
+    border-color: var(--primary-color);
+    background: var(--primary-dim);
+  }
+  .chip-grid .check-item,
+  .chip-row .check-item { min-height: 34px; }
+  .check-item.compact-chip { padding: 5px 8px; }
+  .check-item.compact-chip .checkbox {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+  .check-item.compact-chip .check-label { font-size: 12px; line-height: 1.25; }
+  .check-item.compact-chip .check-sub { font-size: 10px; margin-top: 0; }
+
+  .check-item .checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: all 0.15s;
+  }
+  .check-item.checked .checkbox {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+  }
+  .check-item .check-label {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .check-item .check-sub {
+    display: block;
+    font-size: 11px;
+    color: var(--text-sub);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .lvo-total-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border);
+  }
+  .lvo-total-row .text-input {
+    width: 40px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 3px;
+  }
+  .lvo-total-row .field-hint { font-size: 10px; }
+
+  .elig-block {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    margin-bottom: 4px;
+  }
+  .elig-block .field-label {
+    margin: 0;
+    min-width: 44px;
+    flex-shrink: 0;
+  }
+  .elig-block .preset-group { flex: 1; min-width: 0; }
+
+  .flag-block {
+    margin-top: 2px;
+    margin-bottom: 4px;
+    padding: 4px 6px;
+    background: #faf8ff;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .flag-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flag-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .flag-row:first-child { padding-top: 0; }
+  .flag-label {
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.25;
+    flex: 1;
+    min-width: 0;
+  }
+  .tri-group {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .tri-btn {
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-sub);
+    min-width: 28px;
+  }
+  .tri-btn.selected {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .contact-row {
+    padding: var(--space-sm);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: var(--space-xs);
+    background: #faf8ff;
+  }
+  .contact-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    align-items: center;
+  }
+  .contact-inline .mini-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-sub);
+    width: 16px;
+    flex-shrink: 0;
+  }
+  .contact-inline .contact-rel-group { flex: 1 1 100%; }
+  .contact-inline .contact-detail {
+    flex: 1 1 calc(100% - 52px);
+    min-width: 120px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .contact-inline .remove-btn { flex-shrink: 0; margin-left: auto; }
+  .remove-btn {
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-sub);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .add-btn {
+    width: 100%;
+    padding: 7px;
+    border-radius: 8px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--primary-color);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: var(--space-sm);
+  }
+
+  .hotline-inline {
+    font-size: 10px;
+    color: var(--text-sub);
+    margin-top: var(--space-xs);
+  }
+  .hotline-box a { color: var(--primary-color); font-weight: 600; text-decoration: none; }
+
+  .wish-grid { display: flex; flex-direction: column; gap: 4px; }
+  .wish-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+  .wish-row .field-label {
+    margin: 0;
+    min-width: 56px;
+    flex-shrink: 0;
+  }
+  .wish-row .preset-group { flex: 1; min-width: 0; }
+  #wish_detail { min-height: 36px; margin-top: 4px; }
+
+  .preview-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 0.06em;
+    margin: var(--space-md) 0 var(--space-xs);
+  }
+  .preview-box {
+    padding: 8px 10px;
+    background: #faf8ff;
+    border-radius: 8px;
+    border: 1px dashed var(--border);
+    font-size: 11px;
+    white-space: pre-wrap;
+    line-height: 1.55;
+    min-height: 72px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .send-btn {
+    width: 100%;
+    margin-top: var(--space-sm);
+    padding: 11px;
+    border-radius: 12px;
+    border: none;
+    background: var(--primary-color);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(91, 33, 182, 0.35);
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .send-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+  .footer-actions {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+  }
+  .secondary-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-sub);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  #toast {
+    position: fixed;
+    bottom: max(env(safe-area-inset-bottom), 24px);
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--success);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 999;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: calc(100% - 32px);
+    text-align: center;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.warn { background: var(--warn); }
+
+  @media (max-width: 640px) {
+    .field-row { grid-template-columns: 1fr; }
+  }
+  @media (min-width: 480px) {
+    .grid-2-med { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
+  }
+
+  /* JCS / GCS（heli_record 式タップ + ダイヤル・iPhone タップ領域確保） */
+  .conscious-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 0;
+    padding: 8px;
+    background: #faf8ff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+  .conscious-jcs {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
+    min-height: 44px;
+    width: 100%;
+  }
+  .conscious-jcs:active { background: var(--primary-dim); }
+  .conscious-label { font-size: 12px; color: var(--text-sub); font-weight: 700; }
+  .conscious-value { font-size: 18px; font-weight: 700; color: var(--primary-color); }
+  .conscious-gcs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 8px;
+    width: 100%;
+    align-items: stretch;
+  }
+  .gcs-part {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 8px 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .gcs-part:active { background: var(--primary-dim); }
+  .gcs-part span { display: block; }
+  .gcs-part .lbl { font-size: 11px; color: var(--text-sub); font-weight: 700; margin-bottom: 2px; }
+  .gcs-part .val { font-size: 20px; font-weight: 700; color: var(--primary-color); line-height: 1.1; }
+  .gcs-sum {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    min-width: 44px;
+    padding: 0 10px;
+    background: var(--primary-color);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .lvo-conscious-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border);
+  }
+  .lvo-conscious-row .lvo-total-row {
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+  .lvo-conscious-row .conscious-panel {
+    width: 100%;
+  }
+
+  .dial-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    touch-action: none;
+  }
+  .dial-overlay.show { display: flex; }
+  body.dial-open { overflow: hidden; position: fixed; width: 100%; }
+  .dial-container {
+    background: var(--surface);
+    border-radius: 14px 14px 0 0;
+    width: 100%;
+    max-width: 500px;
+    padding-bottom: max(env(safe-area-inset-bottom), 8px);
+    animation: dialSlideUp 0.25s ease-out;
+  }
+  @keyframes dialSlideUp { from { transform: translateY(100%); } }
+  .dial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dial-title { font-size: 16px; font-weight: 700; }
+  .dial-done {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .dial-body { display: flex; justify-content: center; padding: 16px; gap: 8px; }
+  .dial-wheel {
+    height: 200px;
+    width: 120px;
+    overflow: hidden;
+    position: relative;
+    touch-action: pan-y;
+  }
+  .dial-wheel::before,
+  .dial-wheel::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 80px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .dial-wheel::before { top: 0; background: linear-gradient(to bottom, #fff, transparent); }
+  .dial-wheel::after { bottom: 0; background: linear-gradient(to top, #fff, transparent); }
+  .dial-highlight {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 40px;
+    transform: translateY(-50%);
+    background: var(--primary-dim);
+    border-radius: 8px;
+    z-index: 1;
+  }
+  .dial-scroll { position: relative; z-index: 3; padding: 80px 0; }
+  .dial-option {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text-sub);
+  }
+  .dial-option.selected { color: var(--text); font-weight: 700; font-size: 20px; }
+
+  .med-accordion { margin: var(--space-xs) 0; }
+  .med-accordion details {
+    background: #faf8ff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px;
+  }
+  .med-accordion summary {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-sub);
+    cursor: pointer;
+    list-style: none;
+  }
+  .med-accordion summary::-webkit-details-marker { display: none; }
+  .drug-chip-group { margin-top: var(--space-xs); }
+  .med-status-chip.na { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+  .med-status-chip.yes { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="icon" aria-hidden="true">🧠</div>
+  <div>
+    <h1>Stroke Notify</h1>
+    <p>脳卒中通知チェックリスト <span style="font-weight:600">v1.3</span></p>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn-update" id="btn_update" title="最新版に更新">🔄</button>
+  </div>
+</header>
+
+<a id="nav_back" class="nav-back" href="#" hidden>← 前の画面に戻る</a>
+<div id="status-bar"></div>
+
+<main class="card" id="stroke-form">
+  <!-- 1-2. 時刻・発症前 -->
+  <section class="section" aria-labelledby="sec-time">
+    <h2 class="section-title" id="sec-time"><span class="num">1</span>時刻・発症前</h2>
+    <div class="grid-2">
+      <div class="field-block">
+        <div class="field-label">発症（最終健常）</div>
+        <input class="text-input" type="datetime-local" id="onset_time" autocomplete="off">
+      </div>
+      <div class="field-block">
+        <div class="field-label">発見</div>
+        <input class="text-input" type="datetime-local" id="discovery_time" autocomplete="off">
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:var(--space-sm)">
+      <div class="field-label">発症前 ADL（複数選択可）</div>
+      <div class="preset-group" id="preadl_group" role="group" aria-label="発症前の状況">
+        <button type="button" class="preset-btn sm" data-value="ADL自立">ADL自立</button>
+        <button type="button" class="preset-btn sm" data-value="歩行可能">歩行可能</button>
+        <button type="button" class="preset-btn sm" data-value="寝たきり">寝たきり</button>
+        <button type="button" class="preset-btn sm" data-value="認知症あり">認知症</button>
+      </div>
+      <input class="text-input" type="text" id="preadl_note" placeholder="補足（例: 一人暮らし）" autocomplete="off" style="margin-top:var(--space-xs)">
+    </div>
+  </section>
+
+  <!-- 3-4. LVO・意識 -->
+  <section class="section" aria-labelledby="sec-lvo">
+    <h2 class="section-title" id="sec-lvo"><span class="num">2</span>LVO scale / 意識</h2>
+    <div class="lvo-pill-grid" id="lvo_group" role="group" aria-label="LVO scale">
+      <button type="button" class="pill-toggle" data-lvo="arrhythmia">不整脈</button>
+      <button type="button" class="pill-toggle" data-lvo="gaze">共同偏視</button>
+      <button type="button" class="pill-toggle" data-lvo="neglect">半側空間無視</button>
+      <button type="button" class="pill-toggle" data-lvo="aphasia">失語</button>
+      <button type="button" class="pill-toggle" data-lvo="facial">顔面麻痺</button>
+      <button type="button" class="pill-toggle" data-lvo="arm">上肢麻痺</button>
+    </div>
+    <div class="lvo-conscious-row">
+      <div class="lvo-total-row">
+        <span class="field-label" style="margin:0">合計</span>
+        <input class="text-input" type="number" id="lvo_total" min="0" max="6" inputmode="numeric" readonly>
+        <span class="field-hint" style="margin:0">/6</span>
+      </div>
+      <div class="conscious-panel" id="conscious_panel">
+        <button type="button" class="conscious-jcs" id="btn_jcs" aria-label="JCSを選択">
+          <span class="conscious-label">JCS</span>
+          <span class="conscious-value" id="jcs_display">--</span>
+        </button>
+        <div class="conscious-gcs">
+          <button type="button" class="gcs-part" data-gcs-field="gcs_e" aria-label="GCS E">
+            <span class="lbl">E</span><span class="val" id="gcs_e_display">4</span>
+          </button>
+          <button type="button" class="gcs-part" data-gcs-field="gcs_v" aria-label="GCS V">
+            <span class="lbl">V</span><span class="val" id="gcs_v_display">5</span>
+          </button>
+          <button type="button" class="gcs-part" data-gcs-field="gcs_m" aria-label="GCS M">
+            <span class="lbl">M</span><span class="val" id="gcs_m_display">6</span>
+          </button>
+          <span class="gcs-sum" id="gcs_sum_display">15</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 連絡・処置 -->
+  <section class="section" aria-labelledby="sec-action">
+    <h2 class="section-title" id="sec-action"><span class="num">3</span>連絡・処置</h2>
+    <div class="action-pill-grid">
+      <button type="button" class="pill-toggle" id="chk_hotline">ホットライン済</button>
+      <button type="button" class="pill-toggle" id="chk_iv">ルートキープ済</button>
+    </div>
+    <p class="hotline-inline">8278 / <a href="tel:0992065026">099-206-5026</a></p>
+    <div class="action-pill-grid cols-3" id="blood_group">
+      <button type="button" class="pill-toggle" data-blood="cbc">末血</button>
+      <button type="button" class="pill-toggle" data-blood="chem">生化</button>
+      <button type="button" class="pill-toggle" data-blood="coag">凝固</button>
+    </div>
+  </section>
+
+  <!-- 4. 家族・連絡先 -->
+  <section class="section" aria-labelledby="sec-family">
+    <h2 class="section-title" id="sec-family"><span class="num">4</span>家族・連絡先</h2>
+    <div class="inline-yn">
+      <span class="field-label">家族同乗</span>
+      <div class="preset-group yn-group" data-field="family_ride" role="group" aria-label="家族同乗">
+        <button type="button" class="preset-btn sm" data-value="あり">あり</button>
+        <button type="button" class="preset-btn sm" data-value="なし">なし</button>
+        <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+      </div>
+    </div>
+    <div id="contacts_list"></div>
+    <button type="button" class="add-btn" id="btn_add_contact">+ 連絡先追加</button>
+  </section>
+
+  <!-- 5. お薬 -->
+  <section class="section" aria-labelledby="sec-med">
+    <h2 class="section-title" id="sec-med"><span class="num">5</span>お薬・抗凝固</h2>
+    <div class="grid-2-med">
+      <div class="inline-yn" style="margin-bottom:0">
+        <span class="field-label">お薬手帳</span>
+        <div class="preset-group yn-group" data-field="med_book" role="group" aria-label="お薬手帳">
+          <button type="button" class="preset-btn sm" data-value="あり">あり</button>
+          <button type="button" class="preset-btn sm" data-value="なし">なし</button>
+          <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+        </div>
+      </div>
+      <div class="inline-yn" style="margin-bottom:0">
+        <span class="field-label">マイナ保険証</span>
+        <div class="preset-group yn-group" data-field="mynumber_insurance" role="group" aria-label="マイナ保険証情報">
+          <button type="button" class="preset-btn sm" data-value="あり">あり</button>
+          <button type="button" class="preset-btn sm" data-value="なし">なし</button>
+          <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+        </div>
+      </div>
+    </div>
+    <div class="field-label" style="margin-top:var(--space-sm)">抗凝固薬・抗血小板薬（タップで切替）</div>
+    <p class="field-hint">未選択 → なし → あり → 未選択</p>
+    <div class="preset-group" id="med_structure_chips" role="group" aria-label="抗凝固薬・抗血小板薬"></div>
+    <div id="anticoagulant_accordion" class="med-accordion" hidden>
+      <details open>
+        <summary>抗凝固薬選択（1つ）</summary>
+        <div class="preset-group drug-chip-group" id="anticoagulant_drugs" role="group" aria-label="抗凝固薬"></div>
+      </details>
+    </div>
+    <div id="antiplatelet_accordion" class="med-accordion" hidden>
+      <details open>
+        <summary>抗血小板薬選択（複数可）</summary>
+        <div class="preset-group drug-chip-group" id="antiplatelet_drugs" role="group" aria-label="抗血小板薬"></div>
+      </details>
+    </div>
+    <input class="text-input" type="text" id="med_other" placeholder="その他常用薬（任意）" autocomplete="off" style="margin-top:var(--space-xs)">
+    <div class="field-label">抗アミロイド抗体（複数可）</div>
+    <div class="preset-group" id="amyloid_group" role="group" aria-label="抗アミロイド抗体治療薬">
+      <button type="button" class="preset-btn sm amyloid-btn" data-value="レカネマブ（レケンビ）">レケンビ</button>
+      <button type="button" class="preset-btn sm amyloid-btn" data-value="ドナネマブ（ケサンラ）">ケサンラ</button>
+      <button type="button" class="preset-btn sm amyloid-btn" data-value="使用なし">使用なし</button>
+      <button type="button" class="preset-btn sm amyloid-btn" data-value="不明（薬剤名・使用有無不明）">不明</button>
+    </div>
+  </section>
+
+  <!-- 6. 適応 -->
+  <section class="section" aria-labelledby="sec-elig">
+    <h2 class="section-title" id="sec-elig"><span class="num">6</span>MRI / t-PA</h2>
+    <div class="elig-block">
+      <span class="field-label">MRI</span>
+      <div class="preset-group elig-group" data-field="mri_ok" role="group" aria-label="MRI施行">
+        <button type="button" class="preset-btn sm" data-value="可">可</button>
+        <button type="button" class="preset-btn sm" data-value="否">否</button>
+        <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+      </div>
+    </div>
+    <div class="flag-block" id="mri_flags"></div>
+    <div class="elig-block">
+      <span class="field-label">t-PA</span>
+      <div class="preset-group elig-group" data-field="tpa_ok" role="group" aria-label="t-PA施行">
+        <button type="button" class="preset-btn sm" data-value="可">可</button>
+        <button type="button" class="preset-btn sm" data-value="否">否</button>
+        <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+      </div>
+    </div>
+    <div class="flag-block" id="tpa_flags"></div>
+  </section>
+
+  <!-- 7. 治療希望 -->
+  <section class="section" aria-labelledby="sec-wish">
+    <h2 class="section-title" id="sec-wish"><span class="num">7</span>治療希望</h2>
+    <div class="wish-grid">
+      <div class="wish-row">
+        <span class="field-label">手術</span>
+        <div class="preset-group yn-group" data-field="wish_surgery" role="group" aria-label="手術希望">
+          <button type="button" class="preset-btn sm" data-value="あり">あり</button>
+          <button type="button" class="preset-btn sm" data-value="なし">なし</button>
+          <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+        </div>
+      </div>
+      <div class="wish-row">
+        <span class="field-label">カテ治療</span>
+        <div class="preset-group yn-group" data-field="wish_catheter" role="group" aria-label="カテーテル治療希望">
+          <button type="button" class="preset-btn sm" data-value="あり">あり</button>
+          <button type="button" class="preset-btn sm" data-value="なし">なし</button>
+          <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+        </div>
+      </div>
+      <div class="wish-row">
+        <span class="field-label">集中治療</span>
+        <div class="preset-group yn-group" data-field="wish_icu" role="group" aria-label="集中治療希望">
+          <button type="button" class="preset-btn sm" data-value="あり">あり</button>
+          <button type="button" class="preset-btn sm" data-value="なし">なし</button>
+          <button type="button" class="preset-btn sm" data-value="未確認">未確認</button>
+        </div>
+      </div>
+    </div>
+    <textarea class="text-area" id="wish_detail" placeholder="希望の補足（任意）" autocomplete="off"></textarea>
+  </section>
+</main>
+
+<div class="preview-label">送信プレビュー</div>
+<div class="preview-box" id="preview">─</div>
+
+<button type="button" class="send-btn" id="btn_send">📋 報告文をコピー</button>
+<div class="footer-actions">
+  <button type="button" class="secondary-btn" id="btn_reset">入力をクリア</button>
+  <button type="button" class="secondary-btn" id="btn_copy">プレビューをコピー</button>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div class="dial-overlay" id="dial_overlay">
+  <div class="dial-container" id="dial_container">
+    <div class="dial-header">
+      <span class="dial-title" id="dial_title">値を選択</span>
+      <button type="button" class="dial-done" id="dial_done">完了</button>
+    </div>
+    <div class="dial-body" id="dial_body"></div>
+  </div>
+</div>
+
+<script>
+const JCS_OPTIONS = [
+  { label: '0 (清明)', value: '0' },
+  { label: 'I-1', value: '1' },
+  { label: 'I-2', value: '2' },
+  { label: 'I-3', value: '3' },
+  { label: 'II-10', value: '10' },
+  { label: 'II-20', value: '20' },
+  { label: 'II-30', value: '30' },
+  { label: 'III-100', value: '100' },
+  { label: 'III-200', value: '200' },
+  { label: 'III-300', value: '300' }
+];
+
+const MRI_FLAG_DEFS = [
+  { key: 'pacemaker', label: 'ペースメーカー等', report: 'ペースメーカーなどの医療機器' },
+  { key: 'metal', label: '体内磁性体', report: '磁性体となる体内金属' }
+];
+
+const TPA_FLAG_DEFS = [
+  { key: 'ich', label: '脳出血既往', report: '脳出血既往' },
+  { key: 'stroke_1m', label: '1ヶ月以内脳梗塞', report: '1ヶ月以内の脳梗塞' },
+  { key: 'head_spine_3m', label: '3ヶ月以内頭部脊椎外傷・手術', report: '3ヶ月以内の頭部脊椎外傷・手術' },
+  { key: 'gi_bleed_3w', label: '3週間以内消化管・尿路出血', report: '3週間以内の消化管・尿路出血' },
+  { key: 'major_surgery_2w', label: '2週間以内大手術・重篤外傷', report: '2週間以内の大手術・頭部以外の重篤外傷' }
+];
+
+const RELATION_OPTIONS = ['父', '母', '兄', '弟', '姉', '妹', '配偶者', '娘', '息子', 'その他'];
+
+const LVO_MAP = {
+  arrhythmia: '不整脈',
+  gaze: '共同偏視',
+  neglect: '半側空間無視（指4本）',
+  aphasia: '失語（メガネ、腕時計など）',
+  facial: '顔面麻痺',
+  arm: '上肢麻痺'
+};
+
+const BLOOD_MAP = {
+  cbc: '末血（血算）',
+  chem: '生化',
+  coag: '凝固'
+};
+
+const ANTICOAGULANT_DRUGS = ['ワーファリン', 'イグザレルト', 'エリキュース', 'リクシアナ', 'プラザキサ'];
+const ANTIPLATELET_DRUGS = ['バイアスピリン', 'プラビックス', 'エフィエント', 'チクロピジン', 'プレタール', 'アンプラーグ', 'プロレナール', 'コンプラビン配合錠'];
+
+const HELI_STROKE_BRIDGE_KEY = 'heli_stroke_bridge_v1';
+const STROKE_TO_HELI_BRIDGE_KEY = 'stroke_notify_to_heli_bridge_v1';
+
+class StrokeNotifyApp {
+  constructor() {
+    this.storage_key = 'stroke_notify_draft_v4';
+    this.dial_callback = null;
+    this.dial_wheels = [];
+    this.dial_scroll_position = 0;
+    this.integration = { from: null, return_url: null };
+    this.state = this.defaultState();
+    this.init();
+  }
+
+  defaultState() {
+    const tri = {};
+    MRI_FLAG_DEFS.forEach(d => { tri['mri_' + d.key] = null; });
+    TPA_FLAG_DEFS.forEach(d => { tri['tpa_' + d.key] = null; });
+    return {
+      preadl: [],
+      family_ride: null,
+      med_book: null,
+      mynumber_insurance: null,
+      mri_ok: null,
+      tpa_ok: null,
+      wish_surgery: null,
+      wish_catheter: null,
+      wish_icu: null,
+      lvo: [],
+      amyloid_drugs: [],
+      blood: { cbc: false, chem: false, coag: false },
+      checks: { hotline: false, iv: false },
+      anticoagulant: '',
+      anticoagulant_drugs: [],
+      antiplatelet: '',
+      antiplatelet_drugs: [],
+      flags: tri,
+      contacts: [{ relation: null, detail: '' }],
+      lvo_manual: false,
+      jcs: '',
+      gcs: { e: 4, v: 5, m: 6 }
+    };
+  }
+
+  init() {
+    this.renderFlagBlocks();
+    this.renderContacts();
+    this.renderMedicationUi();
+    this.bindEvents();
+    this.initIntegration();
+    this.loadDraft();
+    this.applyHeliBridge();
+    this.renderConsciousUi();
+    this.updatePreview();
+  }
+
+  applyHeliBridge() {
+    let raw;
+    try { raw = localStorage.getItem(HELI_STROKE_BRIDGE_KEY); } catch { return; }
+    if (!raw) return;
+    try {
+      const snap = JSON.parse(raw);
+      this.applyHeliSnapshot(snap);
+      localStorage.removeItem(HELI_STROKE_BRIDGE_KEY);
+      this.showToast('ヘリ記録から項目を反映しました');
+    } catch { /* noop */ }
+  }
+
+  applyHeliSnapshot(snap) {
+    if (!snap) return;
+    if (snap.fields) {
+      Object.entries(snap.fields).forEach(([id, v]) => {
+        if (v == null || v === '') return;
+        const el = document.getElementById(id);
+        if (el) el.value = v;
+      });
+    }
+    if (!snap.state) {
+      this.syncUiFromState();
+      return;
+    }
+    const s = snap.state;
+    const def = this.defaultState();
+    if (s.jcs != null && s.jcs !== '') this.state.jcs = String(s.jcs);
+    if (s.gcs && typeof s.gcs === 'object') {
+      this.state.gcs = { ...def.gcs, ...s.gcs };
+    }
+    if (s.anticoagulant != null) this.state.anticoagulant = s.anticoagulant;
+    if (Array.isArray(s.anticoagulant_drugs)) this.state.anticoagulant_drugs = [...s.anticoagulant_drugs];
+    if (s.antiplatelet != null) this.state.antiplatelet = s.antiplatelet;
+    if (Array.isArray(s.antiplatelet_drugs)) this.state.antiplatelet_drugs = [...s.antiplatelet_drugs];
+    if (Array.isArray(s.lvo)) {
+      this.state.lvo = [...s.lvo];
+      this.state.lvo_manual = !!s.lvo_manual;
+      const totalEl = document.getElementById('lvo_total');
+      if (totalEl) totalEl.value = String(s.lvo.length);
+    }
+    if (s.checks && typeof s.checks === 'object') {
+      this.state.checks = { ...def.checks, ...s.checks };
+    }
+    if (Array.isArray(s.preadl)) this.state.preadl = [...s.preadl];
+    this.syncUiFromState();
+    this.renderConsciousUi();
+    this.renderMedicationUi();
+  }
+
+  persistBridgeToHeli() {
+    try {
+      this.saveDraft();
+      localStorage.setItem(STROKE_TO_HELI_BRIDGE_KEY, JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        ...this.collectDraft()
+      }));
+    } catch { /* noop */ }
+  }
+
+  renderFlagBlocks() {
+    const render = (defs, prefix, containerId) => {
+      const el = document.getElementById(containerId);
+      el.innerHTML = defs.map(d => {
+        const fk = prefix + '_' + d.key;
+        return `<div class="flag-row" data-flag="${fk}">
+          <span class="flag-label">${d.label}</span>
+          <div class="tri-group" role="group" aria-label="${d.label}">
+            <button type="button" class="tri-btn" data-val="あり">あり</button>
+            <button type="button" class="tri-btn" data-val="なし">なし</button>
+            <button type="button" class="tri-btn" data-val="未確認">未確認</button>
+          </div>
+        </div>`;
+      }).join('');
+    };
+    render(MRI_FLAG_DEFS, 'mri', 'mri_flags');
+    render(TPA_FLAG_DEFS, 'tpa', 'tpa_flags');
+  }
+
+  renderContacts() {
+    const list = document.getElementById('contacts_list');
+    list.innerHTML = '';
+    this.state.contacts.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'contact-row';
+      row.dataset.index = String(i);
+      const relBtns = RELATION_OPTIONS.map(r =>
+        `<button type="button" class="preset-btn xs contact-rel" data-value="${r}">${r}</button>`
+      ).join('');
+      row.innerHTML = `
+        <div class="contact-inline">
+          <span class="mini-num">${i + 1}</span>
+          <div class="preset-group contact-rel-group" role="group">${relBtns}</div>
+          <input class="text-input contact-detail" type="text" placeholder="電話・氏名" autocomplete="off" value="${this.escapeAttr(c.detail || '')}">
+          ${this.state.contacts.length > 1 ? '<button type="button" class="remove-btn contact-remove">削除</button>' : ''}
+        </div>
+      `;
+      list.appendChild(row);
+      if (c.relation) {
+        const btn = row.querySelector(`.contact-rel[data-value="${c.relation}"]`);
+        if (btn) btn.classList.add('selected');
+      }
+    });
+    this.bindContactRowEvents();
+  }
+
+  escapeAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  bindContactRowEvents() {
+    document.querySelectorAll('.contact-rel').forEach(btn => {
+      btn.onclick = () => {
+        const row = btn.closest('.contact-row');
+        const i = Number(row.dataset.index);
+        row.querySelectorAll('.contact-rel').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        this.state.contacts[i].relation = btn.dataset.value;
+        this.saveDraft();
+        this.updatePreview();
+      };
+    });
+    document.querySelectorAll('.contact-detail').forEach(inp => {
+      inp.oninput = () => {
+        const row = inp.closest('.contact-row');
+        const i = Number(row.dataset.index);
+        this.state.contacts[i].detail = inp.value;
+        this.saveDraft();
+        this.updatePreview();
+      };
+    });
+    document.querySelectorAll('.contact-remove').forEach(btn => {
+      btn.onclick = () => {
+        const row = btn.closest('.contact-row');
+        const i = Number(row.dataset.index);
+        this.state.contacts.splice(i, 1);
+        this.renderContacts();
+        this.saveDraft();
+        this.updatePreview();
+      };
+    });
+  }
+
+  bindEvents() {
+    document.querySelectorAll('#preadl_group .preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.togglePreadl(btn));
+    });
+
+    document.querySelectorAll('.yn-group .preset-btn, .elig-group .preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const field = btn.closest('[data-field]').dataset.field;
+        this.selectSingle(field, btn, `[data-field="${field}"]`);
+      });
+    });
+
+    document.querySelectorAll('#lvo_group .pill-toggle').forEach(btn => {
+      btn.addEventListener('click', () => this.toggleLvo(btn));
+    });
+
+    document.getElementById('lvo_total').addEventListener('input', () => {
+      this.state.lvo_manual = true;
+      this.saveDraft();
+      this.updatePreview();
+    });
+
+    document.querySelectorAll('#blood_group .pill-toggle').forEach(btn => {
+      btn.addEventListener('click', () => this.toggleBlood(btn));
+    });
+
+    document.querySelectorAll('.amyloid-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.toggleAmyloid(btn));
+    });
+
+    document.querySelectorAll('.flag-row .tri-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fk = btn.closest('.flag-row').dataset.flag;
+        btn.closest('.tri-group').querySelectorAll('.tri-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        this.state.flags[fk] = btn.dataset.val;
+        this.saveDraft();
+        this.updatePreview();
+      });
+    });
+
+    [['chk_hotline', 'hotline'], ['chk_iv', 'iv']].forEach(([id, key]) => {
+      document.getElementById(id).addEventListener('click', (e) => this.toggleCheck(e.currentTarget, key));
+    });
+
+    ['onset_time', 'discovery_time', 'preadl_note', 'med_other', 'wish_detail'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => { this.saveDraft(); this.updatePreview(); });
+    });
+
+    document.getElementById('btn_jcs').addEventListener('click', () => this.openConsciousDial('jcs'));
+    document.querySelectorAll('.gcs-part').forEach(btn => {
+      btn.addEventListener('click', () => this.openConsciousDial(btn.dataset.gcsField));
+    });
+
+    const dialOverlay = document.getElementById('dial_overlay');
+    const dialContainer = document.getElementById('dial_container');
+    dialOverlay.addEventListener('click', (e) => this.closeDial(e));
+    dialContainer.addEventListener('click', (e) => e.stopPropagation());
+    document.getElementById('dial_done').addEventListener('click', () => this.confirmDial());
+
+    document.getElementById('btn_add_contact').addEventListener('click', () => {
+      this.state.contacts.push({ relation: null, detail: '' });
+      this.renderContacts();
+      this.saveDraft();
+      this.updatePreview();
+    });
+
+    document.getElementById('btn_send').addEventListener('click', () => this.send());
+    document.getElementById('btn_reset').addEventListener('click', () => this.reset());
+    document.getElementById('btn_copy').addEventListener('click', () => this.copyPreview());
+    document.getElementById('btn_update').addEventListener('click', () => this.updateApp());
+  }
+
+  initIntegration() {
+    const params = new URLSearchParams(window.location.search);
+    this.integration.from = params.get('from');
+    this.integration.return_url = params.get('return');
+
+    const bar = document.getElementById('status-bar');
+    const back = document.getElementById('nav_back');
+    const heliApp = window.APP_RELATIONS?.heli_record;
+    const fromApp = this.integration.from && window.APP_RELATIONS
+      ? window.APP_RELATIONS[this.integration.from] || Object.values(window.APP_RELATIONS).find(a => a.id === this.integration.from)
+      : null;
+
+    let backHref = '';
+    let backLabel = '← ドクターヘリ活動記録に戻る';
+
+    if (this.integration.return_url) {
+      try {
+        backHref = decodeURIComponent(this.integration.return_url);
+      } catch {
+        backHref = this.integration.return_url;
+      }
+      backLabel = fromApp ? `← ${fromApp.label}に戻る` : '← 前の画面に戻る';
+    } else if (heliApp?.href) {
+      backHref = heliApp.href;
+      backLabel = `← ${heliApp.label}を開く`;
+    }
+
+    if (backHref) {
+      back.hidden = false;
+      back.href = backHref;
+      back.textContent = backLabel;
+      back.onclick = () => this.persistBridgeToHeli();
+    }
+
+    if (fromApp) {
+      bar.textContent = `${fromApp.label} から起動（班連絡はこの画面で完結）`;
+    } else if (heliApp) {
+      bar.textContent = '班連絡入力後、上のリンクからヘリ記録へ';
+    } else {
+      bar.textContent = '脳卒中班連絡チェックリスト';
+    }
+  }
+
+  updateApp() {
+    if (!confirm('アプリを最新版に更新しますか？\n（キャッシュを削除して再読み込みします）')) return;
+    try { this.saveDraft(); } catch { /* noop */ }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(names => { names.forEach(n => caches.delete(n)); });
+    }
+    setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('_t', String(Date.now()));
+      window.location.href = url.toString();
+    }, 300);
+  }
+
+  async copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (!ok) throw new Error('copy failed');
+  }
+
+  notifyParent(type, text) {
+    try {
+      if (window.opener) {
+        window.opener.postMessage({ type, text, source: 'stroke_notify' }, '*');
+      }
+    } catch { /* noop */ }
+  }
+
+  selectSingle(field, btn, selector) {
+    document.querySelectorAll(`${selector} .preset-btn`).forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    this.state[field] = btn.dataset.value;
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  gcsSum() {
+    const g = this.state.gcs;
+    if (g.v === 'T') return `${g.e + g.m}T`;
+    return g.e + (parseInt(g.v, 10) || 0) + g.m;
+  }
+
+  formatGcsReport() {
+    const g = this.state.gcs;
+    if (g.v === 'T') {
+      return `E${g.e}VTM${g.m}（${g.e + g.m}T）`;
+    }
+    return `E${g.e}V${g.v}M${g.m}（${this.gcsSum()}）`;
+  }
+
+  formatJcsReport() {
+    if (this.state.jcs === '' || this.state.jcs == null) return '未入力';
+    const opt = JCS_OPTIONS.find(o => String(o.value) === String(this.state.jcs));
+    return opt ? `${opt.label}（${opt.value}）` : String(this.state.jcs);
+  }
+
+  renderConsciousUi() {
+    const jcsEl = document.getElementById('jcs_display');
+    jcsEl.textContent = (this.state.jcs === '' || this.state.jcs == null) ? '--' : String(this.state.jcs);
+    document.getElementById('gcs_e_display').textContent = this.state.gcs.e;
+    document.getElementById('gcs_v_display').textContent = this.state.gcs.v;
+    document.getElementById('gcs_m_display').textContent = this.state.gcs.m;
+    document.getElementById('gcs_sum_display').textContent = String(this.gcsSum());
+  }
+
+  openConsciousDial(field) {
+    const g = this.state.gcs;
+    let wheels = [];
+    let title = '';
+    switch (field) {
+      case 'gcs_e':
+        title = 'GCS - E';
+        wheels = [{ options: [
+          { label: '1', value: 1 }, { label: '2', value: 2 },
+          { label: '3', value: 3 }, { label: '4', value: 4 }
+        ], selected: g.e }];
+        break;
+      case 'gcs_v':
+        title = 'GCS - V';
+        wheels = [{ options: [
+          { label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
+          { label: '4', value: 4 }, { label: '5', value: 5 }, { label: 'T', value: 'T' }
+        ], selected: g.v }];
+        break;
+      case 'gcs_m':
+        title = 'GCS - M';
+        wheels = [{ options: [
+          { label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
+          { label: '4', value: 4 }, { label: '5', value: 5 }, { label: '6', value: 6 }
+        ], selected: g.m }];
+        break;
+      case 'jcs':
+        title = 'JCS';
+        wheels = [{ options: JCS_OPTIONS.map(o => ({ label: o.label, value: o.value })), selected: this.state.jcs || '0' }];
+        break;
+      default:
+        return;
+    }
+    this.openDial(title, wheels, (vals) => {
+      switch (field) {
+        case 'gcs_e': g.e = vals[0]; break;
+        case 'gcs_v': g.v = vals[0]; break;
+        case 'gcs_m': g.m = vals[0]; break;
+        case 'jcs': this.state.jcs = String(vals[0]); break;
+      }
+      this.renderConsciousUi();
+      this.saveDraft();
+      this.updatePreview();
+    });
+  }
+
+  openDial(title, wheels, callback) {
+    this.dial_scroll_position = window.pageYOffset;
+    document.body.classList.add('dial-open');
+    document.body.style.top = `-${this.dial_scroll_position}px`;
+    this.dial_callback = callback;
+    this.dial_wheels = wheels;
+    document.getElementById('dial_title').textContent = title;
+    const body = document.getElementById('dial_body');
+    body.innerHTML = '';
+
+    wheels.forEach((w, wi) => {
+      const wheel = document.createElement('div');
+      wheel.className = 'dial-wheel';
+      wheel.innerHTML = '<div class="dial-highlight"></div>';
+      const scroll = document.createElement('div');
+      scroll.className = 'dial-scroll';
+      scroll.dataset.wheelIndex = String(wi);
+      w.options.forEach((opt, oi) => {
+        const div = document.createElement('div');
+        div.className = 'dial-option';
+        div.textContent = opt.label;
+        if (opt.value == w.selected) div.classList.add('selected');
+        scroll.appendChild(div);
+      });
+      wheel.appendChild(scroll);
+      body.appendChild(wheel);
+
+      let currentIndex = w.options.findIndex(o => o.value == w.selected);
+      if (currentIndex < 0) currentIndex = 0;
+      let currentOffset = -currentIndex * 40;
+      let velocityY = 0;
+      let animationId = null;
+
+      const stopAnimation = () => {
+        if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+      };
+      const updateSel = (idx) => {
+        scroll.querySelectorAll('.dial-option').forEach((o, i) => o.classList.toggle('selected', i === idx));
+        w.selected = w.options[idx].value;
+      };
+      const snap = () => {
+        let newIndex = Math.round(-currentOffset / 40);
+        newIndex = Math.max(0, Math.min(w.options.length - 1, newIndex));
+        currentOffset = -newIndex * 40;
+        scroll.style.transition = 'transform 0.2s ease-out';
+        scroll.style.transform = `translateY(${currentOffset}px)`;
+        updateSel(newIndex);
+      };
+      const momentum = () => {
+        velocityY *= 0.92;
+        currentOffset += velocityY;
+        const minOff = -(w.options.length - 1) * 40;
+        if (currentOffset > 0) { currentOffset = 0; velocityY = 0; }
+        else if (currentOffset < minOff) { currentOffset = minOff; velocityY = 0; }
+        scroll.style.transform = `translateY(${currentOffset}px)`;
+        if (Math.abs(velocityY) > 0.5) animationId = requestAnimationFrame(momentum);
+        else snap();
+      };
+      let lastY = 0;
+      let lastTime = 0;
+      const onDown = (y) => {
+        stopAnimation();
+        scroll.style.transition = 'none';
+        lastY = y;
+        lastTime = Date.now();
+        velocityY = 0;
+      };
+      const onMove = (y) => {
+        const dy = y - lastY;
+        currentOffset += dy * 1.5;
+        scroll.style.transform = `translateY(${currentOffset}px)`;
+        const now = Date.now();
+        const dt = now - lastTime;
+        if (dt > 0) velocityY = (dy * 1.5) / dt * 16;
+        lastY = y;
+        lastTime = now;
+      };
+      const onUp = () => {
+        if (Math.abs(velocityY) > 2) animationId = requestAnimationFrame(momentum);
+        else snap();
+      };
+      scroll.addEventListener('touchstart', (e) => { e.preventDefault(); onDown(e.touches[0].clientY); }, { passive: false });
+      scroll.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e.touches[0].clientY); }, { passive: false });
+      scroll.addEventListener('touchend', (e) => { e.preventDefault(); onUp(); }, { passive: false });
+      wheel.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        onDown(e.clientY);
+        const mm = (e2) => onMove(e2.clientY);
+        const mu = () => {
+          document.removeEventListener('mousemove', mm);
+          document.removeEventListener('mouseup', mu);
+          onUp();
+        };
+        document.addEventListener('mousemove', mm);
+        document.addEventListener('mouseup', mu);
+      });
+      scroll.querySelectorAll('.dial-option').forEach((opt, oi) => {
+        opt.addEventListener('click', (e) => {
+          e.stopPropagation();
+          currentOffset = -oi * 40;
+          w.selected = w.options[oi].value;
+          scroll.style.transition = 'transform 0.2s ease-out';
+          scroll.style.transform = `translateY(${currentOffset}px)`;
+          updateSel(oi);
+          if (wheels.length === 1) setTimeout(() => this.confirmDial(), 200);
+        });
+      });
+      scroll.style.transform = `translateY(${currentOffset}px)`;
+      updateSel(currentIndex);
+    });
+
+    document.getElementById('dial_overlay').classList.add('show');
+  }
+
+  closeDial(e) {
+    if (e && e.target !== document.getElementById('dial_overlay')) return;
+    document.getElementById('dial_overlay').classList.remove('show');
+    document.body.classList.remove('dial-open');
+    document.body.style.top = '';
+    window.scrollTo(0, this.dial_scroll_position);
+    this.dial_callback = null;
+  }
+
+  confirmDial() {
+    const cb = this.dial_callback;
+    const values = this.dial_wheels.map(w => w.selected);
+    this.dial_callback = null;
+    document.getElementById('dial_overlay').classList.remove('show');
+    document.body.classList.remove('dial-open');
+    document.body.style.top = '';
+    window.scrollTo(0, this.dial_scroll_position);
+    if (cb) setTimeout(() => cb(values), 50);
+  }
+
+  cycleMedStatus(field) {
+    const cur = this.state[field] || '';
+    if (cur === '') this.state[field] = 'なし';
+    else if (cur === 'なし') this.state[field] = 'あり';
+    else this.state[field] = '';
+    if (field === 'anticoagulant' && this.state.anticoagulant !== 'あり') {
+      this.state.anticoagulant_drugs = [];
+    }
+    if (field === 'antiplatelet' && this.state.antiplatelet !== 'あり') {
+      this.state.antiplatelet_drugs = [];
+    }
+    this.renderMedicationUi();
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  toggleAnticoagDrug(drug) {
+    const list = this.state.anticoagulant_drugs;
+    if (list.includes(drug)) {
+      this.state.anticoagulant_drugs = [];
+    } else {
+      this.state.anticoagulant_drugs = [drug];
+    }
+    this.renderMedicationUi();
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  toggleAntiplateletDrug(drug) {
+    const list = this.state.antiplatelet_drugs;
+    if (list.includes(drug)) {
+      this.state.antiplatelet_drugs = list.filter(d => d !== drug);
+    } else {
+      this.state.antiplatelet_drugs = [...list, drug];
+    }
+    this.renderMedicationUi();
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  medStatusLabel(kind, status) {
+    if (status === 'あり') return `${kind}：使用あり`;
+    if (status === 'なし') return `${kind}：使用なし`;
+    return `${kind}：未確認`;
+  }
+
+  medDrugLine(kind, status, drugs) {
+    if (status === 'あり') {
+      if (drugs.length) return `${kind}：${drugs.join('、')}`;
+      return `${kind}：使用あり（薬剤名未選択）`;
+    }
+    if (status === 'なし') return `${kind}：使用なし`;
+    return `${kind}：未確認`;
+  }
+
+  renderMedicationUi() {
+    const struct = document.getElementById('med_structure_chips');
+    struct.innerHTML = '';
+    [
+      { field: 'anticoagulant', label: '抗凝固薬' },
+      { field: 'antiplatelet', label: '抗血小板薬' }
+    ].forEach(({ field, label }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'preset-btn sm med-status-chip';
+      const st = this.state[field] || '';
+      if (st === 'なし') btn.classList.add('na');
+      if (st === 'あり') btn.classList.add('yes');
+      btn.textContent = st ? `${label}（${st}）` : label;
+      btn.addEventListener('click', () => this.cycleMedStatus(field));
+      struct.appendChild(btn);
+    });
+
+    const antiAcc = document.getElementById('anticoagulant_accordion');
+    antiAcc.hidden = this.state.anticoagulant !== 'あり';
+    const antiBox = document.getElementById('anticoagulant_drugs');
+    antiBox.innerHTML = '';
+    if (this.state.anticoagulant === 'あり') {
+      ANTICOAGULANT_DRUGS.forEach(drug => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'preset-btn sm';
+        if (this.state.anticoagulant_drugs.includes(drug)) btn.classList.add('selected');
+        btn.textContent = drug;
+        btn.addEventListener('click', () => this.toggleAnticoagDrug(drug));
+        antiBox.appendChild(btn);
+      });
+    }
+
+    const plateAcc = document.getElementById('antiplatelet_accordion');
+    plateAcc.hidden = this.state.antiplatelet !== 'あり';
+    const plateBox = document.getElementById('antiplatelet_drugs');
+    plateBox.innerHTML = '';
+    if (this.state.antiplatelet === 'あり') {
+      ANTIPLATELET_DRUGS.forEach(drug => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'preset-btn sm';
+        if (this.state.antiplatelet_drugs.includes(drug)) btn.classList.add('selected');
+        btn.textContent = drug;
+        btn.addEventListener('click', () => this.toggleAntiplateletDrug(drug));
+        plateBox.appendChild(btn);
+      });
+    }
+  }
+
+  togglePreadl(btn) {
+    const val = btn.dataset.value;
+    const idx = this.state.preadl.indexOf(val);
+    if (idx >= 0) {
+      this.state.preadl.splice(idx, 1);
+      btn.classList.remove('selected');
+    } else {
+      this.state.preadl.push(val);
+      btn.classList.add('selected');
+    }
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  setPill(btn, on) {
+    btn.classList.toggle('checked', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  toggleCheck(el, key) {
+    const on = !this.state.checks[key];
+    this.state.checks[key] = on;
+    this.setPill(el, on);
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  toggleLvo(btn) {
+    const key = btn.dataset.lvo;
+    const idx = this.state.lvo.indexOf(key);
+    if (idx >= 0) {
+      this.state.lvo.splice(idx, 1);
+      this.setPill(btn, false);
+    } else {
+      this.state.lvo.push(key);
+      this.setPill(btn, true);
+    }
+    if (!this.state.lvo_manual) {
+      document.getElementById('lvo_total').value = String(this.state.lvo.length);
+    }
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  toggleBlood(btn) {
+    const key = btn.dataset.blood;
+    this.state.blood[key] = !this.state.blood[key];
+    this.setPill(btn, this.state.blood[key]);
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  toggleAmyloid(btn) {
+    const val = btn.dataset.value;
+    const isExclusive = val === '使用なし' || val.startsWith('不明');
+    if (isExclusive) {
+      const already = this.state.amyloid_drugs.length === 1 && this.state.amyloid_drugs[0] === val;
+      if (already) {
+        this.state.amyloid_drugs = [];
+        btn.classList.remove('selected');
+      } else {
+        this.state.amyloid_drugs = [val];
+        document.querySelectorAll('.amyloid-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      }
+    } else {
+      this.state.amyloid_drugs = this.state.amyloid_drugs.filter(
+        v => v !== '使用なし' && !v.startsWith('不明')
+      );
+      const idx = this.state.amyloid_drugs.indexOf(val);
+      if (idx >= 0) {
+        this.state.amyloid_drugs.splice(idx, 1);
+        btn.classList.remove('selected');
+      } else {
+        this.state.amyloid_drugs.push(val);
+        btn.classList.add('selected');
+      }
+    }
+    this.saveDraft();
+    this.updatePreview();
+  }
+
+  async send() {
+    const text = this.buildMessage();
+    try {
+      await this.copyText(text);
+      this.notifyParent('stroke_notify_copied', text);
+      this.showToast('報告文をコピーしました');
+    } catch {
+      this.showToast('コピーに失敗しました', true);
+    }
+  }
+
+  async copyPreview() {
+    try {
+      await this.copyText(this.buildMessage());
+      this.showToast('プレビューをコピーしました');
+    } catch {
+      this.showToast('コピーに失敗しました', true);
+    }
+  }
+
+  val(id) {
+    const el = document.getElementById(id);
+    return el && el.value.trim() ? el.value.trim() : null;
+  }
+
+  fmtDatetime(v) {
+    if (!v) return '未入力';
+    try {
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return v;
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      const h = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${m}月${day}日 ${h}:${min}`;
+    } catch {
+      return v;
+    }
+  }
+
+  reportYn(label, value) {
+    return `${label}：${value || '未確認'}`;
+  }
+
+  reportWish(kind, value) {
+    const suffix = { 'あり': 'あり', 'なし': 'なし', '未確認': '未確認' };
+    return `${kind}希望${suffix[value] || '未確認'}`;
+  }
+
+  reportFlags(defs, prefix) {
+    return defs.map(d => {
+      const v = this.state.flags[prefix + '_' + d.key];
+      return `  ${d.report || d.label}：${v || '未確認'}`;
+    });
+  }
+
+  reportBlood() {
+    const lines = Object.keys(BLOOD_MAP).map(k => {
+      const done = this.state.blood[k];
+      return `  ${BLOOD_MAP[k]}：${done ? '採血済' : '未採血'}`;
+    });
+    const any = Object.values(this.state.blood).some(Boolean);
+    if (!any) return 'プレホス採血：未実施（全項目未採血）\n' + lines.join('\n');
+    return 'プレホス採血：\n' + lines.join('\n');
+  }
+
+  reportContacts() {
+    const filled = this.state.contacts.filter(c => c.relation || (c.detail && c.detail.trim()));
+    if (!filled.length) return '家族連絡先：未入力';
+    return '家族連絡先：\n' + filled.map((c, i) => {
+      const rel = c.relation || '続柄未選択';
+      const det = (c.detail && c.detail.trim()) ? c.detail.trim() : '連絡先詳細未入力';
+      return `  ${i + 1}. ${rel} ${det}`;
+    }).join('\n');
+  }
+
+  buildMessage() {
+    const lvoItems = this.state.lvo.map(k => LVO_MAP[k] || k);
+    const lvoTotal = document.getElementById('lvo_total').value || '0';
+    const lvoBlock = lvoItems.length
+      ? `LVO scale該当項目：${lvoItems.join('、')}\n合計：${lvoTotal}/6点`
+      : `LVO scale該当項目：該当なし\n合計：${lvoTotal}/6点`;
+
+    const anticoag = this.medDrugLine('抗凝固薬', this.state.anticoagulant, this.state.anticoagulant_drugs);
+    const antiplatelet = this.medDrugLine('抗血小板薬', this.state.antiplatelet, this.state.antiplatelet_drugs);
+
+    const amyloid = this.state.amyloid_drugs.length
+      ? `アルツハイマー病抗アミロイド抗体治療薬：${this.state.amyloid_drugs.join('、')}`
+      : 'アルツハイマー病抗アミロイド抗体治療薬：未確認';
+
+    const lines = [
+      '【脳卒中通知】',
+      '',
+      `発症時刻（最終健常時刻）：${this.fmtDatetime(this.val('onset_time'))}`,
+      `発見時刻：${this.fmtDatetime(this.val('discovery_time'))}`,
+      '',
+      `発症前の状況：${this.state.preadl.length ? this.state.preadl.join('、') : '未選択'}${this.val('preadl_note') ? '（補足: ' + this.val('preadl_note') + '）' : ''}`,
+      '',
+      lvoBlock,
+      '',
+      `意識レベル JCS：${this.formatJcsReport()}`,
+      `意識レベル GCS：${this.formatGcsReport()}`,
+      '',
+      `脳卒中ホットライン連絡：${this.state.checks.hotline ? '連絡済み' : '未連絡'}`,
+      `ルートキープ：${this.state.checks.iv ? 'ルートキープ済み' : '未実施'}`,
+      this.reportBlood(),
+      '',
+      this.reportYn('家族同乗', this.state.family_ride),
+      this.reportContacts(),
+      '',
+      this.reportYn('お薬手帳', this.state.med_book),
+      this.reportYn('マイナ保険証情報', this.state.mynumber_insurance),
+      anticoag,
+      antiplatelet,
+      this.val('med_other') ? `その他常用薬：${this.val('med_other')}` : null,
+      amyloid,
+      '',
+      `MRI施行：${this.state.mri_ok || '未確認'}`,
+      'MRI関連確認：',
+      ...this.reportFlags(MRI_FLAG_DEFS, 'mri'),
+      '',
+      `t-PA施行：${this.state.tpa_ok || '未確認'}`,
+      't-PA禁忌・注意事項の確認：',
+      ...this.reportFlags(TPA_FLAG_DEFS, 'tpa'),
+      '',
+      this.reportWish('手術', this.state.wish_surgery),
+      this.reportWish('カテーテル治療', this.state.wish_catheter),
+      this.reportWish('集中治療', this.state.wish_icu),
+    ];
+    const wish = this.val('wish_detail');
+    if (wish) lines.push(`治療希望の補足：${wish}`);
+    return lines.filter(Boolean).join('\n');
+  }
+
+  updatePreview() {
+    document.getElementById('preview').textContent = this.buildMessage();
+  }
+
+  collectDraft() {
+    return {
+      state: this.state,
+      fields: {
+        onset_time: this.val('onset_time'),
+        discovery_time: this.val('discovery_time'),
+        preadl_note: this.val('preadl_note'),
+        med_other: this.val('med_other'),
+        wish_detail: this.val('wish_detail'),
+        lvo_total: document.getElementById('lvo_total').value
+      }
+    };
+  }
+
+  saveDraft() {
+    try {
+      localStorage.setItem(this.storage_key, JSON.stringify(this.collectDraft()));
+    } catch { /* noop */ }
+  }
+
+  loadDraft() {
+    try {
+      const raw = localStorage.getItem(this.storage_key);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.state) {
+        const def = this.defaultState();
+        this.state = { ...def, ...data.state, flags: { ...def.flags, ...(data.state.flags || {}) } };
+        if (typeof this.state.preadl === 'string') {
+          this.state.preadl = this.state.preadl ? [this.state.preadl] : [];
+        } else if (!Array.isArray(this.state.preadl)) {
+          this.state.preadl = [];
+        }
+        if (!Array.isArray(this.state.contacts) || !this.state.contacts.length) {
+          this.state.contacts = [{ relation: null, detail: '' }];
+        }
+        if (!this.state.gcs || typeof this.state.gcs !== 'object') {
+          this.state.gcs = { e: 4, v: 5, m: 6 };
+        }
+        if (!Array.isArray(this.state.anticoagulant_drugs)) this.state.anticoagulant_drugs = [];
+        if (!Array.isArray(this.state.antiplatelet_drugs)) this.state.antiplatelet_drugs = [];
+        if (this.state.anticoagulant == null) this.state.anticoagulant = '';
+        if (this.state.antiplatelet == null) this.state.antiplatelet = '';
+        if (this.state.checks?.anticoag && !this.state.anticoagulant) {
+          this.state.anticoagulant = 'あり';
+          delete this.state.checks.anticoag;
+        }
+      }
+      if (data.fields) {
+        if (data.fields.jcs != null && data.fields.jcs !== '' && !data.state?.jcs) {
+          this.state.jcs = String(data.fields.jcs);
+        }
+        if (data.fields.anticoag_detail && this.state.anticoagulant === 'あり' && !this.state.anticoagulant_drugs.length) {
+          const detail = String(data.fields.anticoag_detail).trim();
+          const matched = ANTICOAGULANT_DRUGS.find(d => detail.includes(d));
+          if (matched) this.state.anticoagulant_drugs = [matched];
+          else if (detail) {
+            const medOther = document.getElementById('med_other');
+            if (medOther && !medOther.value) medOther.value = detail;
+          }
+        }
+        Object.entries(data.fields).forEach(([id, v]) => {
+          if (id === 'jcs' || id === 'gcs' || id === 'anticoag_detail') return;
+          const el = document.getElementById(id);
+          if (el && v != null) el.value = v;
+        });
+      }
+      this.syncUiFromState();
+      this.renderConsciousUi();
+      this.renderMedicationUi();
+    } catch { /* noop */ }
+  }
+
+  syncUiFromState() {
+    this.state.preadl.forEach(val => {
+      const b = document.querySelector(`#preadl_group [data-value="${val}"]`);
+      if (b) b.classList.add('selected');
+    });
+    ['family_ride', 'med_book', 'mynumber_insurance', 'mri_ok', 'tpa_ok', 'wish_surgery', 'wish_catheter', 'wish_icu'].forEach(field => {
+      if (!this.state[field]) return;
+      const b = document.querySelector(`[data-field="${field}"] [data-value="${this.state[field]}"]`);
+      if (b) b.classList.add('selected');
+    });
+    document.querySelectorAll('#lvo_group .pill-toggle').forEach(btn => {
+      this.setPill(btn, this.state.lvo.includes(btn.dataset.lvo));
+    });
+    document.querySelectorAll('#blood_group .pill-toggle').forEach(btn => {
+      this.setPill(btn, this.state.blood[btn.dataset.blood]);
+    });
+    document.querySelectorAll('.amyloid-btn').forEach(btn => {
+      btn.classList.toggle('selected', this.state.amyloid_drugs.includes(btn.dataset.value));
+    });
+    Object.entries(this.state.flags).forEach(([fk, val]) => {
+      if (!val) return;
+      const row = document.querySelector(`.flag-row[data-flag="${fk}"]`);
+      if (!row) return;
+      const b = row.querySelector(`.tri-btn[data-val="${val}"]`);
+      if (b) b.classList.add('selected');
+    });
+    [['chk_hotline', 'hotline'], ['chk_iv', 'iv']].forEach(([id, key]) => {
+      const el = document.getElementById(id);
+      this.setPill(el, this.state.checks[key]);
+    });
+    this.renderContacts();
+    this.renderConsciousUi();
+    this.renderMedicationUi();
+  }
+
+  reset() {
+    if (!confirm('入力内容をすべてクリアしますか？')) return;
+    this.state = this.defaultState();
+    document.querySelectorAll('.preset-btn.selected, .tri-btn.selected').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('.pill-toggle.checked, .check-item.checked').forEach(b => {
+      b.classList.remove('checked');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    document.querySelectorAll('#stroke-form input, #stroke-form textarea').forEach(el => { el.value = ''; });
+    document.getElementById('lvo_total').value = '0';
+    try { localStorage.removeItem(this.storage_key); } catch { /* noop */ }
+    this.renderContacts();
+    this.renderConsciousUi();
+    this.renderMedicationUi();
+    this.updatePreview();
+    this.showToast('入力をクリアしました');
+  }
+
+  showToast(msg, warn) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.toggle('warn', !!warn);
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2600);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.strokeApp = new StrokeNotifyApp();
+});
+</script>
+</body>
+</html>
