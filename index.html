@@ -57,7 +57,8 @@
 <!-- 2026-07-19 | v5.1.11 | 入力済み臨床時刻と搬送スキーム別活動終了時刻を匿名メトリクスへ追加 -->
 <!-- 2026-07-19 | v5.1.12 | Iターンは活動終了時刻を自動推定せず欠損理由を記録 -->
 <!-- 2026-07-14 | v5.1.9 | 搬送スキーム初期値を未選択化、要請キャンセル終了と必要書類メトリクスを追加 -->
-<title>ドクターヘリ活動記録 v5.1.12 多数傷対応</title>
+<!-- 2026-08-28 | v5.1.13 | FD全身体所見の併記、時刻別瞳孔・対光反射、LVO連携、バイタル時系列出力、入力候補追加 -->
+<title>ドクターヘリ活動記録 v5.1.13 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -337,6 +338,19 @@ body.mci-mode .request-cancel-action{display:none}
   grid-column:span 3;
   display:flex;justify-content:center;gap:20px;
   padding:12px;
+}
+.vital-neuro-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:1px;
+  background:var(--line);
+  border-top:1px solid var(--line);
+}
+.vital-neuro-grid .vital-item{
+  min-height:74px;
+}
+.vital-neuro-grid .vital-value{
+  font-size:18px;
 }
 .gcs-part{text-align:center;cursor:pointer}
 .gcs-part span{display:block}
@@ -1016,6 +1030,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   }
   .vital-grid{grid-template-columns:repeat(6,1fr)}
   .vital-gcs{grid-column:span 6}
+  .vital-neuro-grid{grid-template-columns:repeat(4,1fr)}
   .tab-bar{
     left:50%;right:auto;
     width:min(100vw,1280px);
@@ -1070,7 +1085,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.9 多数傷対応</p>
+    <p class="sub">heli record v5.1.13 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
@@ -1438,41 +1453,8 @@ div.card-body > div[style*="display:flex"] .btn.small {
         <div class="chips" id="fd-str-cn"></div>
         <textarea class="memo" id="memo-fd-str-cn" placeholder="脳神経メモ（視力・視野、眼球運動など）"></textarea>
 
-        <h3>瞳孔・眼球運動</h3>
-        <div class="grid2">
-          <div>
-            <label>瞳孔径 左(mm)</label>
-            <div class="vital-item" style="border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;text-align:center" onclick="openPupilDial('L')">
-              <span class="vital-value" id="pupilL_display">3</span>
-            </div>
-          </div>
-          <div>
-            <label>瞳孔径 右(mm)</label>
-            <div class="vital-item" style="border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;text-align:center" onclick="openPupilDial('R')">
-              <span class="vital-value" id="pupilR_display">3</span>
-            </div>
-          </div>
-        </div>
-        <div class="grid2" style="margin-top:8px">
-          <div>
-            <label>対光反射 左</label>
-            <select id="plrL">
-              <option value="">--</option>
-              <option value="迅速">迅速</option>
-              <option value="遅延">遅延</option>
-              <option value="消失">消失</option>
-            </select>
-          </div>
-          <div>
-            <label>対光反射 右</label>
-            <select id="plrR">
-              <option value="">--</option>
-              <option value="迅速">迅速</option>
-              <option value="遅延">遅延</option>
-              <option value="消失">消失</option>
-            </select>
-          </div>
-        </div>
+        <h3>眼球運動</h3>
+        <p class="hint" style="margin:0 0 8px">瞳孔径・対光反射は、上のバイタルサインから時刻ごとに入力します。</p>
         <div class="grid2" style="margin-top:8px">
           <div>
             <label>共同偏視</label>
@@ -3492,6 +3474,52 @@ function setVitalMissing(type, idx, field, value) {
   updateState();
 }
 
+function setFdVitalNeuro(idx, field, value) {
+  const vital = state.fd?.vitals?.[idx];
+  if(!vital) return;
+  vital[field] = value;
+  renderFdVitals();
+  updateState();
+}
+
+function openFdVitalPupilDial(idx, side) {
+  const field = side === 'L' ? 'pupilL' : 'pupilR';
+  const vital = state.fd?.vitals?.[idx];
+  if(!vital) return;
+  const current = isVitalMissingValue(vital[field]) || vital[field] === '' || vital[field] == null
+    ? 3
+    : vital[field];
+  const options = [];
+  for(let value = 1; value <= 9; value += 0.5) {
+    const normalized = Number(value.toFixed(1));
+    options.push({label:String(normalized), value:normalized});
+  }
+  openDial(`瞳孔径 ${side === 'L' ? '左' : '右'}`, [{options, selected:current, unit:'mm'}], vals => {
+    setFdVitalNeuro(idx, field, vals[0]);
+  }, {
+    missingChoices:[{label:'×', value:'×'}],
+    onMissing:value => setFdVitalNeuro(idx, field, value)
+  });
+}
+
+function openFdVitalPlrDial(idx, side) {
+  const field = side === 'L' ? 'plrL' : 'plrR';
+  const vital = state.fd?.vitals?.[idx];
+  if(!vital) return;
+  const options = [
+    {label:'迅速', value:'迅速'},
+    {label:'遅延', value:'遅延'},
+    {label:'消失', value:'消失'}
+  ];
+  const current = options.some(option => option.value === vital[field]) ? vital[field] : '迅速';
+  openDial(`対光反射 ${side === 'L' ? '左' : '右'}`, [{options, selected:current}], vals => {
+    setFdVitalNeuro(idx, field, vals[0]);
+  }, {
+    missingChoices:[{label:'×', value:'×'}],
+    onMissing:value => setFdVitalNeuro(idx, field, value)
+  });
+}
+
 function openVitalDial(type, idx, field) {
   const v = state[type].vitals[idx];
   let wheels = [];
@@ -4305,9 +4333,18 @@ function addFdVital() {
   let newVital;
   if(state.fd.vitals.length > 0) {
     const prev = state.fd.vitals[state.fd.vitals.length-1];
-    newVital = {time, sbp:prev.sbp, dbp:prev.dbp, hr:prev.hr, rr:prev.rr, spo2:prev.spo2, bt:prev.bt, gcs:{e:prev.gcs.e,v:prev.gcs.v,m:prev.gcs.m}, jcs:prev.jcs};
+    newVital = {
+      time, sbp:prev.sbp, dbp:prev.dbp, hr:prev.hr, rr:prev.rr, spo2:prev.spo2, bt:prev.bt,
+      gcs:{e:prev.gcs.e,v:prev.gcs.v,m:prev.gcs.m}, jcs:prev.jcs,
+      pupilL:prev.pupilL ?? '', pupilR:prev.pupilR ?? '',
+      plrL:prev.plrL ?? '', plrR:prev.plrR ?? ''
+    };
   } else {
-    newVital = {time, sbp:120, dbp:80, hr:80, rr:16, spo2:98, bt:36.5, gcs:{e:4,v:5,m:6}, jcs:'0'};
+    newVital = {
+      time, sbp:120, dbp:80, hr:80, rr:16, spo2:98, bt:36.5,
+      gcs:{e:4,v:5,m:6}, jcs:'0',
+      pupilL:'', pupilR:'', plrL:'', plrR:''
+    };
   }
   state.fd.vitals.push(newVital); renderFdVitals(); updateState();
 }
@@ -4345,6 +4382,13 @@ function createVitalCard(type, idx, v) {
   const rrMissingClass = isVitalMissingValue(v.rr) ? ' is-missing' : '';
   const spo2MissingClass = isVitalMissingValue(v.spo2) ? ' is-missing' : '';
   const btMissingClass = isVitalMissingValue(v.bt) ? ' is-missing' : '';
+  const fdNeuroHtml = type === 'fd' ? `
+    <div class="vital-neuro-grid" aria-label="瞳孔・対光反射">
+      <div class="vital-item${isVitalMissingValue(v.pupilL) ? ' is-missing' : ''}" onclick="openFdVitalPupilDial(${idx},'L')"><div class="vital-label">瞳孔径 左</div><div class="vital-value">${formatVitalValue(v.pupilL)}</div><div class="vital-unit">${isVitalMissingValue(v.pupilL) || v.pupilL === '' || v.pupilL == null ? '' : 'mm'}</div></div>
+      <div class="vital-item${isVitalMissingValue(v.pupilR) ? ' is-missing' : ''}" onclick="openFdVitalPupilDial(${idx},'R')"><div class="vital-label">瞳孔径 右</div><div class="vital-value">${formatVitalValue(v.pupilR)}</div><div class="vital-unit">${isVitalMissingValue(v.pupilR) || v.pupilR === '' || v.pupilR == null ? '' : 'mm'}</div></div>
+      <div class="vital-item${isVitalMissingValue(v.plrL) ? ' is-missing' : ''}" onclick="openFdVitalPlrDial(${idx},'L')"><div class="vital-label">対光反射 左</div><div class="vital-value">${formatVitalValue(v.plrL)}</div></div>
+      <div class="vital-item${isVitalMissingValue(v.plrR) ? ' is-missing' : ''}" onclick="openFdVitalPlrDial(${idx},'R')"><div class="vital-label">対光反射 右</div><div class="vital-value">${formatVitalValue(v.plrR)}</div></div>
+    </div>` : '';
   card.innerHTML = `
     <div class="vital-header"><div class="vital-time"><input type="time" id="${type}_vital_time_${idx}" value="${v.time}" onchange="state.${type}.vitals[${idx}].time=this.value;updateState()"></div>
       <button class="vital-del" onclick="removeVital('${type}',${idx})">削除</button></div>
@@ -4358,7 +4402,7 @@ function createVitalCard(type, idx, v) {
       <div class="vital-gcs"><div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_e')"><span class="lbl">E</span><span class="val">${gcs.e}</span></div>
         <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_v')"><span class="lbl">V</span><span class="val">${gcs.v}</span></div>
         <div class="gcs-part" onclick="openVitalDial('${type}',${idx},'gcs_m')"><span class="lbl">M</span><span class="val">${gcs.m}</span></div><div class="gcs-sum">${gcsSum}</div></div>
-    </div>`; return card;
+    </div>${fdNeuroHtml}`; return card;
 }
 
 // スマート時刻入力: 空の時刻フィールドがタップ（フォーカス）された時、タイムライン等から初期値をセット
@@ -5710,7 +5754,7 @@ const SEX_ITEMS = ['男性','女性','不明'];
 const REQUEST_CONTENT_ITEMS = [
   '心肺停止','窒息','気道閉塞','呼吸困難','頭痛','胸痛','胸背部痛','腹痛',
   '意識障害','片麻痺','構音障害','四肢麻痺',
-  '交通外傷','墜落外傷','転落外傷','刺傷','熱傷','けいれん'
+  '交通外傷','墜落外傷','転落外傷','刺傷','熱傷','けいれん','アナフィラキシー'
 ];
 const HISTORY_ITEMS = ['なし','高血圧','糖尿病','脂質異常症','虚血性心疾患','脳血管障害','喘息','COPD','悪性腫瘍','てんかん','緑内障'];
 const MEDICATION_ITEMS = ['なし','抗凝固薬','抗血小板薬'];
@@ -6472,9 +6516,9 @@ function updateState() {
     const el = $(`#exam_${t}_txt`);
     if(el) state.fd.exam_texts[t] = el.value;
   });
-  if($('#plrL')) {
+  if($('#str_gaze')) {
     if(!state.fd.stroke) state.fd.stroke = {mmt:{}, nihss:{}};
-    state.fd.stroke.plrL=$('#plrL').value; state.fd.stroke.plrR=$('#plrR').value; state.fd.stroke.gaze=$('#str_gaze').value; state.fd.stroke.nyst=$('#str_nyst').value; state.fd.stroke.btr=$('#str_btr').value; state.fd.stroke.ptr=$('#str_ptr').value;     state.fd.stroke.babinski=$('#str_babinski').checked; state.fd.stroke.chaddock=$('#str_chaddock').checked;
+    state.fd.stroke.gaze=$('#str_gaze').value; state.fd.stroke.nyst=$('#str_nyst').value; state.fd.stroke.btr=$('#str_btr').value; state.fd.stroke.ptr=$('#str_ptr').value; state.fd.stroke.babinski=$('#str_babinski').checked; state.fd.stroke.chaddock=$('#str_chaddock').checked;
     syncNihssExpandedFromDom();
     state.fd.stroke.nihssMemo=$('#nihss_memo')?.value || '';
   }
@@ -6518,11 +6562,23 @@ function formatVitalSpo2(spo2) {
   return `${spo2 ?? '--'}%`;
 }
 
+function formatPupilDiameter(value) {
+  const formatted = formatVitalValue(value);
+  return formatted === '--' || isVitalMissingValue(formatted) ? formatted : `${formatted}mm`;
+}
+
 function formatVitalLine(v) {
   if(!v) return '';
   const g = v.gcs && v.gcs.e != null && v.gcs.v != null && v.gcs.m != null ? v.gcs : {e:4,v:5,m:6};
   const gcs = g.v === 'T' ? `E${g.e}VTM${g.m}(${g.e+g.m}T)` : `E${g.e}V${g.v}M${g.m}(${g.e+(parseInt(g.v)||0)+g.m})`;
-  return `[${v.time||'--'}] BP:${formatVitalBp(v)} HR:${formatVitalValue(v.hr)} RR:${formatVitalValue(v.rr)} SpO2:${formatVitalSpo2(v.spo2)} BT:${formatVitalValue(v.bt)}℃ GCS:${gcs} JCS:${formatVitalValue(v.jcs)}`;
+  let line = `[${v.time||'--'}] BP:${formatVitalBp(v)} HR:${formatVitalValue(v.hr)} RR:${formatVitalValue(v.rr)} SpO2:${formatVitalSpo2(v.spo2)} BT:${formatVitalValue(v.bt)}℃ GCS:${gcs} JCS:${formatVitalValue(v.jcs)}`;
+  const hasNeuroObservation = [v.pupilL, v.pupilR, v.plrL, v.plrR]
+    .some(value => value !== undefined && value !== null && value !== '');
+  if(hasNeuroObservation) {
+    line += ` 瞳孔:L${formatPupilDiameter(v.pupilL)}/R${formatPupilDiameter(v.pupilR)}`;
+    line += ` 対光反射:L${formatVitalValue(v.plrL)}/R${formatVitalValue(v.plrR)}`;
+  }
+  return line;
 }
 
 /** 出力用: 入力画面の登録順は変えず、有効な時刻を昇順、時刻未入力を末尾に並べる */
@@ -6605,12 +6661,144 @@ function appendAllEmsExamSections(r, ems) {
   return r;
 }
 
+function calcNihssTotal(stroke) {
+  const nihss = stroke?.nihss || {};
+  return NIHSS_ITEMS.reduce((sum, item) => sum + (Number(nihss[item.id]) || 0), 0);
+}
+
+/** FD身体所見は最後に開いたタブではなく、入力済みの全区分をまとめて出力する。 */
+function buildAllFdExamLines(fd) {
+  fd = fd || {};
+  const chips = fd.chips || {};
+  const lines = [];
+
+  const generalLines = [];
+  const headS = extractFindings(FD_GEN_GROUPS.head, chips);
+  const headM = fd.memos?.general?.head || '';
+  if(headS || headM) generalLines.push(`【頭頚部】${[headS, headM].filter(Boolean).join('。')}`);
+  const respS = extractFindings(FD_GEN_GROUPS.resp, chips);
+  const respM = fd.memos?.general?.resp || '';
+  const cardS = extractFindings(FD_GEN_GROUPS.card, chips);
+  const cardM = fd.memos?.general?.card || '';
+  const chestContent = [respS, respM, cardS, cardM].filter(Boolean);
+  if(chestContent.length) generalLines.push(`【胸部】${chestContent.join('。')}`);
+  [['腹部', FD_GEN_GROUPS.abd, 'abd'], ['四肢', FD_GEN_GROUPS.limb, 'limb'], ['神経', FD_GEN_GROUPS.neuro, 'neuro']]
+    .forEach(([title, defs, key]) => {
+      const finding = extractFindings(defs, chips);
+      const memo = fd.memos?.general?.[key] || '';
+      if(finding || memo) generalLines.push(`【${title}】${[finding, memo].filter(Boolean).join('。')}`);
+    });
+  if(generalLines.length) lines.push('（汎用）', ...generalLines);
+
+  const traumaLines = [];
+  [['頭部・顔面', FD_TRA_GROUPS.head, 'head'], ['頸部', FD_TRA_GROUPS.neck, 'neck'],
+    ['胸部', FD_TRA_GROUPS.chest, 'chest'], ['腹部', FD_TRA_GROUPS.abd, 'abd'],
+    ['骨盤', FD_TRA_GROUPS.pelvis, 'pelvis'], ['四肢', FD_TRA_GROUPS.limb, 'limb']]
+    .forEach(([title, defs, key]) => {
+      const finding = extractFindings(defs, chips);
+      const memo = fd.memos?.trauma?.[key] || '';
+      if(finding || memo) traumaLines.push(`【${title}】${[finding, memo].filter(Boolean).join('。')}`);
+    });
+  if(traumaLines.length) lines.push('（外傷）', ...traumaLines);
+
+  const strokeLines = [];
+  const cn = extractFindings(FD_STR_GROUPS.cn, chips);
+  const cnMemo = fd.memos?.stroke?.cn || '';
+  if(cn || cnMemo) strokeLines.push(`【脳神経】${[cn, cnMemo].filter(Boolean).join('。')}`);
+  const stroke = fd.stroke || {};
+  const legacyPupilEntered = (stroke.pupilL !== undefined && stroke.pupilL !== null && stroke.pupilL !== '' && Number(stroke.pupilL) !== 3)
+    || (stroke.pupilR !== undefined && stroke.pupilR !== null && stroke.pupilR !== '' && Number(stroke.pupilR) !== 3);
+  const eyeMemo = fd.memos?.stroke?.eye || '';
+  if(legacyPupilEntered || stroke.plrL || stroke.plrR || stroke.gaze || stroke.nyst || eyeMemo) {
+    const eyeParts = [];
+    if(legacyPupilEntered) eyeParts.push(`瞳孔 L:${formatPupilDiameter(stroke.pupilL)} R:${formatPupilDiameter(stroke.pupilR)}`);
+    if(stroke.plrL || stroke.plrR) eyeParts.push(`対光反射 L:${formatVitalValue(stroke.plrL)} R:${formatVitalValue(stroke.plrR)}`);
+    if(stroke.gaze) eyeParts.push(`共同偏視:${stroke.gaze}`);
+    if(stroke.nyst) eyeParts.push(`眼振:${stroke.nyst}`);
+    if(eyeMemo) eyeParts.push(eyeMemo);
+    strokeLines.push(`【瞳孔・眼球運動】${eyeParts.join('、')}`);
+  }
+  const motorMemo = fd.memos?.stroke?.motor || '';
+  const mmt = stroke.mmt || {};
+  const hasMotorFinding = ['ru', 'lu', 'rl', 'll'].some(key => mmt[key] !== undefined && Number(mmt[key]) !== 5);
+  if(hasMotorFinding || motorMemo) {
+    strokeLines.push(`【運動】MMT(${mmt.ru ?? '--'},${mmt.lu ?? '--'},${mmt.rl ?? '--'},${mmt.ll ?? '--'})${motorMemo ? ' ' + motorMemo : ''}`);
+  }
+  const reflexMemo = fd.memos?.stroke?.reflex || '';
+  if(stroke.btr || stroke.ptr || stroke.babinski || stroke.chaddock || reflexMemo) {
+    strokeLines.push(`【反射】BTR:${stroke.btr || '--'}, PTR:${stroke.ptr || '--'}${stroke.babinski ? ' Babinski(+)' : ''}${stroke.chaddock ? ' Chaddock(+)' : ''}${reflexMemo ? ' ' + reflexMemo : ''}`);
+  }
+  const higher = extractFindings(FD_STR_GROUPS.higher, chips);
+  const higherMemo = fd.memos?.stroke?.higher || '';
+  if(higher || higherMemo) strokeLines.push(`【高次脳機能・小脳】${[higher, higherMemo].filter(Boolean).join('。')}`);
+  if(stroke.nihssExpanded) strokeLines.push(`【NIHSS】${calcNihssTotal(stroke)}点${stroke.nihssMemo ? ' ' + stroke.nihssMemo : ''}`);
+  if(strokeLines.length) lines.push('（脳卒中）', ...strokeLines);
+
+  const cpaEvents = Array.isArray(fd.cpaEvents) ? fd.cpaEvents : [];
+  if(cpaEvents.length) {
+    lines.push('＜CPA記録＞');
+    cpaEvents.forEach((cpa, idx) => {
+      const isFirst = idx === 0;
+      if(cpaEvents.length > 1) lines.push(`【心停止イベント ${idx + 1}${!isFirst ? '（再心停止）' : ''}】`);
+      if(cpa.arrestTime) lines.push(`心停止時刻：${cpa.arrestTime}`);
+      if(cpa.rhythm) lines.push(`初期波形：${cpa.rhythm}`);
+      if(isFirst) {
+        lines.push(`目撃：${cpa.witnessed ? 'あり' : 'なし'}`);
+        lines.push(`バイスタンダーCPR：${cpa.bystander ? 'あり' : 'なし'}`);
+        if(cpa.cprStart) lines.push(`胸骨圧迫開始：${cpa.cprStart}`);
+        if(cpa.ivTime) lines.push(`末梢確保：${cpa.ivTime}`);
+      }
+      const changes = cpa.rhythmChanges || [];
+      if(changes.length > 1) lines.push(`波形変化：${changes.slice(1).map(change => `${change.time} ${change.rhythm}`).join(' → ')}`);
+      const defibTimes = cpa.defibrillationTimes || [];
+      if(defibTimes.length) lines.push(`除細動：${defibTimes.map((time, i) => `${i + 1}回目 ${time}`).join('、')}（計${defibTimes.length}回）`);
+      const adrenalineTimes = cpa.adrenalineTimes || [];
+      if(adrenalineTimes.length) lines.push(`アドレナリン投与：${adrenalineTimes.map((time, i) => `${i + 1}回目 ${time}`).join('、')}`);
+      const amiodaroneTimes = cpa.amiodaroneTimes || [];
+      if(amiodaroneTimes.length) {
+        lines.push(`アミオダロン投与：${amiodaroneTimes.map((item, i) => {
+          const time = typeof item === 'string' ? item : item.time;
+          const dose = typeof item === 'string' ? '' : (item.dose ? ` ${item.dose}` : '');
+          return `${i + 1}回目 ${time}${dose}`;
+        }).join('、')}`);
+      }
+      if(isFirst) {
+        if(cpa.lt) lines.push('LT挿入：実施');
+        if(cpa.intubation) lines.push(`気管挿管：${cpa.intubationTime || '実施'}`);
+        if(cpa.pericardio) lines.push(`心膜腔穿刺：${cpa.pericardioTime || '実施'}`);
+      }
+      const endTimeForCalc = cpa.outcome === 'rosc' ? cpa.roscTime : (cpa.endTime || '');
+      if(cpa.outcome === 'rosc' && cpa.roscTime) lines.push(`心拍再開(ROSC)：${cpa.roscTime}`);
+      else if(cpa.outcome === 'hospital' && cpa.endTime) lines.push(`転帰：CPR継続のまま病着（${cpa.endTime}）`);
+      else if(cpa.outcome === 'death' && cpa.endTime) lines.push(`転帰：蘇生終了（${cpa.endTime}）`);
+      if(isFirst && cpa.arrestTime && cpa.cprStart) {
+        const noFlow = calcTimeDiffMinutes(cpa.arrestTime, cpa.cprStart);
+        if(!isNaN(noFlow) && noFlow >= 0) lines.push(`No Flow Time：${noFlow}分`);
+      }
+      const lowFlowStart = isFirst ? cpa.cprStart : cpa.arrestTime;
+      if(lowFlowStart && endTimeForCalc) {
+        const lowFlow = calcTimeDiffMinutes(lowFlowStart, endTimeForCalc);
+        if(!isNaN(lowFlow) && lowFlow >= 0) lines.push(`Low Flow Time：${lowFlow}分`);
+      }
+      if(cpa.memo) lines.push(`メモ：${cpa.memo}`);
+    });
+  }
+  return lines;
+}
+
+function appendAllFdExamSections(r, fd) {
+  r += '【身体所見】\n';
+  const lines = buildAllFdExamLines(fd);
+  if(lines.length) r += lines.map(line => /^[（＜]/.test(line) || line.startsWith('【心停止イベント') ? line : `  ${line}`).join('\n') + '\n';
+  return r;
+}
+
 // generateReport SpO2半角修正 & ドクター身体所見反映
 function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.9\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.13\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
@@ -6637,9 +6825,9 @@ function generateReport() {
   sortVitalsByTime(state.fd.vitals).forEach(v => {
     r += `${formatVitalLine(v)}\n`;
   });
-  // ドクター身体所見出力ロジック追加
-  r += '【身体所見】\n';
-  const fTab = state.fd.exam_tab;
+  // 入力済みの身体所見区分をすべて併記（最後に開いたタブには依存しない）
+  r = appendAllFdExamSections(r, state.fd);
+  const fTab = '__all_sections_rendered__';
   if(fTab==='general') {
     // 頭頚部
     const headS = extractFindings(FD_GEN_GROUPS.head, state.fd.chips);
@@ -6905,9 +7093,18 @@ function restoreUI() {
   $('#fd_bs_display').textContent=f.bs; $('#fd_bs').value=f.bs; $('#fd_abg_type').value=f.abg_type; migrateAbgData(); toggleAbg();
   if(!f.drug_details) f.drug_details = {};
   restoreFdExamUi();
-  if($('#plrL') && f.stroke){
+  if(f.stroke){
     if (f.stroke.nihssExpanded === undefined) f.stroke.nihssExpanded = false;
-    $('#pupilL_display').textContent=f.stroke.pupilL; $('#pupilR_display').textContent=f.stroke.pupilR; $('#plrL').value=f.stroke.plrL; $('#plrR').value=f.stroke.plrR; $('#str_gaze').value=f.stroke.gaze||''; $('#str_nyst').value=f.stroke.nyst||''; $('#mmt_ru_display').textContent=f.stroke.mmt?.ru; $('#mmt_lu_display').textContent=f.stroke.mmt?.lu; $('#mmt_rl_display').textContent=f.stroke.mmt?.rl; $('#mmt_ll_display').textContent=f.stroke.mmt?.ll; $('#str_btr').value=f.stroke.btr||''; $('#str_ptr').value=f.stroke.ptr||''; $('#str_babinski').checked=f.stroke.babinski; $('#str_chaddock').checked=f.stroke.chaddock;
+    if($('#str_gaze')) $('#str_gaze').value=f.stroke.gaze||'';
+    if($('#str_nyst')) $('#str_nyst').value=f.stroke.nyst||'';
+    if($('#mmt_ru_display')) $('#mmt_ru_display').textContent=f.stroke.mmt?.ru;
+    if($('#mmt_lu_display')) $('#mmt_lu_display').textContent=f.stroke.mmt?.lu;
+    if($('#mmt_rl_display')) $('#mmt_rl_display').textContent=f.stroke.mmt?.rl;
+    if($('#mmt_ll_display')) $('#mmt_ll_display').textContent=f.stroke.mmt?.ll;
+    if($('#str_btr')) $('#str_btr').value=f.stroke.btr||'';
+    if($('#str_ptr')) $('#str_ptr').value=f.stroke.ptr||'';
+    if($('#str_babinski')) $('#str_babinski').checked=!!f.stroke.babinski;
+    if($('#str_chaddock')) $('#str_chaddock').checked=!!f.stroke.chaddock;
     if($('#nihss_memo')) $('#nihss_memo').value=f.stroke.nihssMemo||'';
     renderNihss(); restoreNihssDetailsUi();
   }
@@ -8109,8 +8306,12 @@ function buildReferralEmsTreatment(data) {
   return parts.length > 0 ? parts.join('、') : '';
 }
 
-/** FD身体所見: exam_tab に応じて活動記録と同内容 */
+/** FD身体所見: 入力済みの全区分を活動記録と同内容で出力 */
 function buildReferralFdFindings(data) {
+  const allLines = buildAllFdExamLines(data.fd || {});
+  return allLines.length > 0 ? allLines.join('\n') : '特記すべき身体所見はありませんでした。';
+
+  /* 旧バージョンのタブ単位出力（互換性確認用に残置、上記で置換済み） */
   const fd = data.fd || {};
   const chips = fd.chips || {};
   const lines = [];
