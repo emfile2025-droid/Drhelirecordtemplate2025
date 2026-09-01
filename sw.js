@@ -11,7 +11,8 @@
 /* 2026-07-19 | v5.1.11 | 臨床時刻メトリクス追加版を確実に配信 */
 /* 2026-07-19 | v5.1.10 | メトリクス信頼性改善版を確実に配信 */
 /* 2026-07-14 | v5.1.9 | 搬送スキーム未選択・要請キャンセル終了を反映 */
-const CACHE_NAME = 'heli-record-v5.1.20';
+const CACHE_PREFIX = 'heli-record-';
+const CACHE_NAME = 'heli-record-v5.1.20-metrics-stop-20260908';
 const urlsToCache = [
   './index.html',
   './manifest.json',
@@ -44,7 +45,11 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => Promise.all(
-        cacheNames.map((cacheName) => (cacheName !== CACHE_NAME ? caches.delete(cacheName) : null))
+        cacheNames.map((cacheName) => (
+          cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME
+            ? caches.delete(cacheName)
+            : null
+        ))
       ))
       .then(() => self.clients.claim())
   );
