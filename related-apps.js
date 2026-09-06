@@ -1,7 +1,7 @@
-/**
- * ヘリ医師記録フォルダ内アプリ連携定義
- * StrokeNotify / heli_record から相互参照
- */
+
+
+
+
 window.APP_RELATIONS = {
   heli_record: {
     id: 'heli_record',

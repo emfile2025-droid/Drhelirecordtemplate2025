@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<!-- 作成: 2026-05-22 | 更新: 2026-05-22 | v1.3 | GitHub Pages 用・ヘリ記録連携（LIFF 削除） -->
-<!-- 2026-05-22 | v1.3 | ヘリ記録双方向: bridge取込・戻るでto_heli_bridge保存 -->
+
+
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -570,7 +570,7 @@
     .grid-2-med { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
   }
 
-  /* JCS / GCS（heli_record 式タップ + ダイヤル・iPhone タップ領域確保） */
+  /**/
   .conscious-panel {
     display: flex;
     flex-direction: column;
@@ -779,7 +779,7 @@
 <div id="status-bar"></div>
 
 <main class="card" id="stroke-form">
-  <!-- 1-2. 時刻・発症前 -->
+
   <section class="section" aria-labelledby="sec-time">
     <h2 class="section-title" id="sec-time"><span class="num">1</span>時刻・発症前</h2>
     <div class="grid-2">
@@ -804,7 +804,7 @@
     </div>
   </section>
 
-  <!-- 3-4. LVO・意識 -->
+
   <section class="section" aria-labelledby="sec-lvo">
     <h2 class="section-title" id="sec-lvo"><span class="num">2</span>LVO scale / 意識</h2>
     <div class="lvo-pill-grid" id="lvo_group" role="group" aria-label="LVO scale">
@@ -842,7 +842,7 @@
     </div>
   </section>
 
-  <!-- 3. 連絡・処置 -->
+
   <section class="section" aria-labelledby="sec-action">
     <h2 class="section-title" id="sec-action"><span class="num">3</span>連絡・処置</h2>
     <div class="action-pill-grid">
@@ -857,7 +857,7 @@
     </div>
   </section>
 
-  <!-- 4. 家族・連絡先 -->
+
   <section class="section" aria-labelledby="sec-family">
     <h2 class="section-title" id="sec-family"><span class="num">4</span>家族・連絡先</h2>
     <div class="inline-yn">
@@ -872,7 +872,7 @@
     <button type="button" class="add-btn" id="btn_add_contact">+ 連絡先追加</button>
   </section>
 
-  <!-- 5. お薬 -->
+
   <section class="section" aria-labelledby="sec-med">
     <h2 class="section-title" id="sec-med"><span class="num">5</span>お薬・抗凝固</h2>
     <div class="grid-2-med">
@@ -918,7 +918,7 @@
     </div>
   </section>
 
-  <!-- 6. 適応 -->
+
   <section class="section" aria-labelledby="sec-elig">
     <h2 class="section-title" id="sec-elig"><span class="num">6</span>MRI / t-PA</h2>
     <div class="elig-block">
@@ -941,7 +941,7 @@
     <div class="flag-block" id="tpa_flags"></div>
   </section>
 
-  <!-- 7. 治療希望 -->
+
   <section class="section" aria-labelledby="sec-wish">
     <h2 class="section-title" id="sec-wish"><span class="num">7</span>治療希望</h2>
     <div class="wish-grid">
@@ -1107,7 +1107,7 @@ class StrokeNotifyApp {
       this.applyHeliSnapshot(snap);
       localStorage.removeItem(HELI_STROKE_BRIDGE_KEY);
       this.showToast('ヘリ記録から項目を反映しました');
-    } catch { /* noop */ }
+    } catch {   }
   }
 
   applyHeliSnapshot(snap) {
@@ -1156,7 +1156,7 @@ class StrokeNotifyApp {
         savedAt: new Date().toISOString(),
         ...this.collectDraft()
       }));
-    } catch { /* noop */ }
+    } catch {   }
   }
 
   renderFlagBlocks() {
@@ -1361,7 +1361,7 @@ class StrokeNotifyApp {
 
   updateApp() {
     if (!confirm('アプリを最新版に更新しますか？\n（キャッシュを削除して再読み込みします）')) return;
-    try { this.saveDraft(); } catch { /* noop */ }
+    try { this.saveDraft(); } catch {   }
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
         regs.forEach(r => r.unregister());
@@ -1398,7 +1398,7 @@ class StrokeNotifyApp {
       if (window.opener) {
         window.opener.postMessage({ type, text, source: 'stroke_notify' }, '*');
       }
-    } catch { /* noop */ }
+    } catch {   }
   }
 
   selectSingle(field, btn, selector) {
@@ -1961,7 +1961,7 @@ class StrokeNotifyApp {
   saveDraft() {
     try {
       localStorage.setItem(this.storage_key, JSON.stringify(this.collectDraft()));
-    } catch { /* noop */ }
+    } catch {   }
   }
 
   loadDraft() {
@@ -2014,7 +2014,7 @@ class StrokeNotifyApp {
       this.syncUiFromState();
       this.renderConsciousUi();
       this.renderMedicationUi();
-    } catch { /* noop */ }
+    } catch {   }
   }
 
   syncUiFromState() {
@@ -2062,7 +2062,7 @@ class StrokeNotifyApp {
     });
     document.querySelectorAll('#stroke-form input, #stroke-form textarea').forEach(el => { el.value = ''; });
     document.getElementById('lvo_total').value = '0';
-    try { localStorage.removeItem(this.storage_key); } catch { /* noop */ }
+    try { localStorage.removeItem(this.storage_key); } catch {   }
     this.renderContacts();
     this.renderConsciousUi();
     this.renderMedicationUi();

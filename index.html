@@ -7,64 +7,64 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<!-- 2026-08-23 | privacy | 無線呼出名称を維持し、車両電話番号を公開コードから削除 -->
-<!-- 2026-05-05 | v5.0 | 多数傷（トリアージ）モード統合／多数傷病者トリアージボード／患者別詳細タブ -->
-<!-- 2026-05-06 | v5.0 | サマリー:タグのコピー／詳細込み・リセットは下部のみ。タブ行から「＋症例」削除。カード展開部の重複「詳細入力（活動記録フォーム）」削除。詳細入力遷移時に活動記録ビューを先頭スクロール -->
-<!-- 2026-05-07 | v5.0.1 | 転記ロジック安全化：バイタル追記方式・受傷部位は推定サフィックスとメモ記録・要請内容は末尾追記 -->
-<!-- 2026-05-07 | v5.0.2 | 転記後に下部ナビが二重表示されるバグ修正 -->
-<!-- 2026-05-07 | v5.0.3 | iPhone横はみ出し防止：body overflow-x:hidden、textarea等の折り返し強制 -->
-<!-- 2026-05-07 | v5.0.4 | カウントカード縮小（黒赤黄緑が4列でiPhone幅に収まるように） -->
-<!-- 2026-05-07 | v5.0.5 | 下部ナビボタンの折り畳み防止（1行強制） -->
-<!-- 2026-05-07 | v5.1.0 | タブUI化（DrCar式）：8タブ分割／下部ナビ撤去・「出力」「紹介状」タブに統合 -->
-<!-- 2026-05-08 | v5.1.1 | DrCar UX寄せ: UCG入力補助、薬剤タップ記録、JTAS/NACA、症状詳記ジェネレーターを統合 -->
-<!-- 2026-05-19 | v5.1.2 | 救急隊・評価タブ: DrCar同等の症状詳記チップ、JTAS/NACA、酸素ダイヤル、EMS所見全タブ出力 -->
-<!-- 2026-05-19 | v5.1.3 | 年代・性別・先行救急隊・搬送先: 選択後チップ集約＋変更で再展開、テキスト連動 -->
-<!-- 2026-05-19 | v5.1.3 | PC: mainをスクロール領域化しマウスホイールで縦スクロール可能に（DrCar式） -->
-<!-- 2026-05-19 | v5.1.3 | FD検査: UCG/腹部・肺・頸部US/心電図定型フォーム、FAST/eFAST、NPPV・気管挿管ダイヤル（DrCar v3.6同等） -->
-<!-- 2026-05-19 | v5.1.3 | 血ガス: 桁別ダイヤル入力（pHは一の位6-7+小数3桁等）、COHb追加 -->
-<!-- 2026-05-19 | v5.1.3 | 血ガスNa:百の位1固定、Cr:整数1桁+小数2桁 -->
-<!-- 2026-05-19 | v5.1.3 | 評価: プロブレム下に頻用病名（症状詳記の疑い病態と同じ）折りたたみ -->
-<!-- 2026-05-19 | v5.1.3 | 多数傷「詳細入力」遷移時は要請タブ先頭を表示 -->
-<!-- 2026-05-22 | v5.1.3 | 先行救急隊: 車両名称マスタ二段UI(地域略称+詳細呼称・複数選択) -->
-<!-- 2026-05-22 | v5.1.3 | 先行救急隊: 地域略称クイック16ボタン削除、地域別引き出しのみ -->
-<!-- 2026-05-22 | v5.1.3 | 先行救急隊: 16地域チップ配置、押した地域の車両呼称のみ展開 -->
-<!-- 2026-05-22 | v5.1.3 | 紹介状: 活動記録と同ロジックで所見・バイタル・検査・処置を反映(JTAS/NACA/詳記除く) -->
-<!-- 2026-05-22 | v5.1.3 | 紹介状: 生成文面をtextareaで編集可能、再生成・コピー、メールは編集後本文を送信 -->
-<!-- 2026-05-22 | v5.1.3 | バイタル呼吸数(RR)ダイヤル上限を45から65/minに拡張 -->
-<!-- 2026-05-22 | v5.1.4 | 版番号更新(呼称マスタ地域展開・紹介状textarea・RR65) -->
-<!-- 2026-05-22 | v5.1.4 | FD脳卒中タブ時のみ脳卒中班連絡ボタン、StrokeNotify連携(双方向遷移) -->
-<!-- 2026-05-22 | v5.1.4 | 要請内容チップ: 片麻痺・構音障害・四肢麻痺を追加 -->
-<!-- 2026-05-22 | v5.1.4 | 要請内容チップ: 意識消失削除、心肺停止等の順序・項目を整理 -->
-<!-- 2026-05-22 | v5.1.4 | 救急隊脳卒中・運動: 麻痺なし+左右上下肢組合せピッカー -->
-<!-- 2026-05-22 | v5.1.4 | 救急隊脳卒中所見見出し: （脳卒中）→（神経学的所見）活動記録・紹介状 -->
-<!-- 2026-05-22 | v5.1.4 | メインタブ切替時はスクロールを先頭にリセット -->
-<!-- 2026-05-22 | v5.1.4 | 更新ボタン: SW/キャッシュのみ削除(入力データは保持)、多数傷リセットでlocalStorage確実削除 -->
-<!-- 2026-05-22 | v5.1.4 | 先行救急隊マスタ: 救急車呼称のみ(消防・タンク・ポンプ・火消号車等は非表示) -->
-<!-- 2026-05-22 | v5.1.4 | 出力リセット後は要請タブ先頭、多数傷モードはヘッダー簡略(通常ボタンのみ) -->
-<!-- 2026-05-22 | v5.1.4 | 多数傷: MCIタブバーsticky修正、ボード画面ではタブバー非表示 -->
-<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 年齢性別はバナーのみ、要請タブの年代性別は非表示で同期 -->
-<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 症例切替時はボードカードの年齢性別を正とする(前症例のdetailStateを引き継がない) -->
-<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 症例切替でバナーDOMをクリア、カード→画面は一方向のみ(前症例の値を書き込まない) -->
-<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 保存時カードへ年齢性別を書き戻し、再表示時は空カードでdetailStateを消さない -->
-<!-- 2026-05-22 | v5.1.4 | 多数傷詳細: 詳細を開く際の restoreUI 中に updateState が走り p.age/p.sex を空で上書きする不具合を修正 -->
-<!-- 2026-05-23 | v5.1.5 | NPPVカスタムダイアログ: 完了ボタン非表示の不具合修正(id="dialDone"を付与) -->
-<!-- 2026-05-23 | v5.1.5 | StrokeNotify復帰: ?tab=fd を反映後に URL から除去し、以降のリロードでFDタブに飛ばされないように -->
-<!-- 2026-05-23 | v5.1.5 | related-apps.js: 未使用のスクリプト読み込みを削除 -->
-
-<!-- 2026-07-10 | v5.1.7 | バイタル欠損値: HR/SpO2/BTでも未測定・×を選択可能に（BP/RRと同様） -->
-<!-- 2026-07-10 | v5.1.8 | バイタル時刻の初期値を現在時刻ではなく各タイムライン入力値から設定 -->
 
 
-<!-- 2026-07-19 | v5.1.12 | Iターンは活動終了時刻を自動推定せず欠損理由を記録 -->
 
-<!-- 2026-08-28 | v5.1.13 | FD全身体所見の併記、時刻別瞳孔・対光反射、LVO連携、バイタル時系列出力、入力候補追加 -->
-<!-- 2026-08-28 | v5.1.14 | CPA継続引継ぎ時刻とプレホスLow Flow暫定値を記録・出力 -->
-<!-- 2026-08-28 | v5.1.15 | 救急隊の自動胸骨圧迫装置を製品名に依存しない表記へ変更 -->
-<!-- 2026-08-28 | v5.1.16 | 既往歴・常用薬・アレルギーに不詳入力を追加 -->
-<!-- 2026-08-28 | v5.1.17 | 救急隊・FD初回バイタル時刻を各接触時刻へ連動 -->
-<!-- 2026-08-28 | v5.1.18 | 心肺停止を頻用病名・症状詳記候補へ追加し専用文章生成に対応 -->
-<!-- 2026-08-28 | v5.1.19 | 搬送先選定理由の病態別例文ボタンと編集機能を追加 -->
-<!-- 2026-08-28 | v5.1.20 | v5.1.19累積QA：ボタン・文書句読点・JSON復元の安定化 -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <title>ドクターヘリ活動記録 v5.1.20 多数傷対応</title>
 <style>
 :root{
@@ -146,7 +146,7 @@ h1{margin:0;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;te
   .header-actions{gap:4px}
   .btn-update,.btn-reset-header{min-width:52px;padding-left:7px;padding-right:7px;font-size:11px}
 }
-/* メインコンテンツ（PCホイール・タッチ両対応のスクロール領域） */
+/**/
 main#mainRecordView,
 main#modeMCI,
 main#referralView{
@@ -161,7 +161,7 @@ main#referralView{
 }
 body.has-tabbar main#mainRecordView{bottom:var(--tabbar-h)}
 body.has-mci-nav main#modeMCI{bottom:var(--bottom-nav-h)}
-/* 多数傷モード: タイトル・更新は非表示、通常ボタンのみ（固定ヘッダー） */
+/**/
 body.mci-mode{--header-h:calc(48px + var(--safe-top))}
 body.mci-mode header{
   position:fixed;left:0;right:0;top:0;z-index:200;
@@ -171,7 +171,7 @@ body.mci-mode header .header-content,
 body.mci-mode header .header-actions{display:none}
 body.has-referral-nav main#referralView{bottom:var(--bottom-nav-h)}
 
-/* ===== タブUI v5.1.0 ===== */
+/**/
 .tab-bar {
   position:fixed; bottom:0; left:0; right:0;
   height:calc(60px + var(--safe-bottom));
@@ -272,7 +272,7 @@ body.mci-mode .request-cancel-action{display:none}
 .btn-row{display:flex;gap:10px;margin-top:12px}
 .btn-row .btn{flex:1}
 
-/* トグルボタン（目撃あり/なし等） */
+/**/
 .toggle-btn{
   background:var(--chip);
   border:1.5px solid var(--line);
@@ -291,7 +291,7 @@ body.mci-mode .request-cancel-action{display:none}
   color:#15803d;
 }
 
-/* チェックボックスクリック時の光るエフェクト */
+/**/
 @keyframes checkFlash {
   0% { background: transparent; }
   50% { background: rgba(0, 122, 255, 0.15); }
@@ -302,7 +302,7 @@ body.mci-mode .request-cancel-action{display:none}
   border-radius: 8px;
 }
 
-/* バイタルサイン - ダイヤル式 */
+/**/
 .vital-card{
   background:#fff;border-radius:12px;
   margin-top:10px;overflow:hidden;
@@ -378,7 +378,7 @@ body.mci-mode .request-cancel-action{display:none}
   align-self:center;
 }
 
-/* ダイヤルピッカー */
+/**/
 .dial-overlay{
   position:fixed;inset:0;
   background:rgba(0,0,0,0.4);
@@ -473,7 +473,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
 .dial-missing-btn:active{transform:scale(0.97);background:var(--chip)}
 .vital-item.is-missing .vital-value{color:var(--muted);font-size:18px}
 
-/* 所見タブ */
+/**/
 .exam-tabs{
   display:flex;gap:8px;overflow-x:auto;
   padding:0 0 10px;margin:0 -16px;padding-left:16px;
@@ -555,7 +555,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
   font-size:14px;min-height:60px;
 }
 
-/* 出力エリア */
+/**/
 .result{
   white-space:pre-wrap;
   background:#fafafa;border-radius:12px;
@@ -564,7 +564,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
   border:1px dashed var(--line);
 }
 
-/* 下部ナビ */
+/**/
 .bottom-nav{
   position:fixed;bottom:0;left:0;right:0;
   background:rgba(255,255,255,0.94);
@@ -575,7 +575,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
 }
 .bottom-nav .btn{flex:1;padding:12px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
-/* 病院リスト */
+/**/
 .hospital-item{
   display:flex;justify-content:space-between;
   align-items:center;padding:12px 0;
@@ -583,7 +583,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
 }
 .hospital-item:last-child{border-bottom:none}
 
-/* チェックライン */
+/**/
 .checkline{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
 .checkline label{
   display:flex;align-items:center;gap:6px;
@@ -594,7 +594,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
   accent-color:var(--brand);
 }
 
-/* ラボピル */
+/**/
 .labline{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .labpill{
   display:flex;align-items:center;gap:6px;
@@ -613,7 +613,7 @@ body.dial-open{overflow:hidden;position:fixed;width:100%;}
   font-size:16px;color:#dc2626;padding:0 4px;
 }
 
-/* プロブレム入力部分のレイアウト調整 */
+/**/
 div.card-body > div[style*="display:flex"] {
   display: flex !important;
   gap: 8px;
@@ -634,7 +634,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   white-space: nowrap;
 }
 
-/* 追加されたアイテムの調整 */
+/**/
 .problem-item{
   display:flex;
   justify-content:space-between;
@@ -681,7 +681,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   background:var(--brand);color:#fff;border-color:var(--brand);
 }
 
-/* カード背景色の区別 */
+/**/
 .ems-card {
   background: #f0f9ff;
   border-left: 4px solid #0ea5e9;
@@ -703,7 +703,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
 .referral-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .referral-toolbar .btn{width:auto;flex:1;min-width:120px;padding:10px 14px;font-size:13px}
 
-/* 多数傷（トリアージ）モード */
+/**/
 .mode-switch{
   background:#fff;color:var(--brand);
   border:1.5px solid var(--brand);
@@ -715,7 +715,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
 .mode-switch:active{opacity:0.8;transform:scale(0.95)}
 .mci-main{display:none}
 .mci-tabs-sticky{
-  /* modeMCI は既にヘッダー下から始まるため top は 0（header-h だと画面中央に浮く） */
+  /**/
   position:sticky;top:0;z-index:90;
   background:rgba(242,242,247,0.94);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -825,7 +825,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
 .mci-age-dial .vital-unit{font-size:13px;color:var(--muted)}
 .mci-age-dial--unset .vital-value{font-size:16px;font-weight:600;color:var(--muted)}
 .mci-detail-record-banner strong{font-size:15px;color:#1e40af}
-/* FD検査フォーム（DrCar v3.6 同等） */
+/**/
 .exam-ucg-card{
   font-size:13px;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--chip);
   max-width:100%;
@@ -898,7 +898,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   .patient-card-main-aside{width:100%;flex-direction:row;justify-content:space-between;align-items:center}
 }
 
-/* マウス操作向け（PC/タブレット） */
+/**/
 @media (hover: hover) and (pointer: fine){
   .btn-update:hover,.btn:hover,.time-btn:hover{
     filter:brightness(0.96);
@@ -928,7 +928,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   main#referralView::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
 }
 
-/* 広い画面ではカードを読みやすく */
+/**/
 @media (min-width: 960px){
   header{padding-left:max(16px,calc((100vw - 1280px)/2 + 16px));padding-right:max(16px,calc((100vw - 1280px)/2 + 16px))}
   main#mainRecordView,
@@ -2077,7 +2077,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   </div>
 </div>
 
-<!-- 紹介状画面 -->
+
 <main id="referralView" style="display:none">
   <div class="card">
     <div class="card-header">
@@ -2097,16 +2097,16 @@ div.card-body > div[style*="display:flex"] .btn.small {
   </div>
 </main>
 
-<!-- v5.1.0 下部ナビ廃止：ボタンは出力タブと紹介状タブに移動。JS互換のため空divは維持 -->
+
 <div class="bottom-nav" id="bottomNav" style="display:none"></div>
 
-<!-- 紹介状送信ボタン（紹介状画面でのみ表示） -->
+
 <div class="bottom-nav" id="referralSendBtn" style="display:none">
   <button class="btn" onclick="sendReferralEmail()" style="background:#ea4335;color:#fff">📧 メール送信</button>
   <button class="btn ghost" onclick="switchToRecordView()">← 戻る</button>
 </div>
 
-<!-- メインタブバー（通常モード時のみ表示） -->
+
 <nav class="tab-bar" id="mainTabBar">
   <button class="tab-bar-item active" data-tab="request" onclick="switchTab('request')">
     <span class="tab-icon">📞</span><span>要請</span>
@@ -2149,7 +2149,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
-/** 表示中のメインスクロール領域（PCホイール対応） */
+
 function getAppScrollRoot() {
   const referral = $('#referralView');
   if (referral && referral.style.display !== 'none') return referral;
@@ -2173,11 +2173,11 @@ function resetScrollElement(el) {
   try {
     el.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   } catch {
-    try { el.scrollTo(0, 0); } catch { /* noop */ }
+    try { el.scrollTo(0, 0); } catch {   }
   }
 }
 
-/** タブ切替・画面遷移時: メインスクロール領域を先頭に戻す */
+
 function scrollAppToTop() {
   const apply = () => {
     resetScrollElement($('#mainRecordView'));
@@ -2199,7 +2199,7 @@ function scrollAppToTop() {
 function setMciBottomNavVisible(visible) {
   document.body.classList.toggle('has-mci-nav', !!visible);
 }
-/** 多数傷ボード表示時のみヘッダーを簡略（通常ボタンのみ）。詳細入力・通常モードは通常ヘッダー */
+
 function updateMciModeChrome() {
   const mciEl = $('#modeMCI');
   const slim = currentAppMode === 'mci'
@@ -2211,7 +2211,7 @@ function setReferralBottomNavVisible(visible) {
   document.body.classList.toggle('has-referral-nav', !!visible);
 }
 
-/* ===== タブUI v5.1.0 ===== */
+
 function switchTab(tab) {
   if (!tab) return;
   forceUnlockScrollIfNeeded();
@@ -2238,7 +2238,7 @@ const STROKE_LVO_ITEMS = [
   { key: 'facial', label: '顔面麻痺' },
   { key: 'arm', label: '上肢麻痺' }
 ];
-/** 端末に残る下書きキー（更新ボタンでは消さない。リセット時にまとめて削除） */
+
 const HELI_DRAFT_STORAGE_KEYS = [
   'heliRecordV5',
   'heliRecordV41',
@@ -2385,7 +2385,7 @@ function datetimeLocalToTime(v) {
   return m ? m[1] : '';
 }
 
-/** Notify先行入力時: 戻るリンクで保存されたドラフトをヘリ記録へ反映（空欄のみ） */
+
 function applyStrokeNotifyFromBridge() {
   let raw;
   try { raw = localStorage.getItem(STROKE_TO_HELI_BRIDGE_KEY); } catch { return false; }
@@ -2451,7 +2451,7 @@ function updateStrokeNotifyButtonVisibility() {
 }
 window.openStrokeNotify = openStrokeNotify;
 
-/** 通常モード時のメインタブバー表示制御 */
+
 function setMainTabBarVisible(visible) {
   forceUnlockScrollIfNeeded();
   const bar = document.getElementById('mainTabBar');
@@ -2476,7 +2476,7 @@ function syncRequestModeUI() {
   if (tt && !fac) tt.style.display = ['Jターン','Uターン'].includes($('#turn_type').value) ? 'block' : 'none';
 }
 
-// 症状詳記ジェネレーター（DrCar v3.6 同等）
+
 const MedicalReasonGenerator = {
   riskTypes: {
     cardiac_arrest: { label: '心肺停止・蘇生中', text: '胸骨圧迫・気道管理・除細動など必要な蘇生処置を直ちに実施・継続できる体制を確保し、自己心拍再開または再停止を含む病態変化に即応するため、継続的な呼吸循環管理が必要であった。' },
@@ -2733,7 +2733,7 @@ const FD_CPA_GROUPS = {
   trunk: {normal:[], abn:['心音聴取不可','呼吸音聴取不可','腹部膨隆']}
 };
 
-// 状態
+
 let state = {
   request: {type:'', detail:'', time:'', precedingTeam:''},
   patient: {
@@ -2801,7 +2801,7 @@ let state = {
   }
 };
 
-// ダイヤルピッカー
+
 let dialCallback = null;
 let dialWheels = [];
 
@@ -2810,7 +2810,7 @@ let scrollPosition = 0;
 function openDial(title, wheels, callback, opts) {
   const doneBtn = $('#dialDone');
   if(doneBtn) doneBtn.style.display = '';
-  // 背景スクロール防止
+
   scrollPosition = getAppScrollTop();
   document.body.classList.add('dial-open');
   document.body.style.top = `-${scrollPosition}px`;
@@ -2862,11 +2862,11 @@ function openDial(title, wheels, callback, opts) {
       body.appendChild(unit);
     }
     
-    // 現在の選択位置を記憶
+
     let currentIndex = w.options.findIndex(o => o.value == w.selected);
     if(currentIndex < 0) currentIndex = 0;
     
-    // タッチスクロール（加速度付き）
+
     let startY = 0, lastY = 0, lastTime = 0;
     let currentOffset = -currentIndex * 40;
     let velocityY = 0;
@@ -2948,7 +2948,7 @@ function openDial(title, wheels, callback, opts) {
       }
     };
     
-    // タッチ（スマホ・タブレット）
+
     scroll.addEventListener('touchstart', e => {
       e.preventDefault();
       onPointerDown(e.touches[0].clientY);
@@ -2962,7 +2962,7 @@ function openDial(title, wheels, callback, opts) {
       onPointerUp();
     }, {passive: false});
     
-    // マウスドラッグ（PC・MacBookトラックパッド）
+
     wheel.addEventListener('mousedown', e => {
       e.preventDefault();
       onPointerDown(e.clientY);
@@ -2976,7 +2976,7 @@ function openDial(title, wheels, callback, opts) {
       document.addEventListener('mouseup', onMouseUp);
     });
     
-    // マウスホイール（PC・MacBookトラックパッド2本指スクロール）
+
     wheel.addEventListener('wheel', e => {
       e.preventDefault();
       stopAnimation();
@@ -3097,7 +3097,7 @@ function forceUnlockScrollIfNeeded() {
   }
 }
 
-// SpO2表記を半角に修正
+
 const VITAL_MISSING_VALUES = ['未測定', '×'];
 const VITAL_MISSING_CHOICES = [{label:'未測定', value:'未測定'}, {label:'×', value:'×'}];
 
@@ -3231,7 +3231,7 @@ function openVitalDial(type, idx, field) {
       };
       break;
     case 'spo2':
-      title = 'SpO2'; // 修正
+      title = 'SpO2';
       wheels = [{options: genRange(40, 100, 1), selected: isVitalMissingValue(v.spo2) ? undefined : v.spo2, unit: '%'}];
       opts = {
         missingChoices: VITAL_MISSING_CHOICES,
@@ -3330,7 +3330,7 @@ function boardAgeTitle(p) {
   return s === '年齢不詳' ? '推定年齢不詳' : s;
 }
 
-/** ダイヤルで確定した0-120歳の数字のみ。未設定・自由記載は '' */
+
 function getMciConfirmedAgeDigits(p) {
   const a = p && p.age != null ? String(p.age).trim() : '';
   return /^\d+$/.test(a) ? a : '';
@@ -4108,7 +4108,7 @@ function renderFdVitals() {
   state.fd.vitals.forEach((v, i) => c.appendChild(createVitalCard('fd', i, v)));
 }
 
-// createVitalCard内 SpO2表記を半角に修正
+
 function createVitalCard(type, idx, v) {
   const card = document.createElement('div'); card.className = 'vital-card';
   const gcs = v.gcs && (v.gcs.e !== undefined && v.gcs.v !== undefined && v.gcs.m !== undefined) ? v.gcs : {e:4,v:5,m:6};
@@ -4146,7 +4146,7 @@ function createVitalCard(type, idx, v) {
     </div>${vitalNeuroHtml}`; return card;
 }
 
-// スマート時刻入力: 空の時刻フィールドがタップ（フォーカス）された時、タイムライン等から初期値をセット
+
 const EMS_VITAL_TIMELINE_IDS = ['ems_aware', 'ems_arrival', 'ems_contact', 'ems_lz'];
 const FD_VITAL_TIMELINE_IDS = ['request_time', 'heli_takeoff', 'heli_lz_landing', 'fd_contact', 'transport_takeoff', 'hospital_arrival'];
 
@@ -4574,13 +4574,13 @@ function renderProcedureChips(containerId, items, stateObj) {
   });
 }
 
-/** v3.6 腹部US デフォルト所見（テキストに反映で挿入、手編集可） */
+
 const DEFAULT_EXAM_US_ABD_TEXT = '腹部超音波検査；肝臓辺縁鋭、肝内胆管拡張なし、肝実質内に特記すべきエコー像なし、胆嚢緊満なし、胆嚢壁肥厚なし、胆嚢内Acoustic shadowなし、膵体部の膵管拡張なし、脾臓に腫大なし、モリソン窩液体貯留なし、脾周囲液体貯留なし、腎臓、右腎盂拡大なし、左腎盂拡大なし、膀胱緊満なし、Douglas窩に液体貯留なし、腹部大動脈径の拡大なし';
 
-/** FAST（4部位）陰性の定型（free fluid なし）。先頭に検査名を付けない（generateReport 等で「FAST：」が付くため） */
+
 const DEFAULT_EXAM_FAST_TEXT = 'モリソン窩・脾腎間・心膜腔・膀胱後方に明らかなfree fluidを認めず。';
 
-/** eFAST（FAST＋肺）陰性の定型 */
+
 const DEFAULT_EXAM_EFAST_TEXT = 'モリソン窩・脾腎間・心膜腔・膀胱後方に明らかなfree fluidを認めず。両側肺野に明らかな肺水腫像・気胸を示唆する所見は認めず。';
 
 function getDefaultExamForm() {
@@ -4940,7 +4940,7 @@ function seedExamTextIfEmpty(type) {
   if (te) te.value = text;
 }
 
-window.toggleExam = (type) => { // グローバル化
+window.toggleExam = (type) => {
   state.fd.exams[type] = !state.fd.exams[type];
   
   if(type === 'bs') {
@@ -4957,7 +4957,7 @@ window.toggleExam = (type) => { // グローバル化
     }
   }
   
-  // チップを再レンダリング
+
   renderExamChips();
   updateState();
 };
@@ -4984,7 +4984,7 @@ function renderExamChips() {
     chip.className = 'chip';
     chip.textContent = item.name;
     
-    // 選択されている場合は点灯（背景色変更）
+
     if(state.fd.exams[item.id]) {
       chip.dataset.state = 'proc';
     }
@@ -4997,8 +4997,8 @@ function renderExamChips() {
   });
 }
 
-window.openIntubationDial = () => { // グローバル化
-  // state.fd.intubationの存在を保証
+window.openIntubationDial = () => {
+
   if (!state.fd.intubation) state.fd.intubation = {time: '', size: '7.0'};
   
   const fdContact = document.getElementById('fd_contact');
@@ -5008,7 +5008,7 @@ window.openIntubationDial = () => { // グローバル化
   
   const sizes = [];
   for(let i = 3.5; i <= 8.5; i += 0.5) {
-    sizes.push(i.toFixed(1)); // valueとして数値文字列を保持
+    sizes.push(i.toFixed(1));
   }
   const currentSize = state.fd.intubation.size || '7.0';
   
@@ -5023,20 +5023,20 @@ window.openIntubationDial = () => { // グローバル化
   ], (vals) => {
     state.fd.intubation.time = `${vals[0]}:${vals[1]}`;
     state.fd.intubation.size = vals[2];
-    renderProcedureChips('fd_procedures', state.fd.procedures_items, state.fd.procedures); // 更新を反映
+    renderProcedureChips('fd_procedures', state.fd.procedures_items, state.fd.procedures);
     updateState();
   });
 };
 
-// NPPVダイヤル
-window.openNppvDial = (isEditMode) => { // グローバル化、isEditMode: true=編集モード、false=新規設定
-  // state.fd.nppvの存在を保証
+
+window.openNppvDial = (isEditMode) => {
+
   if (!state.fd.nppv) state.fd.nppv = {mode: '', fio2: 0.21, ipap: 10, epap: 5, peep: 5};
   if (!state.fd.nppv_history) state.fd.nppv_history = [];
   
   const nppv = state.fd.nppv;
   
-  // 編集モードの場合、カスタムダイアログで設定しなおすか解除かを選択
+
   if(isEditMode && nppv.mode) {
     const currentSettings = nppv.mode === 'ST' 
       ? `NPPV S/T FiO2:${nppv.fio2} IPAP:${nppv.ipap} EPAP:${nppv.epap}`
@@ -5061,11 +5061,11 @@ window.openNppvDial = (isEditMode) => { // グローバル化、isEditMode: true
     $('#dialBody').innerHTML = customDialog;
     $('#dialTitle').textContent = 'NPPV設定';
     
-    // カスタムUIでは完了ボタンを非表示
+
     const doneBtn = $('#dialDone');
     if (doneBtn) doneBtn.style.display = 'none';
     
-    // グローバル関数として設定
+
     window.startNppvSetup = () => {
       startNppvSetupSteps();
     };
@@ -5080,17 +5080,17 @@ window.openNppvDial = (isEditMode) => { // グローバル化、isEditMode: true
     return;
   }
   
-  // 新規設定モード: 直接設定開始
+
   startNppvSetupSteps();
 };
 
-// NPPV設定のステップを開始する関数
+
 function startNppvSetupSteps() {
   if (!state.fd.nppv) state.fd.nppv = {mode: '', fio2: 0.21, ipap: 10, epap: 5, peep: 5};
   if (!state.fd.nppv_history) state.fd.nppv_history = [];
   const nppv = state.fd.nppv;
   
-  // ステップ1: モード選択
+
   const modeOptions = [
     {label: 'S/T', value: 'ST'},
     {label: 'CPAP', value: 'CPAP'}
@@ -5104,7 +5104,7 @@ function startNppvSetupSteps() {
     state.fd.nppv.mode = selectedMode;
     closeDial();
     
-    // ステップ2: FiO2選択（少し待ってから開く）
+
     setTimeout(() => {
       const fio2Options = [];
       for(let i = 21; i <= 100; i++) {
@@ -5119,10 +5119,10 @@ function startNppvSetupSteps() {
         state.fd.nppv.fio2 = parseFloat(vals[0]);
         closeDial();
         
-        // ステップ3: モードに応じたパラメータ選択（少し待ってから開く）
+
         setTimeout(() => {
           if(selectedMode === 'ST') {
-            // S/Tモード: IPAP/EPAP選択
+
             const ipapOptions = [];
             for(let i = 5; i <= 30; i++) {
               ipapOptions.push({label: i.toString(), value: i.toString()});
@@ -5140,7 +5140,7 @@ function startNppvSetupSteps() {
             ], (vals) => {
               state.fd.nppv.ipap = parseInt(vals[0]);
               state.fd.nppv.epap = parseInt(vals[1]);
-              // 変更履歴を記録
+
               const now = new Date();
               const hh = String(now.getHours()).padStart(2, '0');
               const mm = String(now.getMinutes()).padStart(2, '0');
@@ -5159,7 +5159,7 @@ function startNppvSetupSteps() {
               updateState();
             });
           } else {
-            // CPAPモード: PEEP選択
+
             const peepOptions = [];
             for(let i = 3; i <= 20; i++) {
               peepOptions.push({label: i.toString(), value: i.toString()});
@@ -5170,7 +5170,7 @@ function startNppvSetupSteps() {
               {options: peepOptions, selected: currentPeep, unit: 'cmH2O'}
             ], (vals) => {
               state.fd.nppv.peep = parseInt(vals[0]);
-              // 変更履歴を記録
+
               const now = new Date();
               const hh = String(now.getHours()).padStart(2, '0');
               const mm = String(now.getMinutes()).padStart(2, '0');
@@ -5243,7 +5243,7 @@ const ABG_ITEMS = [
   {item:'Cr',unit:'mg/dL',normal:'0.80'},
   {item:'COHb',unit:'%',normal:'1.0'}
 ];
-/** 桁別ダイヤル: intOpts=限定、intPrefix=固定整数桁、intDigits=0-9ホイール数、decDigits=小数桁 */
+
 const ABG_SCHEMA = {
   'pH': { intOpts: [[6, 7]], decDigits: 3, min: 6, max: 7.999 },
   'pCO2': { intDigits: 3, decDigits: 1, min: 10, max: 150.9 },
@@ -5552,7 +5552,7 @@ function parseListText(text) {
   return (text || '').split('、').map(s => s.trim()).filter(Boolean);
 }
 
-/** DrCar式: チップ選択後は選択肢を1つに集約、「変更」で再展開 */
+
 const pickerExpanded = { age: true, sex: true, destination: true };
 
 function expandPicker(key) { pickerExpanded[key] = true; }
@@ -6202,10 +6202,10 @@ function clearMciBannerDom() {
   refreshMciAgeBannerUI();
 }
 
-/** 詳細を開く・閉じる初期化中はバナー→カードへの書き戻しを抑止する */
+
 let mciDetailLoading = false;
 
-/** バナー入力をボード上の症例カード(p.age/p.sex)へ保存 */
+
 function persistMciBannerToCard(p) {
   if(!p) return;
   if(mciDetailLoading) return;
@@ -6224,7 +6224,7 @@ function syncMciBannerToPatient() {
   persistMciBannerToCard(p);
 }
 
-/** バナーの年齢性別を要請タブの患者情報（非表示欄）と state 用表示に同期 */
+
 function applyMciBannerToPatientForm() {
   if(!mciDetailRecordMode || !currentMciPatientId) return;
   syncMciBannerToPatient();
@@ -6271,7 +6271,7 @@ function mciCardHasDemographics(p) {
   return age !== '' || sex !== '';
 }
 
-/** 保存済み detailState からボードカード(p.age/p.sex)を復元 */
+
 function syncMciCardDemographicsFromDetailState(p) {
   if(!p?.detailState?.patient) return;
   if(mciCardHasDemographics(p)) return;
@@ -6286,7 +6286,7 @@ function syncMciCardDemographicsFromDetailState(p) {
   else if(sexLabel && sexLabel !== '不明') p.sex = sexLabel;
 }
 
-/** カードに値があるときだけ detailState の年齢性別を更新（空カードで保存内容を消さない） */
+
 function mergeMciCardDemographicsIntoDetailState(p) {
   if(!p) return;
   if(!p.detailState) p.detailState = createMciDetailState(p);
@@ -6309,7 +6309,7 @@ function resetMciBannerFromPatient(p) {
   refreshMciAgeBannerUI();
 }
 
-/** ボードカードの年齢性別のみを詳細画面へ反映（バナー→カード方向はここでは行わない） */
+
 function loadMciDetailDemographicsFromCard(p) {
   if(!p) return;
   syncMciCardDemographicsFromDetailState(p);
@@ -6396,10 +6396,10 @@ function updateState() {
 }
 
 function render() { $('#outText').textContent = generateReport(); }
-// fmtFinding 記号を半角に修正。「なし」を含むラベルはそのまま返す（目撃なし(+)→目撃なし）
+
 function fmtFinding(lbl, st) {
   if(st==='on') return lbl;
-  if(lbl.includes('なし')) return lbl; // なしであることが既に明示されているため記号を付けない
+  if(lbl.includes('なし')) return lbl;
   if(st==='+') return `${lbl}(+)`;
   if(st==='-') return `${lbl}(-)`;
   return null;
@@ -6435,7 +6435,7 @@ function formatVitalLine(v) {
   return line;
 }
 
-/** 出力用: 入力画面の登録順は変えず、有効な時刻を昇順、時刻未入力を末尾に並べる */
+
 function sortVitalsByTime(vitals) {
   if (!Array.isArray(vitals)) return [];
   const toMinutes = value => {
@@ -6520,7 +6520,7 @@ function calcNihssTotal(stroke) {
   return NIHSS_ITEMS.reduce((sum, item) => sum + (Number(nihss[item.id]) || 0), 0);
 }
 
-/** CPAの最終転帰と、FD引継ぎ時点のプレホス暫定値を共通形式で出力する。 */
+
 function appendCpaOutcomeFlowLines(lines, cpa, isFirst) {
   const flow = getCpaFlowTimes(cpa, isFirst);
   if(cpa.handoffTime) lines.push(`CPA継続で引き継ぎ：${cpa.handoffTime}`);
@@ -6535,7 +6535,7 @@ function appendCpaOutcomeFlowLines(lines, cpa, isFirst) {
   if(!isNaN(flow.lowFlow) && flow.lowFlow >= 0) lines.push(`Low Flow Time：${flow.lowFlow}分`);
 }
 
-/** FD身体所見は最後に開いたタブではなく、入力済みの全区分をまとめて出力する。 */
+
 function buildAllFdExamLines(fd) {
   fd = fd || {};
   const chips = fd.chips || {};
@@ -6661,7 +6661,7 @@ function normalizeGeneratedDocumentText(text) {
     .replace(/[ \t]+([。、！？])/g, '$1');
 }
 
-// generateReport SpO2半角修正 & ドクター身体所見反映
+
 function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
@@ -6688,27 +6688,27 @@ function generateReport() {
   }
   
   r += '\n【フライトドクター活動】\n';
-  // フライトドクタータイムライン
+
   if(state.heli.fd_contact) r += `FD接触: ${state.heli.fd_contact}\n`;
   sortVitalsByTime(state.fd.vitals).forEach(v => {
     r += `${formatVitalLine(v)}\n`;
   });
-  // 入力済みの身体所見区分をすべて併記（最後に開いたタブには依存しない）
+
   r = appendAllFdExamSections(r, state.fd);
   const fTab = '__all_sections_rendered__';
   if(fTab==='general') {
-    // 頭頚部
+
     const headS = extractFindings(FD_GEN_GROUPS.head, state.fd.chips);
     const headM = state.fd.memos.general.head;
     if(headS||headM) r+=`  【頭頚部】${[headS,headM].filter(Boolean).join('。')}\n`;
-    // 胸部（呼吸器と循環器を統合）
+
     const respS = extractFindings(FD_GEN_GROUPS.resp, state.fd.chips);
     const respM = state.fd.memos.general.resp;
     const cardS = extractFindings(FD_GEN_GROUPS.card, state.fd.chips);
     const cardM = state.fd.memos.general.card;
     const chestContent = [respS,respM,cardS,cardM].filter(Boolean);
     if(chestContent.length > 0) r+=`  【胸部】${chestContent.join('。')}\n`;
-    // 腹部、四肢、神経
+
     [['腹部',FD_GEN_GROUPS.abd,'abd'],['四肢',FD_GEN_GROUPS.limb,'limb'],['神経',FD_GEN_GROUPS.neuro,'neuro']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.general[k]; if(s||m)r+=`  【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
   }
   else if(fTab==='trauma') [['頭部・顔面',FD_TRA_GROUPS.head,'head'],['頸部',FD_TRA_GROUPS.neck,'neck'],['胸部',FD_TRA_GROUPS.chest,'chest'],['腹部',FD_TRA_GROUPS.abd,'abd'],['骨盤',FD_TRA_GROUPS.pelvis,'pelvis'],['四肢',FD_TRA_GROUPS.limb,'limb']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.trauma[k]; if(s||m)r+=`  【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
@@ -6773,7 +6773,7 @@ function generateReport() {
   }
   
   r += '\n';
-  // 検査所見出力
+
   let exams = [];
   if(state.fd.exams?.bs && state.fd.bs) exams.push(`BS:${state.fd.bs}mg/dL`);
   const examLabels = {ucg:'UCG',us_abd:'腹部US',us_lung:'肺US',us_neck:'頸部血管US',ecg:'12誘導心電図',fast:'FAST',efast:'eFAST'};
@@ -6787,7 +6787,7 @@ function generateReport() {
   if(state.fd.exam_detail) exams.push(state.fd.exam_detail);
   if(exams.length > 0) r += `【検査】${exams.join('、')}\n`;
   
-  // 処置出力
+
   const fdProcItems = (state.fd.procedures_items || []).filter(k => state.fd.procedures[k]);
   if(fdProcItems.length > 0 || state.fd.procedure_detail) {
     r += '【処置】';
@@ -6821,7 +6821,7 @@ function generateReport() {
     r += '\n';
   }
   
-  // 薬剤出力
+
   let drugs = Object.keys(state.fd.drugs).filter(k => state.fd.drugs[k]);
   if(drugs.length > 0 || state.fd.drug_detail) {
     r += '【薬剤】';
@@ -6895,7 +6895,7 @@ function loadDataFromInput(input) {
 }
 function clearHeliDraftStorage() {
   HELI_DRAFT_STORAGE_KEYS.forEach((key) => {
-    try { localStorage.removeItem(key); } catch { /* noop */ }
+    try { localStorage.removeItem(key); } catch {   }
   });
 }
 function resetData() {
@@ -7058,7 +7058,7 @@ async function updateApp() {
 }
 
 function bindInputEvents() {
-  // 要請情報
+
   $('#request_type').onchange = () => { updateState(); syncRequestModeUI(); };
   $('#request_detail').oninput = () => { renderRequestAssistChips(); updateState(); };
   if ($('#patient_age')) {
@@ -7084,7 +7084,7 @@ function bindInputEvents() {
   };
   $('#request_time').onchange = updateState;
   
-  // 患者情報
+
   $('#patient_history').oninput = () => { renderRequestAssistChips(); updateState(); };
   $('#patient_medication').oninput = () => { renderRequestAssistChips(); updateState(); };
   $('#patient_allergy').oninput = () => { renderRequestAssistChips(); updateState(); };
@@ -7092,7 +7092,7 @@ function bindInputEvents() {
   $('#last_meal_time').onchange = updateState;
   $('#patient_hospital').oninput = updateState;
   
-  // ヘリタイムライン
+
   $('#heli_takeoff').onchange = updateState;
   $('#heli_lz_landing').onchange = updateState;
   $('#fd_contact').onchange = () => handleVitalContactChange('fd');
@@ -7100,7 +7100,7 @@ function bindInputEvents() {
   $('#transport_takeoff').onchange = updateState;
   $('#hospital_arrival').onchange = updateState;
   
-  // 救急隊タイムライン
+
   $('#ems_aware').onchange = updateState;
   $('#ems_arrival').onchange = updateState;
   $('#ems_contact').onchange = () => handleVitalContactChange('ems');
@@ -7108,21 +7108,21 @@ function bindInputEvents() {
   if($('#ems_stroke_onset')) $('#ems_stroke_onset').onchange = updateState;
   $('#ems_procedures_detail').oninput = updateState;
   
-  // フライトドクター
+
   $('#fd_bs').onchange = updateState;
   $('#fd_exam_detail').oninput = updateState;
   $('#fd_procedure_detail').oninput = updateState;
   $('#fd_drug_detail').oninput = updateState;
   bindFdExamFormEvents();
   
-  // 評価
+
   $('#consideration').oninput = updateState;
   if($('#symptom_trigger')) $('#symptom_trigger').oninput = updateState;
   if($('#symptom_suspicion')) $('#symptom_suspicion').oninput = updateState;
   if($('#symptom_risk')) $('#symptom_risk').onchange = updateState;
   if($('#symptom_output')) $('#symptom_output').oninput = updateState;
   
-  // 搬送先
+
   $('#destination_custom').oninput = () => {
     expandPicker('destination');
     state.destination.hospital = '';
@@ -7131,7 +7131,7 @@ function bindInputEvents() {
   };
   $('#selection_reason').oninput = () => { renderSelectionReasonTemplateButtons(); updateState(); };
   
-  // ストローク関連
+
   if($('#plrL')) {
     $('#plrL').onchange = updateState;
     $('#plrR').onchange = updateState;
@@ -7159,7 +7159,7 @@ const MCI_TAGS = {
   'III': {label:'緑 III', icon:'🟢', className:'tag-III'},
   '': {label:'未分類', icon:'⚪', className:''}
 };
-/** ボード・サマリーの表示順（赤→黄→緑→黒→未分類、同タグ内はトリアージNo.昇順） */
+
 const MCI_TAG_LIST_PRIORITY = { I:1, II:2, III:3, '0':4, '':5 };
 function mciTagListRank(tag) {
   const k = tag === undefined || tag === null ? '' : String(tag);
@@ -7213,7 +7213,7 @@ function ensureMciDefaults() {
 }
 
 function clearMciLocalStorage() {
-  try { localStorage.removeItem(MCI_STORAGE_KEY); } catch { /* noop */ }
+  try { localStorage.removeItem(MCI_STORAGE_KEY); } catch {   }
 }
 
 function saveMciState() {
@@ -7451,13 +7451,13 @@ function formatMciSummaryInjuryTreatmentLines(p) {
   };
 }
 
-/** 詳細のプロブレムリスト（評価の傷病名）をサマリー・ボード表示用に取得 */
+
 function getMciDetailProblemLabels(p) {
   const arr = p && p.detailState && Array.isArray(p.detailState.problems) ? p.detailState.problems : [];
   return arr.map(s => String(s).trim()).filter(Boolean);
 }
 
-/** 多数傷サマリー：搬送行。傷病名ありのとき 「→ #下腿骨折 → 鹿児島市立病院」形式 */
+
 function formatMciSummaryTransportLine(p) {
   const dest = (p.dest || '').trim() || '--';
   const labs = getMciDetailProblemLabels(p);
@@ -7466,7 +7466,7 @@ function formatMciSummaryTransportLine(p) {
   return `→ ${tagStr} → ${dest}`;
 }
 
-/** トリアージボードカードの 🏥 行 */
+
 function formatMciBoardHospitalLine(p) {
   const dest = (p.dest || '').trim() || '搬送先未定';
   const labs = getMciDetailProblemLabels(p);
@@ -7686,8 +7686,8 @@ function openMciPatient(id) {
   $('#mciDetailRecordSub').textContent = 'この通常記録フォームの入力内容は、この傷病者に個別保存されます。救急隊・FDの検査・処置・薬剤は下へスクロールするとあります。';
   $('#modeToggleBtn').textContent = '通常';
   $('#modeToggleBtn').classList.add('active');
-  /* バナー DOM を p の値で先に埋める。restoreUI 内 toggleAbg→updateState が走っても
-     persistMciBannerToCard が空で p.age/p.sex を消さないようにするため。 */
+
+
   mciDetailLoading = true;
   try {
     resetMciBannerFromPatient(p);
@@ -7707,7 +7707,7 @@ function getMciPatient(id) {
   return mci.patients.find(p => p.id === Number(id));
 }
 
-/** 活動記録画面を先頭から表示（多数傷から「詳細入力」で遷移したとき） */
+
 function scrollMainRecordViewToTop() {
   scrollAppToTop();
 }
@@ -7751,7 +7751,7 @@ function transferMciPatientToRecord() {
   const detailLines = [patientLine, common, p.injury.length ? `受傷部位：${p.injury.join('、')}` : '', p.treatment.length ? `処置：${p.treatment.join('、')}` : '', p.note ? `メモ：${p.note}` : ''].filter(Boolean);
   const transferBlock = detailLines.join('\n');
 
-  // ① 要請内容：上書きせず末尾追記（既存があれば区切り線付き）
+
   $('#request_type').value = 'キーワード要請';
   $('#request_time').value = mci.incident.time || $('#request_time').value;
   const existingDetail = $('#request_detail').value.trim();
@@ -7759,10 +7759,10 @@ function transferMciPatientToRecord() {
     ? `${existingDetail}\n\n--- 多数傷から転記 ---\n${transferBlock}`
     : transferBlock;
 
-  // 搬送先：未入力時のみ転記
+
   if(!$('#destination_custom').value) $('#destination_custom').value = p.dest || '';
 
-  // ② バイタル：既存配列に追記（上書きしない）
+
   if(p.rr || p.hr || p.bp || p.spo2) {
     const [sbp = '', dbp = ''] = (p.bp || '').split('/');
     if(!Array.isArray(state.ems.vitals)) state.ems.vitals = [];
@@ -7775,7 +7775,7 @@ function transferMciPatientToRecord() {
     });
   }
 
-  // ③ 受傷部位：推定サフィックス付きでチップON、詳細はEMSメモに補足記録
+
   const injuryMap = {
     頭部:   {chip:'前額部打撲', region:'head',   note:'頭部の異常あり（部位詳細未確定）'},
     顔面:   {chip:'顔面打撲',   region:'head',   note:'顔面の異常あり'},
@@ -7799,7 +7799,7 @@ function transferMciPatientToRecord() {
     memoAdditions[m.region].push(m.note);
   });
 
-  // EMS外傷メモに補足追記（既存メモは保護して末尾追記）
+
   if(p.injury.length) {
     if(!state.ems.memos) state.ems.memos = {};
     if(!state.ems.memos.trauma) state.ems.memos.trauma = {};
@@ -7811,7 +7811,7 @@ function transferMciPatientToRecord() {
     });
   }
 
-  // 処置：既存ON状態を保持しつつ追加
+
   p.treatment.forEach(item => {
     if(state.ems.procedures_items.includes(item)) state.ems.procedures[item] = true;
     if(state.fd.procedures_items.includes(item)) state.fd.procedures[item] = true;
@@ -7821,7 +7821,7 @@ function transferMciPatientToRecord() {
   restoreUI();
   switchAppMode('normal');
 
-  // 二重ナビ表示防止：MCI側ナビ・MCI詳細バナーを確実に隠す
+
   $('#mciBottomNav').style.display = 'none';
   $('#mciDetailRecordBanner').style.display = 'none';
   $('#bottomNav').style.display = 'none';
@@ -7843,7 +7843,7 @@ function renderMciTabs() {
   if(!tabs) return;
   const withDetail = mci.patients.filter(p => p.hasDetailTab);
   const onBoard = mci.activeTab === 'board';
-  /* ボードのみのときは「多数傷」タブ1個だけになり画面中央に浮いて邪魔になるため非表示 */
+
   const showSticky = !onBoard || withDetail.length > 0;
   if(sticky) sticky.classList.toggle('is-hidden', !showSticky);
   const patientTabs = withDetail.map(p => {
@@ -8086,7 +8086,7 @@ function init() {
     navigator.clipboard.writeText($('#outText').textContent);
     const b=$('#copyOut'); b.textContent='✓ コピーしました'; setTimeout(()=>b.textContent='📋 活動記録をコピー',1500);
   };
-  // v5.1.0：初期はタブバー表示、要請タブをアクティブに
+
   setMciBottomNavVisible(false);
   setReferralBottomNavVisible(false);
   setMainTabBarVisible(true);
@@ -8117,16 +8117,16 @@ function init() {
     scrollAppToTop();
   }
 }
-// 紹介状送信先Gmailアドレス（ここに指定したアドレスを書き込む）
-const REFERRAL_EMAIL = 'kchcenter.drheli.drcar@gmail.com'; // ← ここに送信先Gmailアドレスを記入してください
-const BCC_EMAIL = 'consommeandcola@gmail.com'; // 品管用BCCアドレス
 
-// 画面切り替え
-let currentView = 'record'; // 'record' または 'referral'
+const REFERRAL_EMAIL = 'kchcenter.drheli.drcar@gmail.com';
+const BCC_EMAIL = 'consommeandcola@gmail.com';
+
+
+let currentView = 'record';
 
 function openReferral() {
   if (!ensureTransportSchemeSelected()) return;
-  updateState(); // 最新の入力内容を保存
+  updateState();
 
   switchToReferralView();
 }
@@ -8241,9 +8241,9 @@ function sendReferralEmail() {
   }
 }
 
-// ---------------------------------------------------------
-// 紹介状生成関数（活動記録 generateReport と同系ロジック）
-// ---------------------------------------------------------
+
+
+
 function safeGet(obj, path, defaultVal = '') {
   return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj) || defaultVal;
 }
@@ -8257,7 +8257,7 @@ function buildReferralVitalsBlock(vitals) {
   return sortVitalsByTime(vitals).map(formatReferralVitalLine).filter(Boolean).join('\n');
 }
 
-/** 救急隊所見: appendAllEmsExamSections と同一ロジック */
+
 function buildReferralEmsFindings(ems) {
   const raw = appendAllEmsExamSections('', ems || {});
   const text = raw.replace(/^\n*＜所見＞\n?/gm, '').trim();
@@ -8279,12 +8279,12 @@ function buildReferralEmsTreatment(data) {
   return parts.length > 0 ? parts.join('、') : '';
 }
 
-/** FD身体所見: 入力済みの全区分を活動記録と同内容で出力 */
+
 function buildReferralFdFindings(data) {
   const allLines = buildAllFdExamLines(data.fd || {});
   return allLines.length > 0 ? allLines.join('\n') : '特記すべき身体所見はありませんでした。';
 
-  /* 旧バージョンのタブ単位出力（互換性確認用に残置、上記で置換済み） */
+
   const fd = data.fd || {};
   const chips = fd.chips || {};
   const lines = [];
@@ -8561,7 +8561,7 @@ ${consideration}`;
   return normalizeGeneratedDocumentText(referralText);
 }
 init();
-// PWA Service Worker 登録ロジック
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').then((reg) => {
@@ -8574,4 +8574,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-<!-- deploy trigger -->
