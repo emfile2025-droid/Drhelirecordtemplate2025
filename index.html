@@ -65,7 +65,7 @@
 
 
 
-<title>ドクターヘリ活動記録 v5.1.22 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.23 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -1101,7 +1101,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.22 多数傷対応</p>
+    <p class="sub">heli record v5.1.23 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
@@ -2275,8 +2275,7 @@ function latestVitalForStroke() {
   return null;
 }
 
-function inferStrokeLvoFromFindings() {
-  const fd = state.fd || {};
+function inferStrokeLvoFromFindings(fd = state.fd || {}) {
   const chips = fd.chips || {};
   const pos = Object.keys(chips).filter(k => chips[k] === '+');
   const lvo = [];
@@ -7019,7 +7018,7 @@ function buildReferralNeurology(stroke, app) {
     lines.push(nihss.map(([id,v]) => `${items.find(item=>item.id === id)?.label || id}：${v}`).join('、'));
   }
   if (s.nihssMemo) lines.push('NIHSSメモ：' + s.nihssMemo);
-  if (Array.isArray(s.lvo) && s.lvo.length) lines.push('LVO：' + s.lvo.map(key => typeof STROKE_LVO_ITEMS !== 'undefined' ? STROKE_LVO_ITEMS.find(item => item.key === key)?.label || key : key).join('、'));
+  if (Array.isArray(s.lvo) && s.lvo.length) lines.push((s.lvoDerived ? 'LVO（所見から自動反映）：' : 'LVO：') + s.lvo.map(key => typeof STROKE_LVO_ITEMS !== 'undefined' ? STROKE_LVO_ITEMS.find(item => item.key === key)?.label || key : key).join('、'));
   return lines;
 }
 
@@ -7031,7 +7030,11 @@ function buildClinicalReferralFindings(section, app, isEms) {
     if (!memos || typeof memos !== 'object') continue;
     for (const [key,memo] of Object.entries(memos)) if (typeof memo === 'string' && memo.trim()) lines.push(`${({general:'診察',trauma:'外傷',stroke:'神経',cpa:'CPA'})[group] || group}・${titles[key] || key}：${memo}`);
   }
-  if (!isEms) lines.push(...buildReferralNeurology(section.stroke, app));
+  if (!isEms) {
+    const stroke = section.stroke || {};
+    const selected = stroke.lvoSelectionManual ? (stroke.lvo || []) : inferStrokeLvoFromFindings(section);
+    lines.push(...buildReferralNeurology({...stroke, lvo:selected, lvoDerived:!stroke.lvoSelectionManual}, app));
+  }
   if (isEms && section.stroke_motor && typeof formatEmsStrokeMotorText === 'function') {
     const text = formatEmsStrokeMotorText(section.stroke_motor);
     if (text) lines.push('運動：' + text);
@@ -7097,7 +7100,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.22\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.23\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
