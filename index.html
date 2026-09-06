@@ -65,7 +65,7 @@
 
 
 
-<title>ドクターヘリ活動記録 v5.1.20 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.21 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -1100,7 +1100,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.20 多数傷対応</p>
+    <p class="sub">heli record v5.1.21 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
@@ -2092,7 +2092,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
         <button type="button" class="btn small ghost" onclick="regenerateReferralText()">再生成</button>
         <button type="button" class="btn small ghost" id="referralCopyBtn" onclick="copyReferralText()">コピー</button>
       </div>
-      <textarea id="referralText" class="referral-editor" placeholder="「再生成」または活動記録から開くと本文が入ります"></textarea>
+      <textarea id="referralText" oninput="saveReferralDraft()" class="referral-editor" placeholder="「再生成」または活動記録から開くと本文が入ります"></textarea><p id="referralDraftStatus" role="status" style="font-size:13px"></p>
     </div>
   </div>
 </main>
@@ -3935,6 +3935,7 @@ function openPupilDial(side) {
   openDial(`瞳孔径 ${side==='L'?'左':'右'}`, [{options, selected: current, unit: 'mm'}], vals => {
     if(!state.fd.stroke) state.fd.stroke = {};
     state.fd.stroke[`pupil${side}`] = vals[0];
+    state.fd.stroke[`pupil${side}Touched`] = true;
     $(`#pupil${side}_display`).textContent = vals[0];
     updateState();
   });
@@ -3948,6 +3949,7 @@ function openMmtDial(limb) {
     if(!state.fd.stroke) state.fd.stroke = {mmt:{}};
     if(!state.fd.stroke.mmt) state.fd.stroke.mmt = {};
     state.fd.stroke.mmt[limb] = vals[0];
+    state.fd.stroke.mmtTouched = {...(state.fd.stroke.mmtTouched || {}), [limb]: true};
     $(`#mmt_${limb}_display`).textContent = vals[0];
     updateState();
   });
@@ -6650,6 +6652,380 @@ function appendAllFdExamSections(r, fd) {
   return r;
 }
 
+const REFERRAL_FINDING_DICTIONARY = {
+"意識清明":{"region":"head","concept":"意識清明","name":"意識清明","polarity":1,"verb":"認め","sentence":"意識は清明でした。"},
+"顔色良好":{"region":"head","concept":"顔色良好","name":"顔色良好","polarity":1,"verb":"認め","sentence":"顔色は良好でした。"},
+"意識障害":{"region":"head","concept":"意識障害","name":"意識障害","polarity":1,"verb":"認め","sentence":null},
+"顔面蒼白":{"region":"head","concept":"顔面蒼白","name":"顔面蒼白","polarity":1,"verb":"認め","sentence":null},
+"チアノーゼ":{"region":"head","concept":"チアノーゼ","name":"チアノーゼ","polarity":1,"verb":"認め","sentence":null},
+"冷汗":{"region":"card","concept":"冷汗","name":"冷汗","polarity":1,"verb":"認め","sentence":null},
+"発熱":{"region":"head","concept":"発熱","name":"発熱","polarity":1,"verb":"認め","sentence":null},
+"呼吸安定":{"region":"resp","concept":"呼吸安定","name":"呼吸安定","polarity":1,"verb":"認め","sentence":"呼吸は安定していました。"},
+"呼吸苦なし":{"region":"resp","concept":"呼吸苦","name":"呼吸苦","polarity":-1,"verb":"認め","sentence":null},
+"呼吸困難":{"region":"resp","concept":"呼吸困難","name":"呼吸困難","polarity":1,"verb":"認め","sentence":null},
+"努力呼吸":{"region":"resp","concept":"努力呼吸","name":"努力呼吸","polarity":1,"verb":"認め","sentence":null},
+"頻呼吸":{"region":"resp","concept":"頻呼吸","name":"頻呼吸","polarity":1,"verb":"認め","sentence":null},
+"起坐呼吸":{"region":"resp","concept":"起坐呼吸","name":"起坐呼吸","polarity":1,"verb":"認め","sentence":null},
+"陥没呼吸":{"region":"resp","concept":"陥没呼吸","name":"陥没呼吸","polarity":1,"verb":"認め","sentence":null},
+"脈拍整":{"region":"card","concept":"脈拍整","name":"脈拍整","polarity":1,"verb":"認め","sentence":"脈拍は整でした。"},
+"末梢温かい":{"region":"card","concept":"末梢温かい","name":"末梢温かい","polarity":1,"verb":"認め","sentence":"末梢は温かく触れました。"},
+"脈拍不整":{"region":"card","concept":"脈拍不整","name":"脈拍不整","polarity":1,"verb":"認め","sentence":null},
+"頻脈":{"region":"card","concept":"頻脈","name":"頻脈","polarity":1,"verb":"認め","sentence":null},
+"徐脈":{"region":"card","concept":"徐脈","name":"徐脈","polarity":1,"verb":"認め","sentence":null},
+"末梢冷感":{"region":"card","concept":"末梢冷感","name":"末梢冷感","polarity":1,"verb":"認め","sentence":null},
+"腹部平坦":{"region":"abd","concept":"腹部平坦","name":"腹部平坦","polarity":1,"verb":"認め","sentence":"腹部は平坦でした。"},
+"圧痛なし":{"region":"abd","concept":"圧痛","name":"圧痛","polarity":-1,"verb":"認め","sentence":null},
+"腹部膨満":{"region":"abd","concept":"腹部膨満","name":"腹部膨満","polarity":1,"verb":"認め","sentence":null},
+"圧痛":{"region":"abd","concept":"圧痛","name":"圧痛","polarity":1,"verb":"認め","sentence":null},
+"筋性防御":{"region":"abd","concept":"筋性防御","name":"筋性防御","polarity":1,"verb":"認め","sentence":null},
+"嘔吐":{"region":"abd","concept":"嘔吐","name":"嘔吐","polarity":1,"verb":"認め","sentence":null},
+"四肢冷感なし":{"region":"limb","concept":"四肢冷感","name":"四肢冷感","polarity":-1,"verb":"認め","sentence":null},
+"浮腫なし":{"region":"limb","concept":"浮腫","name":"浮腫","polarity":-1,"verb":"認め","sentence":null},
+"四肢冷感":{"region":"limb","concept":"四肢冷感","name":"四肢冷感","polarity":1,"verb":"認め","sentence":null},
+"下腿浮腫":{"region":"limb","concept":"下腿浮腫","name":"下腿浮腫","polarity":1,"verb":"認め","sentence":null},
+"変形":{"region":"limb","concept":"変形","name":"変形","polarity":1,"verb":"認め","sentence":null},
+"麻痺なし":{"region":"neuro","concept":"麻痺","name":"麻痺","polarity":-1,"verb":"認め","sentence":null},
+"痙攣なし":{"region":"neuro","concept":"痙攣","name":"痙攣","polarity":-1,"verb":"認め","sentence":null},
+"片麻痺":{"region":"neuro","concept":"片麻痺","name":"片麻痺","polarity":1,"verb":"認め","sentence":null},
+"痙攣":{"region":"neuro","concept":"痙攣","name":"痙攣","polarity":1,"verb":"認め","sentence":null},
+"瞳孔左右差":{"region":"neuro","concept":"瞳孔左右差","name":"瞳孔左右差","polarity":1,"verb":"認め","sentence":null},
+"前額部打撲":{"region":"head","concept":"前額部打撲","name":"前額部打撲","polarity":1,"verb":"認め","sentence":null},
+"前額部血腫":{"region":"head","concept":"前額部血腫","name":"前額部血腫","polarity":1,"verb":"認め","sentence":null},
+"前額部挫創":{"region":"head","concept":"前額部挫創","name":"前額部挫創","polarity":1,"verb":"認め","sentence":null},
+"側頭部打撲":{"region":"head","concept":"側頭部打撲","name":"側頭部打撲","polarity":1,"verb":"認め","sentence":null},
+"側頭部血腫":{"region":"head","concept":"側頭部血腫","name":"側頭部血腫","polarity":1,"verb":"認め","sentence":null},
+"後頭部打撲":{"region":"head","concept":"後頭部打撲","name":"後頭部打撲","polarity":1,"verb":"認め","sentence":null},
+"後頭部挫創":{"region":"head","concept":"後頭部挫創","name":"後頭部挫創","polarity":1,"verb":"認め","sentence":null},
+"顔面打撲":{"region":"head","concept":"顔面打撲","name":"顔面打撲","polarity":1,"verb":"認め","sentence":null},
+"顔面挫創":{"region":"head","concept":"顔面挫創","name":"顔面挫創","polarity":1,"verb":"認め","sentence":null},
+"顔面変形":{"region":"head","concept":"顔面変形","name":"顔面変形","polarity":1,"verb":"認め","sentence":null},
+"眼周囲腫脹":{"region":"head","concept":"眼周囲腫脹","name":"眼周囲腫脹","polarity":1,"verb":"認め","sentence":null},
+"鼻出血":{"region":"head","concept":"鼻出血","name":"鼻出血","polarity":1,"verb":"認め","sentence":null},
+"耳出血":{"region":"head","concept":"耳出血","name":"耳出血","polarity":1,"verb":"認め","sentence":null},
+"口腔内出血":{"region":"head","concept":"口腔内出血","name":"口腔内出血","polarity":1,"verb":"認め","sentence":null},
+"歯牙損傷":{"region":"head","concept":"歯牙損傷","name":"歯牙損傷","polarity":1,"verb":"認め","sentence":null},
+"後頸部圧痛なし":{"region":"neck","concept":"後頸部圧痛","name":"後頸部圧痛","polarity":-1,"verb":"認め","sentence":null},
+"気管偏位なし":{"region":"neck","concept":"気管偏位","name":"気管偏位","polarity":-1,"verb":"認め","sentence":null},
+"頸部打撲":{"region":"neck","concept":"頸部打撲","name":"頸部打撲","polarity":1,"verb":"認め","sentence":null},
+"頸部挫創":{"region":"neck","concept":"頸部挫創","name":"頸部挫創","polarity":1,"verb":"認め","sentence":null},
+"後頸部圧痛":{"region":"neck","concept":"後頸部圧痛","name":"後頸部圧痛","polarity":1,"verb":"認め","sentence":null},
+"頸部皮下気腫":{"region":"neck","concept":"頸部皮下気腫","name":"頸部皮下気腫","polarity":1,"verb":"認め","sentence":null},
+"頸静脈怒張":{"region":"neck","concept":"頸静脈怒張","name":"頸静脈怒張","polarity":1,"verb":"認め","sentence":null},
+"気管偏位":{"region":"neck","concept":"気管偏位","name":"気管偏位","polarity":1,"verb":"認め","sentence":null},
+"呼吸音左右差なし":{"region":"chest","concept":"呼吸音左右差","name":"呼吸音左右差","polarity":-1,"verb":"認め","sentence":null},
+"胸壁打撲":{"region":"chest","concept":"胸壁打撲","name":"胸壁打撲","polarity":1,"verb":"認め","sentence":null},
+"胸壁挫創":{"region":"chest","concept":"胸壁挫創","name":"胸壁挫創","polarity":1,"verb":"認め","sentence":null},
+"胸壁圧痛":{"region":"chest","concept":"胸壁圧痛","name":"胸壁圧痛","polarity":1,"verb":"認め","sentence":null},
+"胸郭変形":{"region":"chest","concept":"胸郭変形","name":"胸郭変形","polarity":1,"verb":"認め","sentence":null},
+"動揺胸郭":{"region":"chest","concept":"動揺胸郭","name":"動揺胸郭","polarity":1,"verb":"認め","sentence":null},
+"胸壁皮下気腫":{"region":"chest","concept":"胸壁皮下気腫","name":"胸壁皮下気腫","polarity":1,"verb":"認め","sentence":null},
+"右呼吸音減弱":{"region":"chest","concept":"右呼吸音減弱","name":"右呼吸音減弱","polarity":1,"verb":"認め","sentence":null},
+"左呼吸音減弱":{"region":"chest","concept":"左呼吸音減弱","name":"左呼吸音減弱","polarity":1,"verb":"認め","sentence":null},
+"腹壁打撲":{"region":"abd","concept":"腹壁打撲","name":"腹壁打撲","polarity":1,"verb":"認め","sentence":null},
+"腹壁挫創":{"region":"abd","concept":"腹壁挫創","name":"腹壁挫創","polarity":1,"verb":"認め","sentence":null},
+"腹部圧痛":{"region":"abd","concept":"圧痛","name":"圧痛","polarity":1,"verb":"認め","sentence":null},
+"シートベルトサイン":{"region":"abd","concept":"シートベルトサイン","name":"シートベルトサイン","polarity":1,"verb":"認め","sentence":null},
+"ハンドル痕":{"region":"abd","concept":"ハンドル痕","name":"ハンドル痕","polarity":1,"verb":"認め","sentence":null},
+"骨盤動揺なし":{"region":"pelvis","concept":"骨盤動揺","name":"骨盤動揺","polarity":-1,"verb":"認め","sentence":null},
+"骨盤圧痛":{"region":"pelvis","concept":"骨盤圧痛","name":"骨盤圧痛","polarity":1,"verb":"認め","sentence":null},
+"骨盤動揺":{"region":"pelvis","concept":"骨盤動揺","name":"骨盤動揺","polarity":1,"verb":"認め","sentence":null},
+"会陰部出血":{"region":"pelvis","concept":"会陰部出血","name":"会陰部出血","polarity":1,"verb":"認め","sentence":null},
+"下腹部膨満":{"region":"pelvis","concept":"下腹部膨満","name":"下腹部膨満","polarity":1,"verb":"認め","sentence":null},
+"末梢動脈触知良好":{"region":"limb","concept":"末梢動脈触知良好","name":"末梢動脈触知良好","polarity":1,"verb":"認め","sentence":"末梢動脈を良好に触知しました。"},
+"上肢打撲":{"region":"limb","concept":"上肢打撲","name":"上肢打撲","polarity":1,"verb":"認め","sentence":null},
+"上肢挫創":{"region":"limb","concept":"上肢挫創","name":"上肢挫創","polarity":1,"verb":"認め","sentence":null},
+"上肢変形":{"region":"limb","concept":"上肢変形","name":"上肢変形","polarity":1,"verb":"認め","sentence":null},
+"上肢腫脹":{"region":"limb","concept":"上肢腫脹","name":"上肢腫脹","polarity":1,"verb":"認め","sentence":null},
+"下肢打撲":{"region":"limb","concept":"下肢打撲","name":"下肢打撲","polarity":1,"verb":"認め","sentence":null},
+"下肢挫創":{"region":"limb","concept":"下肢挫創","name":"下肢挫創","polarity":1,"verb":"認め","sentence":null},
+"下肢変形":{"region":"limb","concept":"下肢変形","name":"下肢変形","polarity":1,"verb":"認め","sentence":null},
+"下肢腫脹":{"region":"limb","concept":"下肢腫脹","name":"下肢腫脹","polarity":1,"verb":"認め","sentence":null},
+"開放創":{"region":"limb","concept":"開放創","name":"開放創","polarity":1,"verb":"認め","sentence":null},
+"末梢動脈触知不良":{"region":"limb","concept":"末梢動脈触知不良","name":"末梢動脈触知不良","polarity":1,"verb":"認め","sentence":null},
+"Vf":{"region":"rhythm","concept":"Vf","name":"Vf","polarity":1,"verb":"認め","sentence":null},
+"Pulseless VT":{"region":"rhythm","concept":"Pulseless VT","name":"Pulseless VT","polarity":1,"verb":"認め","sentence":null},
+"PEA":{"region":"rhythm","concept":"PEA","name":"PEA","polarity":1,"verb":"認め","sentence":null},
+"Asystole":{"region":"rhythm","concept":"Asystole","name":"Asystole","polarity":1,"verb":"認め","sentence":null},
+"目撃あり":{"region":"witness","concept":"目撃あり","name":"目撃あり","polarity":1,"verb":"認め","sentence":"心停止の目撃がありました。"},
+"バイスタンダーCPRあり":{"region":"witness","concept":"バイスタンダーCPRあり","name":"バイスタンダーCPRあり","polarity":1,"verb":"認め","sentence":"バイスタンダーCPRが行われていました。"},
+"目撃なし":{"region":"witness","concept":"目撃あり","name":"目撃なし","polarity":-1,"verb":"認め","sentence":"心停止の目撃はありませんでした。"},
+"バイスタンダーCPRなし":{"region":"witness","concept":"バイスタンダーCPRあり","name":"バイスタンダーCPRなし","polarity":-1,"verb":"認め","sentence":"バイスタンダーCPRは行われていませんでした。"},
+"口腔内異物なし":{"region":"airway","concept":"口腔内異物","name":"口腔内異物","polarity":-1,"verb":"認め","sentence":null},
+"気道開通良好":{"region":"airway","concept":"気道開通良好","name":"気道開通良好","polarity":1,"verb":"認め","sentence":"気道の開通は良好でした。"},
+"口腔内異物":{"region":"airway","concept":"口腔内異物","name":"口腔内異物","polarity":1,"verb":"認め","sentence":null},
+"気道閉塞":{"region":"airway","concept":"気道閉塞","name":"気道閉塞","polarity":1,"verb":"認め","sentence":null},
+"吐物":{"region":"airway","concept":"吐物","name":"吐物","polarity":1,"verb":"認め","sentence":null},
+"出血":{"region":"airway","concept":"出血","name":"出血","polarity":1,"verb":"認め","sentence":null},
+"頸動脈触知不可":{"region":"circulation","concept":"頸動脈触知不可","name":"頸動脈触知不可","polarity":1,"verb":"認め","sentence":null},
+"橈骨動脈触知不可":{"region":"circulation","concept":"橈骨動脈触知不可","name":"橈骨動脈触知不可","polarity":1,"verb":"認め","sentence":null},
+"対光反射消失":{"region":"circulation","concept":"対光反射消失","name":"対光反射消失","polarity":1,"verb":"認め","sentence":null},
+"瞳孔散大固定":{"region":"circulation","concept":"瞳孔散大固定","name":"瞳孔散大固定","polarity":1,"verb":"認め","sentence":null},
+"胸郭挙上良好":{"region":"chest","concept":"胸郭挙上良好","name":"胸郭挙上良好","polarity":1,"verb":"認め","sentence":"胸郭の挙上は良好でした。"},
+"腹部膨隆なし":{"region":"chest","concept":"腹部膨隆","name":"腹部膨隆","polarity":-1,"verb":"認め","sentence":null},
+"胸郭挙上不良":{"region":"chest","concept":"胸郭挙上不良","name":"胸郭挙上不良","polarity":1,"verb":"認め","sentence":null},
+"皮下気腫":{"region":"chest","concept":"皮下気腫","name":"皮下気腫","polarity":1,"verb":"認め","sentence":null},
+"腹部膨隆":{"region":"chest","concept":"腹部膨隆","name":"腹部膨隆","polarity":1,"verb":"認め","sentence":null},
+"JCS 1桁":{"region":"neuro","concept":"JCS 1桁","name":"JCS 1桁","polarity":1,"verb":"認め","sentence":null},
+"JCS 2桁":{"region":"neuro","concept":"JCS 2桁","name":"JCS 2桁","polarity":1,"verb":"認め","sentence":null},
+"JCS 3桁":{"region":"neuro","concept":"JCS 3桁","name":"JCS 3桁","polarity":1,"verb":"認め","sentence":null},
+"顔面麻痺なし":{"region":"neuro","concept":"顔面麻痺","name":"顔面麻痺","polarity":-1,"verb":"認め","sentence":null},
+"構音障害なし":{"region":"neuro","concept":"構音障害","name":"構音障害","polarity":-1,"verb":"認め","sentence":null},
+"顔面麻痺":{"region":"neuro","concept":"顔面麻痺","name":"顔面麻痺","polarity":1,"verb":"認め","sentence":null},
+"構音障害":{"region":"neuro","concept":"構音障害","name":"構音障害","polarity":1,"verb":"認め","sentence":null},
+"呂律障害":{"region":"neuro","concept":"呂律障害","name":"呂律障害","polarity":1,"verb":"認め","sentence":null},
+"上肢挙上保持可":{"region":"neuro","concept":"上肢挙上保持可","name":"上肢挙上保持可","polarity":1,"verb":"認め","sentence":"上肢の挙上保持が可能でした。"},
+"下肢挙上保持可":{"region":"neuro","concept":"下肢挙上保持可","name":"下肢挙上保持可","polarity":1,"verb":"認め","sentence":"下肢の挙上保持が可能でした。"},
+"上肢挙上不可(右)":{"region":"neuro","concept":"上肢挙上不可(右)","name":"上肢挙上不可(右)","polarity":1,"verb":"認め","sentence":null},
+"上肢挙上不可(左)":{"region":"neuro","concept":"上肢挙上不可(左)","name":"上肢挙上不可(左)","polarity":1,"verb":"認め","sentence":null},
+"下肢挙上不可(右)":{"region":"neuro","concept":"下肢挙上不可(右)","name":"下肢挙上不可(右)","polarity":1,"verb":"認め","sentence":null},
+"下肢挙上不可(左)":{"region":"neuro","concept":"下肢挙上不可(左)","name":"下肢挙上不可(左)","polarity":1,"verb":"認め","sentence":null},
+"片麻痺(右)":{"region":"neuro","concept":"片麻痺(右)","name":"片麻痺(右)","polarity":1,"verb":"認め","sentence":null},
+"片麻痺(左)":{"region":"neuro","concept":"片麻痺(左)","name":"片麻痺(左)","polarity":1,"verb":"認め","sentence":null},
+"瞳孔不同":{"region":"neuro","concept":"瞳孔不同","name":"瞳孔不同","polarity":1,"verb":"認め","sentence":null},
+"共同偏視":{"region":"neuro","concept":"共同偏視","name":"共同偏視","polarity":1,"verb":"認め","sentence":null},
+"頭痛":{"region":"neuro","concept":"頭痛","name":"頭痛","polarity":1,"verb":"認め","sentence":null},
+"めまい":{"region":"neuro","concept":"めまい","name":"めまい","polarity":1,"verb":"認め","sentence":null},
+"失語":{"region":"neuro","concept":"失語","name":"失語","polarity":1,"verb":"認め","sentence":null},
+"顔面蒼白なし":{"region":"head","concept":"顔面蒼白","name":"顔面蒼白","polarity":-1,"verb":"認め","sentence":null},
+"チアノーゼなし":{"region":"head","concept":"チアノーゼ","name":"チアノーゼ","polarity":-1,"verb":"認め","sentence":null},
+"呼吸音清":{"region":"resp","concept":"呼吸音清","name":"呼吸音清","polarity":1,"verb":"認め","sentence":"呼吸音は清でした。"},
+"喘鳴なし":{"region":"resp","concept":"喘鳴","name":"喘鳴","polarity":-1,"verb":"聴取","sentence":null},
+"喘鳴":{"region":"resp","concept":"喘鳴","name":"喘鳴","polarity":1,"verb":"聴取","sentence":null},
+"湿性ラ音":{"region":"resp","concept":"湿性ラ音","name":"湿性ラ音","polarity":1,"verb":"聴取","sentence":null},
+"coarse crackles":{"region":"resp","concept":"coarse crackles","name":"coarse crackles","polarity":1,"verb":"聴取","sentence":null},
+"fine crackles":{"region":"resp","concept":"fine crackles","name":"fine crackles","polarity":1,"verb":"聴取","sentence":null},
+"心音純":{"region":"card","concept":"心音純","name":"心音純","polarity":1,"verb":"認め","sentence":"心音は純でした。"},
+"不整なし":{"region":"card","concept":"不整脈","name":"不整脈","polarity":-1,"verb":"認め","sentence":null},
+"下腿浮腫なし":{"region":"card","concept":"下腿浮腫","name":"下腿浮腫","polarity":-1,"verb":"認め","sentence":null},
+"ショック兆候":{"region":"card","concept":"ショック兆候","name":"ショック兆候","polarity":1,"verb":"認め","sentence":null},
+"心雑音":{"region":"card","concept":"心雑音","name":"心雑音","polarity":1,"verb":"聴取","sentence":null},
+"不整脈":{"region":"card","concept":"不整脈","name":"不整脈","polarity":1,"verb":"認め","sentence":null},
+"腹部平坦軟":{"region":"abd","concept":"腹部平坦軟","name":"腹部平坦軟","polarity":1,"verb":"認め","sentence":"腹部は平坦・軟でした。"},
+"反跳痛なし":{"region":"abd","concept":"反跳痛","name":"反跳痛","polarity":-1,"verb":"認め","sentence":null},
+"腹痛":{"region":"abd","concept":"腹痛","name":"腹痛","polarity":1,"verb":"認め","sentence":null},
+"反跳痛":{"region":"abd","concept":"反跳痛","name":"反跳痛","polarity":1,"verb":"認め","sentence":null},
+"板状硬":{"region":"abd","concept":"板状硬","name":"板状硬","polarity":1,"verb":"認め","sentence":null},
+"浮腫":{"region":"limb","concept":"浮腫","name":"浮腫","polarity":1,"verb":"認め","sentence":null},
+"末梢循環不全":{"region":"limb","concept":"末梢循環不全","name":"末梢循環不全","polarity":1,"verb":"認め","sentence":null},
+"対光反射異常":{"region":"neuro","concept":"対光反射異常","name":"対光反射異常","polarity":1,"verb":"認め","sentence":null},
+"前額部打撲血腫":{"region":"head","concept":"前額部打撲血腫","name":"前額部打撲血腫","polarity":1,"verb":"認め","sentence":null},
+"側頭部打撲血腫":{"region":"head","concept":"側頭部打撲血腫","name":"側頭部打撲血腫","polarity":1,"verb":"認め","sentence":null},
+"頭皮裂傷":{"region":"head","concept":"頭皮裂傷","name":"頭皮裂傷","polarity":1,"verb":"認め","sentence":null},
+"顔面腫脹":{"region":"head","concept":"顔面腫脹","name":"顔面腫脹","polarity":1,"verb":"認め","sentence":null},
+"パンダの目徴候":{"region":"head","concept":"パンダの目徴候","name":"パンダの目徴候","polarity":1,"verb":"認め","sentence":null},
+"バトルサイン":{"region":"head","concept":"バトルサイン","name":"バトルサイン","polarity":1,"verb":"認め","sentence":null},
+"鼻根部腫脹":{"region":"head","concept":"鼻根部腫脹","name":"鼻根部腫脹","polarity":1,"verb":"認め","sentence":null},
+"右頬部変形腫脹":{"region":"head","concept":"右頬部変形腫脹","name":"右頬部変形腫脹","polarity":1,"verb":"認め","sentence":null},
+"左頬部変形腫脹":{"region":"head","concept":"左頬部変形腫脹","name":"左頬部変形腫脹","polarity":1,"verb":"認め","sentence":null},
+"髄液耳漏":{"region":"head","concept":"髄液耳漏","name":"髄液耳漏","polarity":1,"verb":"認め","sentence":null},
+"髄液鼻漏":{"region":"head","concept":"髄液鼻漏","name":"髄液鼻漏","polarity":1,"verb":"認め","sentence":null},
+"結膜出血":{"region":"head","concept":"結膜出血","name":"結膜出血","polarity":1,"verb":"認め","sentence":null},
+"角膜損傷":{"region":"head","concept":"角膜損傷","name":"角膜損傷","polarity":1,"verb":"認め","sentence":null},
+"眼球偏位":{"region":"head","concept":"眼球偏位","name":"眼球偏位","polarity":1,"verb":"認め","sentence":null},
+"複視":{"region":"head","concept":"複視","name":"複視","polarity":1,"verb":"認め","sentence":null},
+"気管正中":{"region":"neck","concept":"気管正中","name":"気管正中","polarity":1,"verb":"認め","sentence":"気管は正中に位置していました。"},
+"頸部皮下気腫なし":{"region":"neck","concept":"頸部皮下気腫","name":"頸部皮下気腫","polarity":-1,"verb":"認め","sentence":null},
+"頸静脈怒張なし":{"region":"neck","concept":"頸静脈怒張","name":"頸静脈怒張","polarity":-1,"verb":"認め","sentence":null},
+"頸部血腫":{"region":"neck","concept":"頸部血腫","name":"頸部血腫","polarity":1,"verb":"認め","sentence":null},
+"胸郭対称":{"region":"chest","concept":"胸郭対称","name":"胸郭対称","polarity":1,"verb":"認め","sentence":"胸郭は左右対称でした。"},
+"呼吸音清左右差なし":{"region":"chest","concept":"呼吸音清左右差なし","name":"呼吸音清左右差なし","polarity":1,"verb":"認め","sentence":"呼吸音は清で、左右差は認めませんでした。"},
+"心音整":{"region":"chest","concept":"心音整","name":"心音整","polarity":1,"verb":"認め","sentence":"心音は整でした。"},
+"右呼吸音消失":{"region":"chest","concept":"右呼吸音消失","name":"右呼吸音消失","polarity":1,"verb":"認め","sentence":null},
+"左呼吸音消失":{"region":"chest","concept":"左呼吸音消失","name":"左呼吸音消失","polarity":1,"verb":"認め","sentence":null},
+"心音減弱":{"region":"chest","concept":"心音減弱","name":"心音減弱","polarity":1,"verb":"認め","sentence":null},
+"右上腹部圧痛":{"region":"abd","concept":"右上腹部圧痛","name":"右上腹部圧痛","polarity":1,"verb":"認め","sentence":null},
+"左上腹部圧痛":{"region":"abd","concept":"左上腹部圧痛","name":"左上腹部圧痛","polarity":1,"verb":"認め","sentence":null},
+"下腹部圧痛":{"region":"abd","concept":"下腹部圧痛","name":"下腹部圧痛","polarity":1,"verb":"認め","sentence":null},
+"腸蠕動音減弱":{"region":"abd","concept":"腸蠕動音減弱","name":"腸蠕動音減弱","polarity":1,"verb":"認め","sentence":null},
+"直腸診異常なし":{"region":"pelvis","concept":"直腸診異常","name":"直腸診異常","polarity":-1,"verb":"認め","sentence":null},
+"恥骨圧痛":{"region":"pelvis","concept":"恥骨圧痛","name":"恥骨圧痛","polarity":1,"verb":"認め","sentence":null},
+"尿道出血":{"region":"pelvis","concept":"尿道出血","name":"尿道出血","polarity":1,"verb":"認め","sentence":null},
+"右上肢打撲":{"region":"limb","concept":"右上肢打撲","name":"右上肢打撲","polarity":1,"verb":"認め","sentence":null},
+"右上肢挫創":{"region":"limb","concept":"右上肢挫創","name":"右上肢挫創","polarity":1,"verb":"認め","sentence":null},
+"右上肢変形":{"region":"limb","concept":"右上肢変形","name":"右上肢変形","polarity":1,"verb":"認め","sentence":null},
+"右上肢腫脹":{"region":"limb","concept":"右上肢腫脹","name":"右上肢腫脹","polarity":1,"verb":"認め","sentence":null},
+"左上肢打撲":{"region":"limb","concept":"左上肢打撲","name":"左上肢打撲","polarity":1,"verb":"認め","sentence":null},
+"左上肢挫創":{"region":"limb","concept":"左上肢挫創","name":"左上肢挫創","polarity":1,"verb":"認め","sentence":null},
+"左上肢変形":{"region":"limb","concept":"左上肢変形","name":"左上肢変形","polarity":1,"verb":"認め","sentence":null},
+"左上肢腫脹":{"region":"limb","concept":"左上肢腫脹","name":"左上肢腫脹","polarity":1,"verb":"認め","sentence":null},
+"右下肢打撲":{"region":"limb","concept":"右下肢打撲","name":"右下肢打撲","polarity":1,"verb":"認め","sentence":null},
+"右下肢挫創":{"region":"limb","concept":"右下肢挫創","name":"右下肢挫創","polarity":1,"verb":"認め","sentence":null},
+"右下肢変形":{"region":"limb","concept":"右下肢変形","name":"右下肢変形","polarity":1,"verb":"認め","sentence":null},
+"右下肢腫脹":{"region":"limb","concept":"右下肢腫脹","name":"右下肢腫脹","polarity":1,"verb":"認め","sentence":null},
+"左下肢打撲":{"region":"limb","concept":"左下肢打撲","name":"左下肢打撲","polarity":1,"verb":"認め","sentence":null},
+"左下肢挫創":{"region":"limb","concept":"左下肢挫創","name":"左下肢挫創","polarity":1,"verb":"認め","sentence":null},
+"左下肢変形":{"region":"limb","concept":"左下肢変形","name":"左下肢変形","polarity":1,"verb":"認め","sentence":null},
+"左下肢腫脹":{"region":"limb","concept":"左下肢腫脹","name":"左下肢腫脹","polarity":1,"verb":"認め","sentence":null},
+"骨露出":{"region":"limb","concept":"骨露出","name":"骨露出","polarity":1,"verb":"認め","sentence":null},
+"CRT延長":{"region":"limb","concept":"CRT延長","name":"CRT延長","polarity":1,"verb":"認め","sentence":null},
+"視力低下":{"region":"neuro","concept":"視力低下","name":"視力低下","polarity":1,"verb":"認め","sentence":null},
+"視野欠損":{"region":"neuro","concept":"視野欠損","name":"視野欠損","polarity":1,"verb":"認め","sentence":null},
+"眼瞼下垂":{"region":"neuro","concept":"眼瞼下垂","name":"眼瞼下垂","polarity":1,"verb":"認め","sentence":null},
+"顔面感覚低下":{"region":"neuro","concept":"顔面感覚低下","name":"顔面感覚低下","polarity":1,"verb":"認め","sentence":null},
+"聴力低下":{"region":"neuro","concept":"聴力低下","name":"聴力低下","polarity":1,"verb":"認め","sentence":null},
+"嚥下障害":{"region":"neuro","concept":"嚥下障害","name":"嚥下障害","polarity":1,"verb":"認め","sentence":null},
+"舌偏位":{"region":"neuro","concept":"舌偏位","name":"舌偏位","polarity":1,"verb":"認め","sentence":null},
+"カーテン徴候":{"region":"neuro","concept":"カーテン徴候","name":"カーテン徴候","polarity":1,"verb":"認め","sentence":null},
+"運動性失語":{"region":"neuro","concept":"運動性失語","name":"運動性失語","polarity":1,"verb":"認め","sentence":null},
+"感覚性失語":{"region":"neuro","concept":"感覚性失語","name":"感覚性失語","polarity":1,"verb":"認め","sentence":null},
+"失行":{"region":"neuro","concept":"失行","name":"失行","polarity":1,"verb":"認め","sentence":null},
+"失認":{"region":"neuro","concept":"失認","name":"失認","polarity":1,"verb":"認め","sentence":null},
+"半側空間無視":{"region":"neuro","concept":"半側空間無視","name":"半側空間無視","polarity":1,"verb":"認め","sentence":null},
+"注意障害":{"region":"neuro","concept":"注意障害","name":"注意障害","polarity":1,"verb":"認め","sentence":null},
+"見当識障害":{"region":"neuro","concept":"見当識障害","name":"見当識障害","polarity":1,"verb":"認め","sentence":null},
+"小脳失調":{"region":"neuro","concept":"小脳失調","name":"小脳失調","polarity":1,"verb":"認め","sentence":null},
+"指鼻試験異常":{"region":"neuro","concept":"指鼻試験異常","name":"指鼻試験異常","polarity":1,"verb":"認め","sentence":null},
+"踵膝試験異常":{"region":"neuro","concept":"踵膝試験異常","name":"踵膝試験異常","polarity":1,"verb":"認め","sentence":null},
+"心停止":{"region":"body","concept":"心停止","name":"心停止","polarity":1,"verb":"認め","sentence":null},
+"呼吸停止":{"region":"body","concept":"呼吸停止","name":"呼吸停止","polarity":1,"verb":"認め","sentence":null},
+"皮膚蒼白":{"region":"body","concept":"皮膚蒼白","name":"皮膚蒼白","polarity":1,"verb":"認め","sentence":null},
+"死斑":{"region":"body","concept":"死斑","name":"死斑","polarity":1,"verb":"認め","sentence":null},
+"死後硬直":{"region":"body","concept":"死後硬直","name":"死後硬直","polarity":1,"verb":"認め","sentence":null},
+"心音聴取不可":{"region":"trunk","concept":"心音聴取不可","name":"心音聴取不可","polarity":1,"verb":"認め","sentence":null},
+"呼吸音聴取不可":{"region":"trunk","concept":"呼吸音聴取不可","name":"呼吸音聴取不可","polarity":1,"verb":"認め","sentence":null}
+};
+function buildReferralChipNarrative(chips) {
+  const observations = new Map();
+  const review = [];
+  for (const [label, raw] of Object.entries(chips || {})) {
+    if (raw === '' || raw === false || raw == null) continue;
+    const value = String(raw).trim().toLowerCase();
+    const sign = ['on', '+', 'true', 'あり', '陽性'].includes(value) ? 1 : ['-', 'なし', '陰性'].includes(value) ? -1 : 0;
+    const entry = Object.prototype.hasOwnProperty.call(REFERRAL_FINDING_DICTIONARY, label) ? REFERRAL_FINDING_DICTIONARY[label] : null;
+    if (!entry || !sign || (sign === -1 && entry.sentence)) {
+      review.push(`【要確認】所見の原記録：${label}（${String(raw)}）`);
+      continue;
+    }
+    const polarity = sign * entry.polarity;
+    const id = entry.concept;
+    if (!observations.has(id)) observations.set(id, []);
+    observations.get(id).push({...entry, polarity, raw: `${label}（${String(raw)}）`});
+  }
+  const regions = new Map();
+  for (const entries of observations.values()) {
+    if (new Set(entries.map(e => e.polarity)).size > 1) {
+      review.push('【要確認】所見が競合しています：' + entries.map(e => e.raw).join('／'));
+      continue;
+    }
+    const entry = entries[0];
+    if (!regions.has(entry.region)) regions.set(entry.region, []);
+    regions.get(entry.region).push(entry);
+  }
+  const lines = [];
+  for (const region of ['head','neck','resp','card','chest','abd','pelvis','limb','neuro','body','airway','circulation','trunk','rhythm','witness']) {
+    const entries = regions.get(region) || [];
+    const sentences = entries.filter(e => e.sentence).map(e => e.sentence);
+    for (const verb of ['聴取','認め']) {
+      const positive = entries.filter(e => !e.sentence && e.polarity === 1 && e.verb === verb).map(e => e.name);
+      if (positive.length) sentences.push(positive.join('、') + 'を' + (verb === '聴取' ? '聴取しました。' : '認めました。'));
+    }
+    const negative = entries.filter(e => !e.sentence && e.polarity === -1).map(e => e.name);
+    if (negative.length) sentences.push(negative.join('、') + 'は認めませんでした。');
+    if (sentences.length) lines.push(sentences.join('').replace('腹部は平坦・軟でした。圧痛を認めました。','腹部は平坦・軟で、圧痛を認めました。'));
+  }
+  return [...lines, ...review];
+}
+
+function buildReferralNeurology(stroke, app) {
+  const s = stroke || {}, lines = [];
+  const present = v => v !== undefined && v !== null && v !== '';
+  for (const [side, label] of [['L','左'],['R','右']]) {
+    const p = s['pupil' + side];
+    if (present(p) && (s['pupil'+side+'Touched'] || Number(p) !== 3)) lines.push(`瞳孔径 ${label}：${p} mm`);
+    if (s['plr'+side]) lines.push(`対光反射 ${label}：${s['plr'+side]}`);
+  }
+  if (s.gaze) lines.push('共同偏視：' + s.gaze);
+  if (s.nyst) lines.push('眼振：' + s.nyst);
+  const mmt = [];
+  for (const [key,label] of [['ru','右上肢'],['lu','左上肢'],['rl','右下肢'],['ll','左下肢']]) {
+    const v = s.mmt?.[key];
+    if (present(v) && (s.mmtTouched?.[key] || Number(v) !== 5)) mmt.push(`${label}：${v}`);
+  }
+  if (mmt.length) lines.push('MMT ' + mmt.join('、'));
+  for (const key of ['btr','ptr']) if (s[key]) lines.push(key.toUpperCase() + '：' + s[key]);
+  for (const [key,label] of [['babinski','Babinski反射'],['chaddock','Chaddock反射']]) {
+    const value = s[key];
+    if (value === true) lines.push(label + '：陽性');
+    else if (value && typeof value === 'object') {
+      const values = [];
+      for (const [side,name] of [['right','右'],['left','左']]) {
+        if (value[side] === 'positive') values.push(name+'：陽性');
+        else if (value[side] === 'negative') values.push(name+'：陰性');
+        else if (value[side] && value[side] !== 'none') values.push(name+'：'+value[side]);
+      }
+      if (values.length) lines.push(label + ' ' + values.join('、'));
+    }
+  }
+  const items = typeof NIHSS_ITEMS !== 'undefined' ? NIHSS_ITEMS : [];
+  const nihss = Object.entries(s.nihss || {}).filter(([,v]) => present(v));
+  if (nihss.length) {
+    const complete = items.length && items.every(item => nihss.some(([id,v]) => id === item.id && Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= item.max));
+    if (complete) lines.push('NIHSS 合計：' + items.reduce((sum,item)=>sum + Number(s.nihss[item.id]),0) + '点');
+    else lines.push('NIHSS（入力された項目）');
+    lines.push(nihss.map(([id,v]) => `${items.find(item=>item.id === id)?.label || id}：${v}`).join('、'));
+  }
+  if (s.nihssMemo) lines.push('NIHSSメモ：' + s.nihssMemo);
+  if (Array.isArray(s.lvo) && s.lvo.length) lines.push('LVO：' + s.lvo.map(key => typeof STROKE_LVO_ITEMS !== 'undefined' ? STROKE_LVO_ITEMS.find(item => item.key === key)?.label || key : key).join('、'));
+  return lines;
+}
+
+function buildClinicalReferralFindings(section, app, isEms) {
+  const lines = buildReferralChipNarrative(section.chips);
+  const titles = {head:'頭頚部',neck:'頸部',resp:'呼吸器',card:'循環器',chest:'胸部',abd:'腹部',pelvis:'骨盤',limb:'四肢',neuro:'神経',cn:'脳神経',motor:'運動',eye:'眼',higher:'高次機能',reflex:'反射',body:'全身',trunk:'体幹',memo:'自由記載'};
+  for (const [group, memos] of Object.entries(section.memos || {})) {
+    if (!memos || typeof memos !== 'object') continue;
+    for (const [key,memo] of Object.entries(memos)) if (typeof memo === 'string' && memo.trim()) lines.push(`${({general:'診察',trauma:'外傷',stroke:'神経',cpa:'CPA'})[group] || group}・${titles[key] || key}：${memo}`);
+  }
+  if (!isEms) lines.push(...buildReferralNeurology(section.stroke, app));
+  if (isEms && section.stroke_motor && typeof formatEmsStrokeMotorText === 'function') {
+    const text = formatEmsStrokeMotorText(section.stroke_motor);
+    if (text) lines.push('運動：' + text);
+  }
+  return lines.length ? lines.join('\n') : '身体所見の記載はありません。';
+}
+
+function saveReferralDraft() {
+  const ta = $('#referralText');
+  if (!ta) return;
+  state.referralDraft = {...(state.referralDraft || {}), text: ta.value};
+  const key = typeof generateDrCarReferralText === 'function' ? 'doctorCarV1' : 'heliRecordV5';
+  try {
+    if (key === 'heliRecordV5') updateState();
+    else localStorage.setItem(key, JSON.stringify(state));
+  }
+  catch (e) { alert('紹介状の編集内容を保存できませんでした。画面を閉じる前に本文をコピーしてください。'); }
+}
+
+function restoreReferralDraft(generated, force = false) {
+  const ta = $('#referralText');
+  if (!ta) return;
+  const draft = state.referralDraft;
+  if (force || !draft || typeof draft.text !== 'string') {
+    state.referralDraft = {text: generated, generated};
+  } else if (draft.generated !== generated && draft.text === draft.generated) {
+    state.referralDraft = {text: generated, generated};
+  }
+  ta.value = state.referralDraft.text;
+  const status = $('#referralDraftStatus');
+  if (status) status.textContent = state.referralDraft.generated !== generated
+    ? '活動記録が変更されています。編集済みの本文を保持しています。必要に応じて再生成してください。'
+    : '本文は編集できます。「要確認」がある場合は元の入力または本文を確認・修正してください。';
+  saveReferralDraft();
+}
+
+function checkReferralBeforeTransfer() {
+  const text = $('#referralText')?.value || '';
+  if (text.includes('【要確認】')) {
+    alert('身体所見に確認が必要な記載があります。元の入力を修正して再生成するか、本文の該当箇所を確認・修正し、「【要確認】」を取り除いてください。');
+    return false;
+  }
+  updateState();
+  const generated = typeof generateDrCarReferralText === 'function' ? generateDrCarReferralText(state) : generatePlainText(state);
+  if (state.referralDraft?.generated !== generated && !confirm('活動記録が変更されています。現在の編集済み本文を確認のうえ、この本文を使用しますか？')) return false;
+  saveReferralDraft();
+  return true;
+}
+
 function normalizeGeneratedDocumentText(text) {
   return String(text || '')
     .replace(/。[ \t]*、+/g, '。')
@@ -6666,7 +7042,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.20\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.21\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
@@ -8154,21 +8530,18 @@ function switchToRecordView() {
   scrollAppToTop();
 }
 
-function generateReferralText() {
-  const ta = $('#referralText');
-  if (!ta) return;
-  ta.value = generatePlainText(state);
-}
+function generateReferralText() { restoreReferralDraft(generatePlainText(state)); }
 
 function regenerateReferralText() {
   const ta = $('#referralText');
   if (!ta) return;
   if (ta.value.trim() && !confirm('編集した文面を上書きして、活動記録から再生成しますか？')) return;
   updateState();
-  generateReferralText();
+  restoreReferralDraft(generatePlainText(state), true);
 }
 
 function copyReferralText() {
+  if (!checkReferralBeforeTransfer()) return;
   const text = ($('#referralText')?.value || '').trim();
   if (!text) {
     alert('コピーする本文がありません。');
@@ -8196,6 +8569,7 @@ function copyReferralText() {
 }
 
 function sendReferralEmail() {
+  if (!checkReferralBeforeTransfer()) return;
   const text = ($('#referralText')?.value || '').trim();
   if (!text) {
     alert('送信するテキストがありません。');
@@ -8258,11 +8632,7 @@ function buildReferralVitalsBlock(vitals) {
 }
 
 
-function buildReferralEmsFindings(ems) {
-  const raw = appendAllEmsExamSections('', ems || {});
-  const text = raw.replace(/^\n*＜所見＞\n?/gm, '').trim();
-  return text || '特記すべき身体所見はありませんでした。';
-}
+function buildReferralEmsFindings(ems) { return buildClinicalReferralFindings(ems || {}, 'heli', true); }
 
 function buildReferralEmsTreatment(data) {
   const ems = data.ems || {};
@@ -8281,101 +8651,9 @@ function buildReferralEmsTreatment(data) {
 
 
 function buildReferralFdFindings(data) {
-  const allLines = buildAllFdExamLines(data.fd || {});
-  return allLines.length > 0 ? allLines.join('\n') : '特記すべき身体所見はありませんでした。';
-
-
   const fd = data.fd || {};
-  const chips = fd.chips || {};
-  const lines = [];
-  const fTab = fd.exam_tab || 'general';
-
-  if (fTab === 'general') {
-    const headS = extractFindings(FD_GEN_GROUPS.head, chips);
-    const headM = fd.memos?.general?.head;
-    if (headS || headM) lines.push(`【頭頚部】${[headS, headM].filter(Boolean).join('。')}`);
-    const respS = extractFindings(FD_GEN_GROUPS.resp, chips);
-    const respM = fd.memos?.general?.resp;
-    const cardS = extractFindings(FD_GEN_GROUPS.card, chips);
-    const cardM = fd.memos?.general?.card;
-    const chestContent = [respS, respM, cardS, cardM].filter(Boolean);
-    if (chestContent.length) lines.push(`【胸部】${chestContent.join('。')}`);
-    [['腹部', FD_GEN_GROUPS.abd, 'abd'], ['四肢', FD_GEN_GROUPS.limb, 'limb'], ['神経', FD_GEN_GROUPS.neuro, 'neuro']].forEach(([t, d, k]) => {
-      const s = extractFindings(d, chips);
-      const m = fd.memos?.general?.[k];
-      if (s || m) lines.push(`【${t}】${[s, m].filter(Boolean).join('。')}`);
-    });
-  } else if (fTab === 'trauma') {
-    [['頭部・顔面', FD_TRA_GROUPS.head, 'head'], ['頸部', FD_TRA_GROUPS.neck, 'neck'], ['胸部', FD_TRA_GROUPS.chest, 'chest'],
-      ['腹部', FD_TRA_GROUPS.abd, 'abd'], ['骨盤', FD_TRA_GROUPS.pelvis, 'pelvis'], ['四肢', FD_TRA_GROUPS.limb, 'limb']].forEach(([t, d, k]) => {
-      const s = extractFindings(d, chips);
-      const m = fd.memos?.trauma?.[k];
-      if (s || m) lines.push(`【${t}】${[s, m].filter(Boolean).join('。')}`);
-    });
-  } else if (fTab === 'stroke') {
-    const cn = extractFindings(FD_STR_GROUPS.cn, chips);
-    const cnM = fd.memos?.stroke?.cn || '';
-    if (cn || cnM) lines.push(`【脳神経】${[cn, cnM].filter(Boolean).join('。')}`);
-    const str = fd.stroke || {};
-    let eyeLine = `L:${str.pupilL ?? '--'}mm R:${str.pupilR ?? '--'}mm, PLR L:${str.plrL || '--'} R:${str.plrR || '--'}`;
-    if (str.gaze || str.nyst) eyeLine += `, 共同偏視:${str.gaze || '--'}, 眼振:${str.nyst || '--'}`;
-    const eyeM = fd.memos?.stroke?.eye || '';
-    if (eyeM) eyeLine += ' ' + eyeM;
-    lines.push(`【瞳孔・眼球運動】${eyeLine}`);
-    const motorM = fd.memos?.stroke?.motor || '';
-    lines.push(`【運動】MMT(${str.mmt?.ru ?? '--'},${str.mmt?.lu ?? '--'},${str.mmt?.rl ?? '--'},${str.mmt?.ll ?? '--'})${motorM ? ' ' + motorM : ''}`);
-    const reflexM = fd.memos?.stroke?.reflex || '';
-    if (str.btr || str.ptr || str.babinski || str.chaddock || reflexM) {
-      lines.push(`【反射】BTR:${str.btr || '--'}, PTR:${str.ptr || '--'}${str.babinski ? ' Babinski(+)' : ''}${str.chaddock ? ' Chaddock(+)' : ''}${reflexM ? ' ' + reflexM : ''}`);
-    }
-    const higher = extractFindings(FD_STR_GROUPS.higher, chips);
-    const higherM = fd.memos?.stroke?.higher || '';
-    if (higher || higherM) lines.push(`【高次脳機能・小脳】${[higher, higherM].filter(Boolean).join('。')}`);
-    if (str.nihssExpanded) {
-      lines.push(`【NIHSS】${calcNihssSum()}点${str.nihssMemo ? ' ' + str.nihssMemo : ''}`);
-    }
-  } else if (fTab === 'cpa' && fd.cpaEvents && fd.cpaEvents.length > 0) {
-    fd.cpaEvents.forEach((cpa, idx) => {
-      const isFirst = idx === 0;
-      if (fd.cpaEvents.length > 1) lines.push(`【心停止イベント ${idx + 1}${!isFirst ? '（再心停止）' : ''}】`);
-      if (cpa.arrestTime) lines.push(`心停止時刻：${cpa.arrestTime}`);
-      if (cpa.rhythm) lines.push(`初期波形：${cpa.rhythm}`);
-      if (isFirst) {
-        lines.push(`目撃：${cpa.witnessed ? 'あり' : 'なし'}`);
-        lines.push(`バイスタンダーCPR：${cpa.bystander ? 'あり' : 'なし'}`);
-        if (cpa.cprStart) lines.push(`胸骨圧迫開始：${cpa.cprStart}`);
-        if (cpa.ivTime) lines.push(`末梢確保：${cpa.ivTime}`);
-      }
-      const changes = cpa.rhythmChanges || [];
-      if (changes.length > 1) {
-        lines.push(`波形変化：${changes.slice(1).map(c => `${c.time} ${c.rhythm}`).join(' → ')}`);
-      }
-      const defibTimes = cpa.defibrillationTimes || [];
-      if (defibTimes.length > 0) {
-        lines.push(`除細動：${defibTimes.map((t, i) => `${i + 1}回目 ${t}`).join('、')}（計${defibTimes.length}回）`);
-      }
-      if (cpa.adrenalineTimes && cpa.adrenalineTimes.length > 0) {
-        lines.push(`アドレナリン投与：${cpa.adrenalineTimes.map((t, i) => `${i + 1}回目 ${t}`).join('、')}`);
-      }
-      const amioTimes = cpa.amiodaroneTimes || [];
-      if (amioTimes.length > 0) {
-        lines.push(`アミオダロン投与：${amioTimes.map((a, i) => {
-          const time = typeof a === 'string' ? a : a.time;
-          const dose = typeof a === 'string' ? '' : (a.dose ? ` ${a.dose}` : '');
-          return `${i + 1}回目 ${time}${dose}`;
-        }).join('、')}`);
-      }
-      if (isFirst) {
-        if (cpa.lt) lines.push('LT挿入：実施');
-        if (cpa.intubation) lines.push(`気管挿管：${cpa.intubationTime || '実施'}`);
-        if (cpa.pericardio) lines.push(`心膜腔穿刺：${cpa.pericardioTime || '実施'}`);
-      }
-      appendCpaOutcomeFlowLines(lines, cpa, isFirst);
-      if (cpa.memo) lines.push(`メモ：${cpa.memo}`);
-    });
-  }
-
-  return lines.length > 0 ? lines.join('\n') : '特記すべき身体所見はありませんでした。';
+  const lines = buildAllFdExamLines({cpaEvents: fd.cpaEvents || []});
+  return [buildClinicalReferralFindings(fd, 'heli', false), ...lines].join('\n');
 }
 
 function buildReferralExamText(data) {
