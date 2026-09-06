@@ -50,13 +50,13 @@
 <!-- 2026-05-23 | v5.1.5 | NPPVカスタムダイアログ: 完了ボタン非表示の不具合修正(id="dialDone"を付与) -->
 <!-- 2026-05-23 | v5.1.5 | StrokeNotify復帰: ?tab=fd を反映後に URL から除去し、以降のリロードでFDタブに飛ばされないように -->
 <!-- 2026-05-23 | v5.1.5 | related-apps.js: 未使用のスクリプト読み込みを削除 -->
-<!-- 2026-07-10 | v5.1.6 | 利用メトリクス収集(sendMetrics)追加、ヘリ記録state(ems/fd)に合わせて集計修正 -->
+
 <!-- 2026-07-10 | v5.1.7 | バイタル欠損値: HR/SpO2/BTでも未測定・×を選択可能に（BP/RRと同様） -->
 <!-- 2026-07-10 | v5.1.8 | バイタル時刻の初期値を現在時刻ではなく各タイムライン入力値から設定 -->
-<!-- 2026-07-19 | v5.1.10 | メトリクス信頼性: case_start自己修復・完了属性同梱・同一event_idの遅延再送 -->
-<!-- 2026-07-19 | v5.1.11 | 入力済み臨床時刻と搬送スキーム別活動終了時刻を匿名メトリクスへ追加 -->
+
+
 <!-- 2026-07-19 | v5.1.12 | Iターンは活動終了時刻を自動推定せず欠損理由を記録 -->
-<!-- 2026-07-14 | v5.1.9 | 搬送スキーム初期値を未選択化、要請キャンセル終了と必要書類メトリクスを追加 -->
+
 <!-- 2026-08-28 | v5.1.13 | FD全身体所見の併記、時刻別瞳孔・対光反射、LVO連携、バイタル時系列出力、入力候補追加 -->
 <!-- 2026-08-28 | v5.1.14 | CPA継続引継ぎ時刻とプレホスLow Flow暫定値を記録・出力 -->
 <!-- 2026-08-28 | v5.1.15 | 救急隊の自動胸骨圧迫装置を製品名に依存しない表記へ変更 -->
@@ -2144,453 +2144,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   </div>
 </div>
 
-<script>
-
-// ====== 利用メトリクス収集機能 v2 ======
-const METRICS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzk4tnPmpKU20y-Fa-DSDmzIHZ3A4j-x6JdWa-S2jO43xkfOl1nBykEy1uIKuTudHgHyg/exec';
-const APP_NAME = 'heli';
-const METRICS_SCHEMA_VERSION = 3;
-const METRICS_QUEUE_KEY = 'metrics_queue_v2';
-const METRICS_INSTALLATION_KEY = 'metrics_installation_id_v2';
-const METRICS_CASE_KEY = 'metrics_case_id_v2';
-const METRICS_CASE_START_SENT_KEY = 'metrics_case_start_sent_v2';
-const METRICS_MAX_SEND_ATTEMPTS = 3;
-const METRICS_RETRY_BASE_MS = 30 * 1000;
-const METRICS_CASE_START_KEY = 'metrics_case_start_ts_v2';
-const METRICS_ACTIVE_KEY = 'metrics_active_ms_v2';
-const METRICS_LAST_ACTIVITY_KEY = 'metrics_last_activity_ts_v2';
-const METRICS_FIRST_INPUT_KEY = 'metrics_first_input_case_v2';
-const METRICS_COMPLETED_KEY = 'metrics_completed_case_v2';
-const METRICS_ACTIVE_TIMEOUT_MS = 5 * 60 * 1000;
-const METRICS_CASE_EXPIRY_MS = 12 * 60 * 60 * 1000;
-const METRICS_COLLECTION_END_MS = 1788793199999; // 2026-09-07T23:59:59.999+09:00
-const METRICS_STORAGE_KEYS = Object.freeze([
-  METRICS_QUEUE_KEY, METRICS_INSTALLATION_KEY, METRICS_CASE_KEY,
-  METRICS_CASE_START_SENT_KEY, METRICS_CASE_START_KEY, METRICS_ACTIVE_KEY,
-  METRICS_LAST_ACTIVITY_KEY, METRICS_FIRST_INPUT_KEY, METRICS_COMPLETED_KEY,
-  'metrics_queue_v1', 'metrics_start_ts', 'metrics_session_id'
-]);
-
-function isMetricsCollectionOpen(nowMs = Date.now()) {
-  return Number(nowMs) <= METRICS_COLLECTION_END_MS;
-}
-
-function createMetricsId() {
-  if (!isMetricsCollectionOpen()) return '';
-  try { if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID(); } catch (e) {}
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
-}
-
-function getOrCreateMetricsStorageId(key) {
-  if (!isMetricsCollectionOpen()) return '';
-  let value = '';
-  try { value = localStorage.getItem(key) || ''; } catch (e) {}
-  if (!value) {
-    value = createMetricsId();
-    try { localStorage.setItem(key, value); } catch (e) {}
-  }
-  return value;
-}
-
-const metricsRuntime = {
-  installationId: getOrCreateMetricsStorageId(METRICS_INSTALLATION_KEY),
-  appSessionId: createMetricsId(),
-  sending: false,
-  retryTimer: null,
-  closureTimer: null,
-  collectionClosedHandled: false,
-  firstInputSent: false,
-  openedTabs: new Set()
-};
-
-function clearMetricsStorageAfterClosure(nowMs = Date.now()) {
-  if (isMetricsCollectionOpen(nowMs)) return false;
-  if (metricsRuntime.retryTimer) clearTimeout(metricsRuntime.retryTimer);
-  if (metricsRuntime.closureTimer) clearTimeout(metricsRuntime.closureTimer);
-  metricsRuntime.retryTimer = null;
-  metricsRuntime.closureTimer = null;
-  metricsRuntime.sending = false;
-  metricsRuntime.installationId = '';
-  metricsRuntime.appSessionId = '';
-  metricsRuntime.firstInputSent = false;
-  metricsRuntime.openedTabs.clear();
-  if (metricsRuntime.collectionClosedHandled) return true;
-  metricsRuntime.collectionClosedHandled = true;
-  METRICS_STORAGE_KEYS.forEach(key => {
-    try { localStorage.removeItem(key); } catch (e) {}
-  });
-  return true;
-}
-
-function ensureMetricsCollectionOpen() {
-  if (isMetricsCollectionOpen()) return true;
-  clearMetricsStorageAfterClosure();
-  return false;
-}
-
-function scheduleMetricsCollectionClosure() {
-  if (!isMetricsCollectionOpen()) {
-    clearMetricsStorageAfterClosure();
-    return;
-  }
-  if (metricsRuntime.closureTimer) clearTimeout(metricsRuntime.closureTimer);
-  const delay = Math.max(0, Math.min(METRICS_COLLECTION_END_MS + 1 - Date.now(), 2147483647));
-  metricsRuntime.closureTimer = setTimeout(() => {
-    metricsRuntime.closureTimer = null;
-    if (isMetricsCollectionOpen()) scheduleMetricsCollectionClosure();
-    else clearMetricsStorageAfterClosure();
-  }, delay);
-}
-
-function initMetricsSession() {
-  if (!ensureMetricsCollectionOpen()) return '';
-  let caseId = '';
-  let lastActivity = 0;
-  let startSentForCase = '';
-  try {
-    caseId = localStorage.getItem(METRICS_CASE_KEY) || '';
-    lastActivity = Number(localStorage.getItem(METRICS_LAST_ACTIVITY_KEY) || 0);
-    startSentForCase = localStorage.getItem(METRICS_CASE_START_SENT_KEY) || '';
-    if (caseId && lastActivity && Date.now() - lastActivity > METRICS_CASE_EXPIRY_MS) {
-      [METRICS_CASE_KEY, METRICS_CASE_START_KEY, METRICS_CASE_START_SENT_KEY,
-        METRICS_ACTIVE_KEY, METRICS_LAST_ACTIVITY_KEY, METRICS_FIRST_INPUT_KEY,
-        METRICS_COMPLETED_KEY, 'metrics_start_ts', 'metrics_session_id']
-        .forEach(key => localStorage.removeItem(key));
-      caseId = '';
-      startSentForCase = '';
-    }
-  } catch (e) {}
-
-  const recoveredExistingCase = !!caseId;
-  if (!caseId) {
-    caseId = createMetricsId();
-    const now = new Date().toISOString();
-    try {
-      localStorage.setItem(METRICS_CASE_KEY, caseId);
-      localStorage.setItem(METRICS_CASE_START_KEY, now);
-      localStorage.setItem(METRICS_ACTIVE_KEY, '0');
-      localStorage.setItem(METRICS_LAST_ACTIVITY_KEY, String(Date.now()));
-      // 旧版キーも維持し、更新途中の端末でduration計算が壊れないようにする。
-      localStorage.setItem('metrics_start_ts', now);
-      localStorage.setItem('metrics_session_id', caseId);
-    } catch (e) {}
-  }
-
-  if (startSentForCase !== caseId) {
-    try { localStorage.setItem(METRICS_CASE_START_SENT_KEY, caseId); } catch (e) {}
-    trackMetricsEvent('case_start', { recovered_existing_case: recoveredExistingCase });
-  }
-  return caseId;
-}
-function registerMetricsActivity() {
-  if (!ensureMetricsCollectionOpen()) return;
-  const now = Date.now();
-  let last = 0;
-  let activeMs = 0;
-  try {
-    last = Number(localStorage.getItem(METRICS_LAST_ACTIVITY_KEY) || 0);
-    activeMs = Number(localStorage.getItem(METRICS_ACTIVE_KEY) || 0);
-    const gap = last ? now - last : 0;
-    if (gap > 0 && gap <= METRICS_ACTIVE_TIMEOUT_MS) activeMs += gap;
-    localStorage.setItem(METRICS_ACTIVE_KEY, String(activeMs));
-    localStorage.setItem(METRICS_LAST_ACTIVITY_KEY, String(now));
-  } catch (e) {}
-}
-
-function handleMetricsInteraction() {
-  if (!ensureMetricsCollectionOpen()) return;
-  const caseId = initMetricsSession();
-  registerMetricsActivity();
-  let firstInputCase = '';
-  try { firstInputCase = localStorage.getItem(METRICS_FIRST_INPUT_KEY) || ''; } catch (e) {}
-  if (!metricsRuntime.firstInputSent && firstInputCase !== caseId) {
-    metricsRuntime.firstInputSent = true;
-    try { localStorage.setItem(METRICS_FIRST_INPUT_KEY, caseId); } catch (e) {}
-    trackMetricsEvent('first_input');
-  }
-}
-
-document.addEventListener('input', handleMetricsInteraction);
-document.addEventListener('change', handleMetricsInteraction);
-document.addEventListener('click', (e) => {
-  const target = e.target;
-  if (!target || !target.tagName) return;
-  const t = target.tagName;
-  if(t === 'BUTTON' || t === 'INPUT' || t === 'SELECT' || target.closest('.chip') || target.closest('.mci-row')) {
-    handleMetricsInteraction();
-  }
-});
-
-function countMetricsActiveFlags(obj) {
-  if (!obj || typeof obj !== 'object') return 0;
-  return Object.values(obj).filter(Boolean).length;
-}
-
-function collectHeliMetricsCounts() {
-  let vital_count = 0;
-  let proc_count = 0;
-  if (typeof state === 'undefined') return { vital_count, proc_count };
-  try {
-    if (Array.isArray(state.ems?.vitals)) vital_count += state.ems.vitals.length;
-    if (Array.isArray(state.fd?.vitals)) vital_count += state.fd.vitals.length;
-    proc_count += countMetricsActiveFlags(state.ems?.procedures);
-    proc_count += countMetricsActiveFlags(state.fd?.procedures);
-  } catch (e) { /* メトリクス集計失敗で記録操作を止めない */ }
-  return { vital_count, proc_count };
-}
-
-  function collectHeliClinicalMetricsProperties(s, transportScheme) {
-    const scheme = String(transportScheme || '').trim();
-    const requestTime = String(s?.request?.time || '').trim();
-    const emsAwarenessTime = String(s?.ems?.aware || '').trim();
-    const emsDepartureTime = String(s?.ems?.departure || '').trim();
-    const unitDepartureTime = String(s?.heli?.takeoff || '').trim();
-    const hospitalArrivalTime = String(s?.heli?.hospital_arrival || '').trim();
-    let activityEndTime = '';
-    let activityEndSource = null;
-    let activityEndMissingReason = null;
-
-    if (scheme === 'Uターン' || scheme === 'Jターン') {
-      activityEndTime = hospitalArrivalTime;
-      activityEndSource = hospitalArrivalTime ? 'hospital_arrival' : null;
-      activityEndMissingReason = hospitalArrivalTime ? null : 'hospital_arrival_missing';
-    } else if (scheme === 'Iターン') {
-      // 先行救急隊の現発はRPへの出発も含み得るため、活動終了には使用しない。
-      activityEndMissingReason = 'i_turn_not_observable';
-    } else {
-      activityEndMissingReason = 'transport_scheme_missing';
-    }
-
-    return {
-      clinical_time_capture_version: 1,
-      clinical_time_precision: 'minute_of_day',
-      request_time: requestTime || null,
-      ems_awareness_time: emsAwarenessTime || null,
-      ems_departure_time: emsDepartureTime || null,
-      unit_departure_time: unitDepartureTime || null,
-      hospital_arrival_time: hospitalArrivalTime || null,
-      activity_end_time: activityEndTime || null,
-      activity_end_source: activityEndSource,
-      activity_end_missing_reason: activityEndMissingReason
-    };
-  }
-function collectHeliMetricsProperties(extra = {}) {
-  const counts = collectHeliMetricsCounts();
-  const emsVitals = Array.isArray(state?.ems?.vitals) ? state.ems.vitals.length : 0;
-  const fdVitals = Array.isArray(state?.fd?.vitals) ? state.fd.vitals.length : 0;
-  const emsProcedures = countMetricsActiveFlags(state?.ems?.procedures);
-  const fdProcedures = countMetricsActiveFlags(state?.fd?.procedures);
-  const sections = {
-    request: !!(state?.request?.type || state?.request?.detail || state?.request?.time),
-    patient: !!(state?.patient?.age || state?.patient?.history || state?.patient?.medication || state?.patient?.allergy),
-    ems_vitals: emsVitals > 0,
-    doctor_vitals: fdVitals > 0,
-    findings: !!(Object.values(state?.ems?.chips || {}).some(Boolean) || Object.values(state?.fd?.chips || {}).some(Boolean)),
-    procedures: counts.proc_count > 0,
-    assessment: !!((state?.problems || []).length || state?.consideration || state?.triage || state?.severity),
-    destination: !!(state?.destination?.custom || state?.destination?.hospital)
-  };
-  const completedSections = Object.keys(sections).filter(key => sections[key]);
-  const transportScheme = String(state?.heli?.turn_type || '').trim();
-  const clinicalTimes = collectHeliClinicalMetricsProperties(state, transportScheme);
-  return Object.assign({
-    ems_vital_rows: emsVitals,
-    doctor_vital_rows: fdVitals,
-    ems_procedure_count: emsProcedures,
-    doctor_procedure_count: fdProcedures,
-    completed_section_count: completedSections.length,
-    total_section_count: Object.keys(sections).length,
-    completion_rate: Math.round((completedSections.length / Object.keys(sections).length) * 100) / 100,
-    completed_sections: completedSections,
-    transport_scheme: transportScheme || null,
-    scheme_selected: !!transportScheme,
-    cancelled: false,
-    report_required: true,
-    referral_required: transportScheme ? transportScheme !== 'Uターン' : null
-  }, clinicalTimes, extra);
-}
-
-function getHeliMetricsMode() {
-  try {
-    if (typeof currentAppMode !== 'undefined' && currentAppMode === 'mci') return 'mci';
-  } catch (e) { /* noop */ }
-  return 'normal';
-}
-
-function getMetricsTiming() {
-  let startTs = '';
-  let activeMs = 0;
-  try {
-    startTs = localStorage.getItem(METRICS_CASE_START_KEY) || localStorage.getItem('metrics_start_ts') || '';
-    activeMs = Number(localStorage.getItem(METRICS_ACTIVE_KEY) || 0);
-  } catch (e) {}
-  return {
-    elapsed_sec: startTs ? Math.max(0, Math.floor((Date.now() - new Date(startTs).getTime()) / 1000)) : null,
-    active_sec: Math.max(0, Math.floor(activeMs / 1000))
-  };
-}
-
-function readMetricsQueue() {
-  if (!ensureMetricsCollectionOpen()) return [];
-  try {
-    const queue = JSON.parse(localStorage.getItem(METRICS_QUEUE_KEY) || '[]');
-    return Array.isArray(queue) ? queue : [];
-  } catch (e) { return []; }
-}
-
-function writeMetricsQueue(queue) {
-  if (!ensureMetricsCollectionOpen()) return;
-  try { localStorage.setItem(METRICS_QUEUE_KEY, JSON.stringify(queue.slice(-200))); } catch (e) {}
-}
-
-function scheduleMetricsFlush(queue = readMetricsQueue()) {
-  if (!ensureMetricsCollectionOpen()) return;
-  if (metricsRuntime.retryTimer) clearTimeout(metricsRuntime.retryTimer);
-  if (!queue.length) {
-    metricsRuntime.retryTimer = null;
-    return;
-  }
-  const nextAttempt = Math.min(...queue.map(item => Number(item.next_attempt_ts || 0)));
-  const delay = Math.max(0, Math.min(nextAttempt - Date.now(), 60 * 1000));
-  metricsRuntime.retryTimer = setTimeout(() => {
-    metricsRuntime.retryTimer = null;
-    flushMetricsQueue();
-  }, delay);
-}
-
-async function flushMetricsQueue() {
-  if (!ensureMetricsCollectionOpen()) return;
-  if (metricsRuntime.sending || !METRICS_ENDPOINT) return;
-  let queue = readMetricsQueue();
-  if (!queue.length) return;
-
-  const now = Date.now();
-  const item = queue.find(entry => Number(entry.next_attempt_ts || 0) <= now);
-  if (!item) {
-    scheduleMetricsFlush(queue);
-    return;
-  }
-
-  metricsRuntime.sending = true;
-  const outgoing = Object.assign({}, item.payload, { queued: item.attempts > 0 ? 1 : 0 });
-  try {
-    await fetch(METRICS_ENDPOINT, {
-      method: 'POST', mode: 'no-cors', keepalive: true,
-      headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(outgoing)
-    });
-  } catch (e) {
-    // no-corsではGASの応答本文を確認できないため、同じevent_idで規定回数送る。
-  } finally {
-    queue = readMetricsQueue();
-    const queuedItem = queue.find(entry => entry?.payload?.event_id === item.payload.event_id);
-    if (queuedItem) {
-      queuedItem.attempts = Number(queuedItem.attempts || 0) + 1;
-      if (queuedItem.attempts >= METRICS_MAX_SEND_ATTEMPTS) {
-        queue = queue.filter(entry => entry?.payload?.event_id !== item.payload.event_id);
-      } else {
-        queuedItem.next_attempt_ts =
-          Date.now() + METRICS_RETRY_BASE_MS * Math.pow(2, queuedItem.attempts - 1);
-      }
-      writeMetricsQueue(queue);
-    }
-    metricsRuntime.sending = false;
-    scheduleMetricsFlush(queue);
-  }
-}
-function trackMetricsEvent(eventName, properties = {}) {
-  if (!ensureMetricsCollectionOpen() || !METRICS_ENDPOINT) return;
-  let caseId = '';
-  try { caseId = localStorage.getItem(METRICS_CASE_KEY) || ''; } catch (e) {}
-  if (!caseId && eventName !== 'case_start') caseId = initMetricsSession();
-  if (!caseId) {
-    try { caseId = localStorage.getItem(METRICS_CASE_KEY) || ''; } catch (e) {}
-  }
-  const timing = getMetricsTiming();
-  const counts = collectHeliMetricsCounts();
-  const legacyAction = eventName === 'mail_open' ? 'mail' :
-    (eventName === 'report_copy' || eventName === 'referral_copy' ? 'copy' : '');
-  const payload = {
-    schema_version: METRICS_SCHEMA_VERSION,
-    event_id: createMetricsId(),
-    installation_id: metricsRuntime.installationId,
-    app_session_id: metricsRuntime.appSessionId,
-    case_id: caseId,
-    client_ts: new Date().toISOString(),
-    app: APP_NAME,
-    app_version: document.title,
-    event_name: eventName,
-    action: legacyAction,
-    mode: getHeliMetricsMode(),
-    session_id: caseId,
-    duration_sec: timing.elapsed_sec,
-    elapsed_sec: timing.elapsed_sec,
-    active_sec: timing.active_sec,
-    vital_count: counts.vital_count,
-    proc_count: counts.proc_count,
-    properties: collectHeliMetricsProperties(properties),
-    queued: 0
-  };
-  const queue = readMetricsQueue();
-  queue.push({ payload, attempts: 0, next_attempt_ts: 0 });
-  writeMetricsQueue(queue);
-  flushMetricsQueue();
-}
-
-function sendMetrics(action) {
-  if (!ensureMetricsCollectionOpen()) return;
-  const eventName = action === 'mail' ? 'mail_open' : 'report_copy';
-  if (eventName === 'report_copy') {
-    trackMetricsEvent(eventName, {
-      completed: true,
-      completion_source: 'activity_report'
-    });
-    // GAS v3との互換性のため、集計側更新までは従来イベントも併送する。
-    trackMetricsCaseCompletion('activity_report');
-  } else {
-    trackMetricsEvent(eventName);
-  }
-}
-
-function trackMetricsCaseCompletion(source) {
-  if (!ensureMetricsCollectionOpen()) return;
-  let caseId = '';
-  let completedCase = '';
-  try {
-    caseId = localStorage.getItem(METRICS_CASE_KEY) || '';
-    completedCase = localStorage.getItem(METRICS_COMPLETED_KEY) || '';
-  } catch (e) {}
-  if (!caseId || completedCase === caseId) return;
-  try { localStorage.setItem(METRICS_COMPLETED_KEY, caseId); } catch (e) {}
-  trackMetricsEvent('case_complete', { completion_source: source || 'activity_report' });
-}
-
-function resetMetricsCase(options = {}) {
-  if (!ensureMetricsCollectionOpen()) return;
-  if (options.cancelled) {
-    trackMetricsEvent('case_cancel', {
-      close_reason: 'request_cancelled',
-      transport_scheme: null,
-      scheme_selected: false,
-      cancelled: true,
-      report_required: false,
-      referral_required: false
-    });
-  } else {
-    trackMetricsEvent('case_reset');
-  }
-  try {
-    [METRICS_CASE_KEY, METRICS_CASE_START_KEY, METRICS_CASE_START_SENT_KEY, METRICS_ACTIVE_KEY, METRICS_LAST_ACTIVITY_KEY,
-      METRICS_FIRST_INPUT_KEY, METRICS_COMPLETED_KEY,
-      'metrics_start_ts', 'metrics_session_id'].forEach(key => localStorage.removeItem(key));
-  } catch (e) {}
-  metricsRuntime.firstInputSent = false;
-  metricsRuntime.openedTabs.clear();
-}
-
-window.addEventListener('online', flushMetricsQueue);
-scheduleMetricsCollectionClosure();
-if (isMetricsCollectionOpen()) setTimeout(flushMetricsQueue, 1000);
-// ===================================
+<script>["metrics_queue_v2","metrics_installation_id_v2","metrics_case_id_v2","metrics_case_start_sent_v2","metrics_case_start_ts_v2","metrics_active_ms_v2","metrics_last_activity_ts_v2","metrics_first_input_case_v2","metrics_completed_case_v2","metrics_queue_v1","metrics_start_ts","metrics_session_id"].forEach(key => { try { localStorage.removeItem(key); } catch (e) {} });
 
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
@@ -2667,13 +2221,7 @@ function switchTab(tab) {
   const navItem = document.querySelector(`.tab-bar-item[data-tab="${tab}"]`);
   if (content) content.classList.add('active');
   if (navItem) navItem.classList.add('active');
-  try {
-    const caseStarted = !!localStorage.getItem(METRICS_CASE_KEY);
-    if (caseStarted && !metricsRuntime.openedTabs.has(tab)) {
-      metricsRuntime.openedTabs.add(tab);
-      trackMetricsEvent('tab_open', { tab });
-    }
-  } catch (e) {}
+
   updateStrokeNotifyButtonVisibility();
   scrollAppToTop();
 }
@@ -7352,7 +6900,7 @@ function clearHeliDraftStorage() {
 }
 function resetData() {
   if (!confirm('活動記録・多数傷・連携下書きをすべて消去します。よろしいですか？')) return;
-  resetMetricsCase();
+
   clearHeliDraftStorage();
   const url = new URL(location.href);
   url.searchParams.delete('tab');
@@ -7361,7 +6909,7 @@ function resetData() {
 
 function cancelRequestAndReset() {
   if (!confirm('要請キャンセルとして終了します。\n活動記録・診療情報提供書は作成せず、入力データを消去します。よろしいですか？')) return;
-  resetMetricsCase({ cancelled: true });
+
   clearHeliDraftStorage();
   const url = new URL(location.href);
   url.searchParams.delete('tab');
@@ -8431,8 +7979,8 @@ function renderMciSummary() {
 function copyMciSummary(tag, includeDetail = false) {
   updateCurrentMciPatientFromUI();
   const text = generateMciSummary(tag, includeDetail);
-  trackMetricsEvent('report_copy', { report_type: 'mci_summary', triage_tag: tag, include_detail: !!includeDetail });
-  trackMetricsCaseCompletion('mci_summary');
+
+
   navigator.clipboard.writeText(text).then(() => showMciCopyToast(includeDetail)).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -8534,7 +8082,7 @@ function init() {
   $('#copyOut').onclick=()=>{
     if (!ensureTransportSchemeSelected()) return;
     updateState();
-    sendMetrics('copy');
+
     navigator.clipboard.writeText($('#outText').textContent);
     const b=$('#copyOut'); b.textContent='✓ コピーしました'; setTimeout(()=>b.textContent='📋 活動記録をコピー',1500);
   };
@@ -8579,7 +8127,7 @@ let currentView = 'record'; // 'record' または 'referral'
 function openReferral() {
   if (!ensureTransportSchemeSelected()) return;
   updateState(); // 最新の入力内容を保存
-  trackMetricsEvent('referral_open');
+
   switchToReferralView();
 }
 
@@ -8634,7 +8182,7 @@ function copyReferralText() {
       setTimeout(() => { btn.textContent = prev; }, 1500);
     }
   };
-  trackMetricsEvent('referral_copy');
+
     navigator.clipboard.writeText(text).then(done).catch(() => {
     const ta = $('#referralText');
     ta.select();
@@ -8659,14 +8207,14 @@ function sendReferralEmail() {
 
   const done = () => {
     alert('紹介状本文のコピーが完了しました。\n\nメールアプリが起動します。\n本文は空の状態になりますので、画面をタップして「ペースト（貼り付け）」を行ってから送信してください。');
-    trackMetricsEvent('mail_open', { referral_body_copied: true });
+
     window.location.href = mailtoLink;
   };
 
   const fallback = () => {
     alert('コピーに失敗しました。そのままメールアプリを開きますが、文字数制限で開かない場合があります。');
     const fullBody = encodeURIComponent(text);
-    trackMetricsEvent('mail_open', { referral_body_copied: false });
+
     window.location.href = `mailto:${REFERRAL_EMAIL}?bcc=${BCC_EMAIL}&subject=${subject}&body=${fullBody}`;
   };
 

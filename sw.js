@@ -8,11 +8,9 @@
 /* 2026-08-28 | v5.1.13 | FD身体所見と時刻別瞳孔所見などの更新を確実に配信 */
 /* 2026-08-23 | privacy | 車両電話番号削除後のHTMLを配信 */
 /* 2026-07-19 | v5.1.12 | Iターン活動終了の誤推定を停止 */
-/* 2026-07-19 | v5.1.11 | 臨床時刻メトリクス追加版を確実に配信 */
-/* 2026-07-19 | v5.1.10 | メトリクス信頼性改善版を確実に配信 */
 /* 2026-07-14 | v5.1.9 | 搬送スキーム未選択・要請キャンセル終了を反映 */
 const CACHE_PREFIX = 'heli-record-';
-const CACHE_NAME = 'heli-record-v5.1.20-metrics-stop-20260908';
+const CACHE_NAME = 'heli-record-v5.1.20-20260906';
 const urlsToCache = [
   './index.html',
   './manifest.json',
