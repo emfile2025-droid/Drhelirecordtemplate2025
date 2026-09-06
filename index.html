@@ -65,7 +65,7 @@
 
 
 
-<title>ドクターヘリ活動記録 v5.1.21 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.22 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -1093,6 +1093,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   }
 }
 
+.record-safety{position:fixed;top:var(--header-h);left:0;right:0;height:28px;z-index:201;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:center}.record-safety button{border:0;background:transparent;font-size:12px;height:28px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} main#mainRecordView,main#modeMCI,main#referralView{top:calc(var(--header-h) + 28px)}
 </style>
 </head>
 <body>
@@ -1100,13 +1101,18 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.21 多数傷対応</p>
+    <p class="sub">heli record v5.1.22 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
     <button class="btn-update" onclick="updateApp()" title="アプリを最新版に更新">🔄 更新</button>
   </div>
 </header>
+<div class="record-safety"><button type="button" id="recordSaveStatus" onclick="openRecordStoragePanel()" aria-live="polite">保存・復元</button></div>
+<dialog id="recordStoragePanel" style="max-width:90vw;width:480px;border:1px solid #cbd5e1;border-radius:12px;padding:18px">
+  <h3>端末保存・復元</h3><p id="recordStorageMessage" style="white-space:pre-wrap;font-size:14px"></p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" onclick="retryClinicalStorage()">保存を再試行</button><button type="button" class="btn ghost" onclick="exportClinicalRecoveryJson()">JSONを書き出す</button><button type="button" class="btn ghost" onclick="document.getElementById('clinicalRecoveryFile').click()">JSONを読み込む</button><input type="file" id="clinicalRecoveryFile" accept="application/json,.json" hidden onchange="importClinicalRecoveryFile(this)"><button type="button" class="btn ghost" onclick="restorePreviousClinicalStorage()">直前の保存内容に戻す</button><button type="button" class="btn ghost" onclick="document.getElementById('recordStoragePanel').close()">閉じる</button></div>
+</dialog>
 
 <main id="mainRecordView">
   <div class="mci-detail-record-banner" id="mciDetailRecordBanner" style="display:none">
@@ -1571,10 +1577,10 @@ div.card-body > div[style*="display:flex"] .btn.small {
       <div class="chips" id="exam_chips"></div>
       <div id="exam_bs_area" style="display:none;margin-top:8px">
         <div class="vital-item" style="border:1px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;display:inline-block;min-width:100px" onclick="openBsDial()">
-          <div class="vital-value" id="fd_bs_display">120</div>
+          <div class="vital-value" id="fd_bs_display">未入力</div>
           <div class="vital-unit">mg/dL</div>
         </div>
-        <input type="hidden" id="fd_bs" value="120">
+        <input type="hidden" id="fd_bs" value="">
       </div>
 
       <div id="exam_ucg_wrap" style="display:none;margin-top:8px" class="exam-struct-wrap">
@@ -1619,11 +1625,11 @@ div.card-body > div[style*="display:flex"] .btn.small {
             </div>
           </div>
         </div>
-        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('ucg')">テキストに反映</button>
+        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('ucg')">選択した所見を確認して反映</button>
         <textarea id="exam_ucg_txt" placeholder="UCG所見（反映後に編集可）" rows="4" style="width:100%;margin-top:4px"></textarea>
       </div>
       <div id="exam_us_abd_wrap" style="display:none;margin-top:8px">
-        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('us_abd')">テキストに反映（正常デフォルト）</button>
+        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('us_abd')">正常所見を適用</button>
         <textarea id="exam_us_abd_txt" placeholder="腹部US所見" rows="6" style="width:100%"></textarea>
       </div>
       <div id="exam_us_lung_wrap" style="display:none;margin-top:8px">
@@ -1644,11 +1650,11 @@ div.card-body > div[style*="display:flex"] .btn.small {
             <label class="exam-lung-pill"><input type="checkbox" class="exam_us_lung_site" id="exam_us_lung_absent_ll"><span>左側胸部</span></label>
           </div>
         </div>
-        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('us_lung')">テキストに反映</button>
+        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('us_lung')">選択した所見を確認して反映</button>
         <textarea id="exam_us_lung_txt" placeholder="肺US所見" rows="3" style="width:100%"></textarea>
       </div>
       <div id="exam_us_neck_wrap" style="display:none;margin-top:8px">
-        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('us_neck')">テキストに反映（デフォルト）</button>
+        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('us_neck')">正常所見を適用</button>
         <textarea id="exam_us_neck_txt" placeholder="頸部血管US所見" rows="3" style="width:100%"></textarea>
       </div>
       <div id="exam_ecg_wrap" style="display:none;margin-top:8px">
@@ -1724,15 +1730,15 @@ div.card-body > div[style*="display:flex"] .btn.small {
             </select>
           </div>
         </div>
-        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('ecg')">テキストに反映</button>
+        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('ecg')">選択した所見を確認して反映</button>
         <textarea id="exam_ecg_txt" placeholder="12誘導心電図所見" rows="4" style="width:100%"></textarea>
       </div>
       <div id="exam_fast_wrap" style="display:none;margin-top:8px">
-        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('fast')">テキストに反映（陰性デフォルト）</button>
+        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('fast')">陰性所見を適用</button>
         <textarea id="exam_fast_txt" placeholder="FAST所見" rows="3" style="width:100%"></textarea>
       </div>
       <div id="exam_efast_wrap" style="display:none;margin-top:8px">
-        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('efast')">テキストに反映（陰性デフォルト）</button>
+        <button type="button" class="btn small" style="margin-bottom:8px" onclick="applyExamStructuredText('efast')">陰性所見を適用</button>
         <textarea id="exam_efast_txt" placeholder="eFAST所見" rows="3" style="width:100%"></textarea>
       </div>
       
@@ -2206,6 +2212,7 @@ function updateMciModeChrome() {
     && mciEl && mciEl.style.display !== 'none'
     && !mciDetailRecordMode;
   document.body.classList.toggle('mci-mode', slim);
+  updateClinicalStorageStatus();
 }
 function setReferralBottomNavVisible(visible) {
   document.body.classList.toggle('has-referral-nav', !!visible);
@@ -2734,6 +2741,215 @@ const FD_CPA_GROUPS = {
 };
 
 
+const clinicalStorageStatus = new Map();
+const blockedClinicalStorage = new Set();
+let clinicalRenderFailed = false;
+
+function currentClinicalStorageKey() {
+  if (typeof generateDrCarReferralText === 'function') return 'doctorCarV1';
+  return currentAppMode === 'mci' || mciDetailRecordMode ? MCI_STORAGE_KEY : 'heliRecordV5';
+}
+function validateClinicalStorage(key, text) {
+  const value = JSON.parse(text);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('記録形式を確認できません');
+  if (key === 'heliMciRecordV5') {
+    if (!Array.isArray(value.patients)) throw new Error('多数傷記録の形式を確認できません');
+    const ids = value.patients.map(p => p?.id);
+    if (ids.some(id => !Number.isSafeInteger(id) || id < 1) || new Set(ids).size !== ids.length) throw new Error('多数傷の番号を確認できません');
+  } else if (!value.ems && !value.cardr && !value.fd && !value.car && !value.heli) throw new Error('活動記録の形式を確認できません');
+  return value;
+}
+function updateClinicalStorageStatus() {
+  const button = document.getElementById('recordSaveStatus');
+  if (!button) return;
+  const key = currentClinicalStorageKey(), status = clinicalStorageStatus.get(key);
+  button.textContent = blockedClinicalStorage.has(key) ? '保存記録の確認が必要です（復元）' : status?.error ? '未保存：端末保存に失敗（詳細）' : status?.saved ? (status.loaded ? '保存記録を読込済み（保存・復元）' : '端末保存済み（保存・復元）') : '保存・復元';
+  if (clinicalRenderFailed) button.textContent += ' ／ 文書生成に失敗';
+  button.style.color = status?.error || clinicalRenderFailed || blockedClinicalStorage.has(key) ? '#b91c1c' : '#334155';
+}
+function readClinicalStorage(key) {
+  try {
+    const text = localStorage.getItem(key);
+    if (text !== null) { validateClinicalStorage(key, text); clinicalStorageStatus.set(key, {saved:true, loaded:true}); }
+    return text;
+  } catch (e) {
+    blockedClinicalStorage.add(key);
+    if (key === 'heliRecordV41') blockedClinicalStorage.add('heliRecordV5');
+    clinicalStorageStatus.set(key, {error:'保存記録を読み出せません。上書きを停止しています。直前の保存内容の復元、または保存済みJSONの読み込みを行ってください。'});
+    return null;
+  }
+}
+function writeClinicalStorage(key, value, replaceUnreadable = false) {
+  try {
+    if (!replaceUnreadable && blockedClinicalStorage.has(key)) throw new Error('保存記録を保護するため上書きを停止しています');
+    const text = JSON.stringify(value);
+    validateClinicalStorage(key, text);
+    const previous = localStorage.getItem(key);
+    let backupError = '';
+    if (previous !== null && previous !== text) {
+      let validPrevious = true;
+      try { validateClinicalStorage(key, previous); } catch (e) { if (!replaceUnreadable) throw e; validPrevious = false; }
+      try { if (validPrevious) localStorage.setItem(key + '.previous', previous); }
+      catch (e) { backupError = '最新内容は保存しましたが、直前の保存内容の更新に失敗しました。'; }
+    }
+    if (previous !== text) localStorage.setItem(key, text);
+    blockedClinicalStorage.delete(key);
+    clinicalStorageStatus.set(key, {saved:true, time:new Date().toLocaleTimeString(), backupError});
+    updateClinicalStorageStatus();
+    return true;
+  } catch (e) {
+    clinicalStorageStatus.set(key, {error:'入力内容を端末に保存できていません。画面を閉じずに、再試行するかJSONを書き出してください。'});
+    updateClinicalStorageStatus();
+    return false;
+  }
+}
+function persistCurrentClinicalRecord() {
+  if (typeof generateDrCarReferralText === 'function') return writeClinicalStorage('doctorCarV1', state);
+  if (mciDetailRecordMode) return saveCurrentMciDetailRecord();
+  normalRecordState = cloneRecordState(state);
+  return writeClinicalStorage('heliRecordV5', state);
+}
+function openRecordStoragePanel() {
+  const key = currentClinicalStorageKey(), status = clinicalStorageStatus.get(key);
+  const messages = [key === 'heliMciRecordV5' ? '対象：多数傷ボード全体（各傷病者の詳細記録を含む）' : '対象：通常の活動記録'];
+  if (status?.error) messages.push(status.error);
+  else if (status?.saved) messages.push(status.loaded ? '端末の保存記録を読み込みました。' : '端末保存済み：' + status.time);
+  if (status?.backupError) messages.push(status.backupError);
+  if (clinicalRenderFailed) messages.push('活動記録の文章生成に失敗しました。保存状態は上記をご確認ください。古い生成文は表示していません。');
+  messages.push('直前の保存内容に戻すと、それ以降の変更は置き換わります。必要なら先にJSONを書き出してください。');
+  document.getElementById('recordStorageMessage').textContent = messages.join('\n');
+  document.getElementById('recordStoragePanel').showModal();
+}
+function retryClinicalStorage() {
+  if (currentClinicalStorageKey() === 'heliMciRecordV5' && !mciDetailRecordMode) saveMciState();
+  else updateState();
+  document.getElementById('recordStoragePanel').close();
+  openRecordStoragePanel();
+}
+function exportClinicalRecoveryJson() {
+  const value = currentClinicalStorageKey() === 'heliMciRecordV5' ? mci : state;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], {type:'application/json'}));
+  const a = document.createElement('a'); a.href = url; a.download = 'record_' + new Date().toISOString().replace(/[:.]/g,'-') + '.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function restorePreviousClinicalStorage() {
+  const key = currentClinicalStorageKey();
+  try {
+    const text = localStorage.getItem(key + '.previous');
+    if (!text) { alert('直前の保存内容がありません。'); return; }
+    validateClinicalStorage(key, text);
+    const name = key === 'heliMciRecordV5' ? '多数傷ボード全体（各傷病者の詳細記録を含む）' : '通常の活動記録';
+    if (!confirm(name + 'を直前の保存内容に戻しますか？現在の変更は置き換わり、画面を再読込します。')) return;
+    localStorage.setItem(key, text);
+    blockedClinicalStorage.delete(key);
+    location.reload();
+  } catch (e) { alert('復元できませんでした。保存済みJSONからの読み込みをご検討ください。'); }
+}
+function clearClinicalStorage(key) {
+  try {
+    localStorage.removeItem(key + '.previous');
+    localStorage.removeItem(key);
+    clinicalStorageStatus.delete(key);
+    blockedClinicalStorage.delete(key);
+    return true;
+  } catch (e) { alert('保存記録を消去できませんでした。画面を閉じずに再試行してください。'); return false; }
+}
+function renderClinicalReport() {
+  try {
+    const text = generateReport();
+    const out = document.getElementById('outText');
+    if (out) out.textContent = text;
+    clinicalRenderFailed = false;
+  } catch (e) {
+    const out = document.getElementById('outText');
+    if (out) out.textContent = '';
+    clinicalRenderFailed = true;
+  }
+  for (const id of ['copyOut','copyText']) {
+    const button = document.getElementById(id);
+    if (button) button.disabled = clinicalRenderFailed;
+  }
+  updateClinicalStorageStatus();
+  return !clinicalRenderFailed;
+}
+
+async function importClinicalRecoveryFile(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const key = currentClinicalStorageKey();
+  try {
+    const parsed = validateClinicalStorage(key, await file.text());
+    let record = parsed;
+    if (key === 'doctorCarV1') {
+      if (record.heli && !record.car) record.car = record.heli;
+      if (record.fd && !record.cardr) record.cardr = record.fd;
+      if (record.ems?.lz && !record.ems.rp) record.ems.rp = record.ems.lz;
+      if (record.car?.fd_contact && !record.car.cardr_contact) record.car.cardr_contact = record.car.fd_contact;
+      record = normalizeCarRecord(record);
+    } else if (key === 'heliRecordV5') record = normalizeRecordState(record);
+    const name = key === 'heliMciRecordV5' ? '多数傷ボード全体（各傷病者の詳細記録を含む）' : '通常の活動記録';
+    if (!confirm(name + 'を選んだJSONの内容で置き換えますか？画面を再読込します。')) return;
+    if (writeClinicalStorage(key, record, true)) location.reload();
+    else alert('JSONの保存に失敗しました。画面の入力は保持しています。');
+  } catch (e) { alert('読み込めませんでした。対象に合った活動記録または多数傷ボードのJSONを選んでください。'); }
+  finally { input.value = ''; }
+}
+
+function buildRecordedExamLines(section) {
+  const lines = [], s = section || {};
+  const present = v => v !== undefined && v !== null && String(v).trim() !== '';
+  if (s.exams?.bs) lines.push(present(s.bs) ? '血糖：' + s.bs + ' mg/dL' : '血糖測定：実施（結果未記載）');
+  const labels = {ucg:'UCG',us_abd:'腹部US',us_lung:'肺US',us_neck:'頸部血管US',ecg:'12誘導心電図',fast:'FAST',efast:'eFAST'};
+  for (const [type,label] of Object.entries(labels)) if (s.exams?.[type]) lines.push(label + '：' + (present(s.exam_texts?.[type]) ? s.exam_texts[type] : '実施（所見未記載）'));
+  if (s.abg_type) {
+    const values = (s.abg_data || []).filter(d=>d && present(d.val)).map(d=>d.item + ' ' + d.val + (d.unit || ''));
+    lines.push('血ガス（' + s.abg_type + '）：' + (values.length ? values.join('、') : '実施（結果未記載）'));
+  }
+  if (s.exam_detail) lines.push(s.exam_detail);
+  return lines;
+}
+function buildRecordedCpaLines(fd) {
+  const lines = [];
+  const cpaEvents = Array.isArray(fd.cpaEvents) ? fd.cpaEvents : [];
+  if(cpaEvents.length) {
+    lines.push('＜CPA記録＞');
+    cpaEvents.forEach((cpa, idx) => {
+      const isFirst = idx === 0;
+      if(cpaEvents.length > 1) lines.push(`【心停止イベント ${idx + 1}${!isFirst ? '（再心停止）' : ''}】`);
+      if(cpa.arrestTime) lines.push(`心停止時刻：${cpa.arrestTime}`);
+      if(cpa.rhythm) lines.push(`初期波形：${cpa.rhythm}`);
+      if(isFirst) {
+        lines.push(`目撃：${cpa.witnessed ? 'あり' : 'なし'}`);
+        lines.push(`バイスタンダーCPR：${cpa.bystander ? 'あり' : 'なし'}`);
+        if(cpa.cprStart) lines.push(`胸骨圧迫開始：${cpa.cprStart}`);
+        if(cpa.ivTime) lines.push(`末梢確保：${cpa.ivTime}`);
+      }
+      const changes = cpa.rhythmChanges || [];
+      if(changes.length > 1) lines.push(`波形変化：${changes.slice(1).map(change => `${change.time} ${change.rhythm}`).join(' → ')}`);
+      const defibTimes = cpa.defibrillationTimes || [];
+      if(defibTimes.length) lines.push(`除細動：${defibTimes.map((time, i) => `${i + 1}回目 ${time}`).join('、')}（計${defibTimes.length}回）`);
+      const adrenalineTimes = cpa.adrenalineTimes || [];
+      if(adrenalineTimes.length) lines.push(`アドレナリン投与：${adrenalineTimes.map((time, i) => `${i + 1}回目 ${time}`).join('、')}`);
+      const amiodaroneTimes = cpa.amiodaroneTimes || [];
+      if(amiodaroneTimes.length) {
+        lines.push(`アミオダロン投与：${amiodaroneTimes.map((item, i) => {
+          const time = typeof item === 'string' ? item : item.time;
+          const dose = typeof item === 'string' ? '' : (item.dose ? ` ${item.dose}` : '');
+          return `${i + 1}回目 ${time}${dose}`;
+        }).join('、')}`);
+      }
+      if(isFirst) {
+        if(cpa.lt) lines.push('LT挿入：実施');
+        if(cpa.intubation) lines.push(`気管挿管：${cpa.intubationTime || '実施'}`);
+        if(cpa.pericardio) lines.push(`心膜腔穿刺：${cpa.pericardioTime || '実施'}`);
+      }
+      appendCpaOutcomeFlowLines(lines, cpa, isFirst);
+      if(cpa.memo) lines.push(`メモ：${cpa.memo}`);
+    });
+  }
+  return lines;
+}
+
 let state = {
   request: {type:'', detail:'', time:'', precedingTeam:''},
   patient: {
@@ -2762,7 +2978,7 @@ let state = {
     exams: {bs:false, ucg:false, us_abd:false, us_lung:false, us_neck:false, ecg:false, fast:false, efast:false},
     exam_texts: {ucg:'', us_abd:'', us_lung:'', us_neck:'', ecg:'', fast:'', efast:''},
     exam_form: null,
-    bs:120, abg_type:'', abg_data: [], exam_detail:'',
+    bs:'', abg_type:'', abg_data: [], exam_detail:'',
     cpaEvents: [],
     stroke: {
       pupilL:3, pupilR:3, plrL:'', plrR:'', gaze:'', nyst:'',
@@ -3308,7 +3524,7 @@ function genRangeBT() {
 }
 
 function openBsDial() {
-  const currentBs = state.fd.bs || 120;
+  const currentBs = state.fd.bs === '' ? 120 : (state.fd.bs ?? 120);
   const wheels = [{options: genRange(0, 600, 1), selected: currentBs, unit: 'mg/dL'}];
   openDial('血糖値', wheels, vals => {
     state.fd.bs = vals[0];
@@ -4856,6 +5072,8 @@ window.applyExamStructuredText = function(type) {
   else if (type === 'fast') text = DEFAULT_EXAM_FAST_TEXT;
   else if (type === 'efast') text = DEFAULT_EXAM_EFAST_TEXT;
   else return;
+  if (t.value.trim() && t.value !== text && !confirm('入力済みの検査所見を置き換えますか？')) return;
+  state.fd.exam_confirmation = {...(state.fd.exam_confirmation || {}), [type]: 'explicit'};
   t.value = text;
   if (state.fd.exam_texts) state.fd.exam_texts[type] = text;
   updateState();
@@ -4911,7 +5129,7 @@ function restoreFdExamUi() {
   restoreExamFormsToDom();
   const f = state.fd;
   if (f.exams.bs) {
-    $('#fd_bs_display').textContent = f.bs;
+    $('#fd_bs_display').textContent = f.bs === '' ? '未入力' : (f.bs ?? '未入力');
     $('#exam_bs_area').style.display = 'block';
   }
   ['ucg','us_abd','us_lung','us_neck','ecg','fast','efast'].forEach(t => {
@@ -4922,25 +5140,7 @@ function restoreFdExamUi() {
   });
 }
 
-function seedExamTextIfEmpty(type) {
-  if (!state.fd.exams[type]) return;
-  const cur = state.fd.exam_texts[type];
-  if (cur != null && String(cur).trim() !== '') return;
-  if (!state.fd.exam_form) state.fd.exam_form = getDefaultExamForm();
-  syncExamFormsFromDom();
-  let text = '';
-  if (type === 'ucg') text = buildUcgExamText(state.fd.exam_form.ucg);
-  else if (type === 'us_abd') text = DEFAULT_EXAM_US_ABD_TEXT;
-  else if (type === 'us_lung') text = buildUsLungExamText(state.fd.exam_form.us_lung);
-  else if (type === 'us_neck') text = buildUsNeckExamText();
-  else if (type === 'ecg') text = buildEcgExamText(state.fd.exam_form.ecg);
-  else if (type === 'fast') text = DEFAULT_EXAM_FAST_TEXT;
-  else if (type === 'efast') text = DEFAULT_EXAM_EFAST_TEXT;
-  else return;
-  state.fd.exam_texts[type] = text;
-  const te = $(`#exam_${type}_txt`);
-  if (te) te.value = text;
-}
+
 
 window.toggleExam = (type) => {
   state.fd.exams[type] = !state.fd.exams[type];
@@ -4952,7 +5152,7 @@ window.toggleExam = (type) => {
     const wrap = $(`#exam_${type}_wrap`);
     if (wrap) {
       wrap.style.display = state.fd.exams[type] ? 'block' : 'none';
-      if (state.fd.exams[type]) seedExamTextIfEmpty(type);
+
     } else {
       const txtArea = $(`#exam_${type}_txt`);
       if (txtArea) txtArea.style.display = state.fd.exams[type] ? 'block' : 'none';
@@ -5377,10 +5577,10 @@ function migrateAbgData() {
   if(!state.fd.abg_data) state.fd.abg_data = [];
   const have = new Set(state.fd.abg_data.map(x => x.item));
   ABG_ITEMS.forEach(it => {
-    if(!have.has(it.item)) state.fd.abg_data.push({ item: it.item, unit: it.unit, val: it.normal });
+    if(!have.has(it.item)) state.fd.abg_data.push({ item: it.item, unit: it.unit, val: '' });
   });
   state.fd.abg_data.forEach(rec => {
-    if(ABG_SCHEMA[rec.item]) rec.val = formatAbgStored(rec.item, rec.val);
+    if(ABG_SCHEMA[rec.item] && rec.val !== '' && rec.val != null) rec.val = formatAbgStored(rec.item, rec.val);
   });
 }
 
@@ -5393,11 +5593,11 @@ function addAbgSet() {
   if(!state.fd.abg_data) state.fd.abg_data = [];
   ABG_ITEMS.forEach(it => {
     if(!state.fd.abg_data.some(x => x.item === it.item)) {
-      state.fd.abg_data.push({ item: it.item, unit: it.unit, val: it.normal });
+      state.fd.abg_data.push({ item: it.item, unit: it.unit, val: '' });
     }
   });
   state.fd.abg_data.forEach(rec => {
-    if(ABG_SCHEMA[rec.item]) rec.val = formatAbgStored(rec.item, rec.val);
+    if(ABG_SCHEMA[rec.item] && rec.val !== '' && rec.val != null) rec.val = formatAbgStored(rec.item, rec.val);
   });
   renderAbgPills();
   updateState();
@@ -5435,7 +5635,7 @@ function renderAbgPills() {
   if(!state.fd.abg_data) state.fd.abg_data = [];
   state.fd.abg_data.forEach((rec, i) => {
     const pill = document.createElement('div'); pill.className = 'labpill'; pill.style.cursor = 'pointer';
-    pill.innerHTML = `<label>${rec.item}</label><span class="abg-val" style="min-width:50px;text-align:right;font-weight:600;color:var(--brand)">${rec.val}</span><span class="unit">${rec.unit}</span>
+    pill.innerHTML = `<label>${escapeHtml(rec.item)}</label><span class="abg-val" style="min-width:50px;text-align:right;font-weight:600;color:var(--brand)">${escapeHtml(rec.val === '' || rec.val == null ? '未入力' : rec.val)}</span><span class="unit">${escapeHtml(rec.unit)}</span>
       <button onclick="event.stopPropagation();state.fd.abg_data.splice(${i},1);renderAbgPills();updateState()">×</button>`;
     const valSpan = pill.querySelector('.abg-val');
     let timer = null; let isLong = false;
@@ -5470,9 +5670,26 @@ function addProblemFromDx(text) {
   renderProblems();
   updateState();
 }
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
+}
 function renderProblems() {
   const c = $('#problems');
-  c.innerHTML = state.problems.map((p, i) => `<div class="problem-item"><span>#${i+1} ${p}</span><button class="del-btn" onclick="state.problems.splice(${i},1);renderProblems();updateState()">削除</button></div>`).join('');
+  if (!c) return;
+  c.replaceChildren();
+  (state.problems || []).forEach((p,i) => {
+    const row = document.createElement('div'); row.className = 'problem-item';
+    const text = document.createElement('span'); text.textContent = '#' + (i+1) + ' ' + String(p);
+    const button = document.createElement('button'); button.className = 'del-btn'; button.textContent = '削除';
+    button.onclick = () => { state.problems.splice(i,1); renderProblems(); updateState(); };
+    row.append(text,button); c.appendChild(row);
+  });
 }
 
 function renderTriageChips() {
@@ -6387,17 +6604,14 @@ function updateState() {
     state.symptom_detail.risk = $('#symptom_risk').value || 'general';
     state.symptom_detail.output = $('#symptom_output').value || '';
   }
-  state.destination.reason=$('#selection_reason').value; updateDestinationDisplay(); render();
-  if(mciDetailRecordMode) {
-    saveCurrentMciDetailRecord();
-    renderMciSummary();
-  } else {
-    normalRecordState = cloneRecordState(state);
-    localStorage.setItem('heliRecordV5', JSON.stringify(state));
-  }
+  state.destination.reason=$('#selection_reason').value;
+  persistCurrentClinicalRecord();
+  updateDestinationDisplay();
+  render();
+  if(mciDetailRecordMode) renderMciSummary();
 }
 
-function render() { $('#outText').textContent = generateReport(); }
+function render() { return renderClinicalReport(); }
 
 function fmtFinding(lbl, st) {
   if(st==='on') return lbl;
@@ -6460,62 +6674,7 @@ function sortVitalsByTime(vitals) {
     .map(item => item.vital);
 }
 
-function appendAllEmsExamSections(r, ems) {
-  const chips = ems.chips || {};
-  const gMemo = ems.memos?.general || {};
-  const tMemo = ems.memos?.trauma || {};
-  let added = false;
-  const headS = extractFindings(EMS_GEN_GROUPS.head, chips);
-  const headM = gMemo.head;
-  const respS = extractFindings(EMS_GEN_GROUPS.resp, chips);
-  const respM = gMemo.resp;
-  const cardS = extractFindings(EMS_GEN_GROUPS.card, chips);
-  const cardM = gMemo.card;
-  const chestContent = [respS, respM, cardS, cardM].filter(Boolean);
-  const hasGeneral = headS || headM || chestContent.length ||
-    ['abd', 'limb', 'neuro'].some(k => extractFindings(EMS_GEN_GROUPS[k], chips) || gMemo[k]);
-  if (hasGeneral) {
-    if (!added) { r += '\n＜所見＞\n'; added = true; }
-    if (headS || headM) r += `【頭頚部】${[headS, headM].filter(Boolean).join('。')}\n`;
-    if (chestContent.length) r += `【胸部】${chestContent.join('。')}\n`;
-    [['腹部', EMS_GEN_GROUPS.abd, 'abd'], ['四肢', EMS_GEN_GROUPS.limb, 'limb'], ['神経', EMS_GEN_GROUPS.neuro, 'neuro']].forEach(([t, d, k]) => {
-      const s = extractFindings(d, chips), m = gMemo[k];
-      if (s || m) r += `【${t}】${[s, m].filter(Boolean).join('。')}\n`;
-    });
-  }
-  const hasTrauma = ['head', 'neck', 'chest', 'abd', 'pelvis', 'limb'].some(k => {
-    const groups = { head: EMS_TRA_GROUPS.head, neck: EMS_TRA_GROUPS.neck, chest: EMS_TRA_GROUPS.chest, abd: EMS_TRA_GROUPS.abd, pelvis: EMS_TRA_GROUPS.pelvis, limb: EMS_TRA_GROUPS.limb };
-    return extractFindings(groups[k], chips) || tMemo[k];
-  });
-  if (hasTrauma) {
-    if (!added) { r += '\n＜所見＞\n'; added = true; }
-    r += '（外傷）\n';
-    [['頭部・顔面', EMS_TRA_GROUPS.head, 'head'], ['頸部', EMS_TRA_GROUPS.neck, 'neck'], ['胸部', EMS_TRA_GROUPS.chest, 'chest'], ['腹部', EMS_TRA_GROUPS.abd, 'abd'], ['骨盤', EMS_TRA_GROUPS.pelvis, 'pelvis'], ['四肢', EMS_TRA_GROUPS.limb, 'limb']].forEach(([t, d, k]) => {
-      const s = extractFindings(d, chips), m = tMemo[k];
-      if (s || m) r += `【${t}】${[s, m].filter(Boolean).join('。')}\n`;
-    });
-  }
-  const motorText = formatEmsStrokeMotorText(ems.stroke_motor);
-  const strBlocks = [['意識', EMS_STR_GROUPS.conscious], ['顔面・発語', EMS_STR_GROUPS.face], ['その他症状', EMS_STR_GROUPS.other]];
-  const hasStroke = strBlocks.some(([_, d]) => extractFindings(d, chips)) || motorText || ems.stroke_onset || ems.memos?.stroke?.memo;
-  if (hasStroke) {
-    if (!added) { r += '\n＜所見＞\n'; added = true; }
-    r += '（神経学的所見）\n';
-    strBlocks.forEach(([t, d]) => { const s = extractFindings(d, chips); if (s) r += `【${t}】${s}\n`; });
-    if (motorText) r += `【運動】${motorText}\n`;
-    if (ems.stroke_onset) r += `【発症時刻】${ems.stroke_onset}\n`;
-    if (ems.memos?.stroke?.memo) r += `【脳卒中所見メモ】${ems.memos.stroke.memo}\n`;
-  }
-  const cpaBlocks = [['初期波形', EMS_CPA_GROUPS.rhythm], ['目撃・バイスタンダー', EMS_CPA_GROUPS.witness], ['気道', EMS_CPA_GROUPS.airway], ['循環', EMS_CPA_GROUPS.circulation], ['胸腹部', EMS_CPA_GROUPS.chest]];
-  const hasCpa = cpaBlocks.some(([_, d]) => extractFindings(d, chips)) || ems.memos?.cpa?.memo;
-  if (hasCpa) {
-    if (!added) { r += '\n＜所見＞\n'; added = true; }
-    r += '（CPA）\n';
-    cpaBlocks.forEach(([t, d]) => { const s = extractFindings(d, chips); if (s) r += `【${t}】${s}\n`; });
-    if (ems.memos?.cpa?.memo) r += `【CPA所見メモ】${ems.memos.cpa.memo}\n`;
-  }
-  return r;
-}
+function appendAllEmsExamSections(r, ems) { return r + '\n＜所見＞\n' + buildClinicalReferralFindings(ems || {}, 'heli', true) + '\n'; }
 
 function calcNihssTotal(stroke) {
   const nihss = stroke?.nihss || {};
@@ -6538,112 +6697,7 @@ function appendCpaOutcomeFlowLines(lines, cpa, isFirst) {
 }
 
 
-function buildAllFdExamLines(fd) {
-  fd = fd || {};
-  const chips = fd.chips || {};
-  const lines = [];
-
-  const generalLines = [];
-  const headS = extractFindings(FD_GEN_GROUPS.head, chips);
-  const headM = fd.memos?.general?.head || '';
-  if(headS || headM) generalLines.push(`【頭頚部】${[headS, headM].filter(Boolean).join('。')}`);
-  const respS = extractFindings(FD_GEN_GROUPS.resp, chips);
-  const respM = fd.memos?.general?.resp || '';
-  const cardS = extractFindings(FD_GEN_GROUPS.card, chips);
-  const cardM = fd.memos?.general?.card || '';
-  const chestContent = [respS, respM, cardS, cardM].filter(Boolean);
-  if(chestContent.length) generalLines.push(`【胸部】${chestContent.join('。')}`);
-  [['腹部', FD_GEN_GROUPS.abd, 'abd'], ['四肢', FD_GEN_GROUPS.limb, 'limb'], ['神経', FD_GEN_GROUPS.neuro, 'neuro']]
-    .forEach(([title, defs, key]) => {
-      const finding = extractFindings(defs, chips);
-      const memo = fd.memos?.general?.[key] || '';
-      if(finding || memo) generalLines.push(`【${title}】${[finding, memo].filter(Boolean).join('。')}`);
-    });
-  if(generalLines.length) lines.push('（汎用）', ...generalLines);
-
-  const traumaLines = [];
-  [['頭部・顔面', FD_TRA_GROUPS.head, 'head'], ['頸部', FD_TRA_GROUPS.neck, 'neck'],
-    ['胸部', FD_TRA_GROUPS.chest, 'chest'], ['腹部', FD_TRA_GROUPS.abd, 'abd'],
-    ['骨盤', FD_TRA_GROUPS.pelvis, 'pelvis'], ['四肢', FD_TRA_GROUPS.limb, 'limb']]
-    .forEach(([title, defs, key]) => {
-      const finding = extractFindings(defs, chips);
-      const memo = fd.memos?.trauma?.[key] || '';
-      if(finding || memo) traumaLines.push(`【${title}】${[finding, memo].filter(Boolean).join('。')}`);
-    });
-  if(traumaLines.length) lines.push('（外傷）', ...traumaLines);
-
-  const strokeLines = [];
-  const cn = extractFindings(FD_STR_GROUPS.cn, chips);
-  const cnMemo = fd.memos?.stroke?.cn || '';
-  if(cn || cnMemo) strokeLines.push(`【脳神経】${[cn, cnMemo].filter(Boolean).join('。')}`);
-  const stroke = fd.stroke || {};
-  const legacyPupilEntered = (stroke.pupilL !== undefined && stroke.pupilL !== null && stroke.pupilL !== '' && Number(stroke.pupilL) !== 3)
-    || (stroke.pupilR !== undefined && stroke.pupilR !== null && stroke.pupilR !== '' && Number(stroke.pupilR) !== 3);
-  const eyeMemo = fd.memos?.stroke?.eye || '';
-  if(legacyPupilEntered || stroke.plrL || stroke.plrR || stroke.gaze || stroke.nyst || eyeMemo) {
-    const eyeParts = [];
-    if(legacyPupilEntered) eyeParts.push(`瞳孔 L:${formatPupilDiameter(stroke.pupilL)} R:${formatPupilDiameter(stroke.pupilR)}`);
-    if(stroke.plrL || stroke.plrR) eyeParts.push(`対光反射 L:${formatVitalValue(stroke.plrL)} R:${formatVitalValue(stroke.plrR)}`);
-    if(stroke.gaze) eyeParts.push(`共同偏視:${stroke.gaze}`);
-    if(stroke.nyst) eyeParts.push(`眼振:${stroke.nyst}`);
-    if(eyeMemo) eyeParts.push(eyeMemo);
-    strokeLines.push(`【瞳孔・眼球運動】${eyeParts.join('、')}`);
-  }
-  const motorMemo = fd.memos?.stroke?.motor || '';
-  const mmt = stroke.mmt || {};
-  const hasMotorFinding = ['ru', 'lu', 'rl', 'll'].some(key => mmt[key] !== undefined && Number(mmt[key]) !== 5);
-  if(hasMotorFinding || motorMemo) {
-    strokeLines.push(`【運動】MMT(${mmt.ru ?? '--'},${mmt.lu ?? '--'},${mmt.rl ?? '--'},${mmt.ll ?? '--'})${motorMemo ? ' ' + motorMemo : ''}`);
-  }
-  const reflexMemo = fd.memos?.stroke?.reflex || '';
-  if(stroke.btr || stroke.ptr || stroke.babinski || stroke.chaddock || reflexMemo) {
-    strokeLines.push(`【反射】BTR:${stroke.btr || '--'}, PTR:${stroke.ptr || '--'}${stroke.babinski ? ' Babinski(+)' : ''}${stroke.chaddock ? ' Chaddock(+)' : ''}${reflexMemo ? ' ' + reflexMemo : ''}`);
-  }
-  const higher = extractFindings(FD_STR_GROUPS.higher, chips);
-  const higherMemo = fd.memos?.stroke?.higher || '';
-  if(higher || higherMemo) strokeLines.push(`【高次脳機能・小脳】${[higher, higherMemo].filter(Boolean).join('。')}`);
-  if(stroke.nihssExpanded) strokeLines.push(`【NIHSS】${calcNihssTotal(stroke)}点${stroke.nihssMemo ? ' ' + stroke.nihssMemo : ''}`);
-  if(strokeLines.length) lines.push('（脳卒中）', ...strokeLines);
-
-  const cpaEvents = Array.isArray(fd.cpaEvents) ? fd.cpaEvents : [];
-  if(cpaEvents.length) {
-    lines.push('＜CPA記録＞');
-    cpaEvents.forEach((cpa, idx) => {
-      const isFirst = idx === 0;
-      if(cpaEvents.length > 1) lines.push(`【心停止イベント ${idx + 1}${!isFirst ? '（再心停止）' : ''}】`);
-      if(cpa.arrestTime) lines.push(`心停止時刻：${cpa.arrestTime}`);
-      if(cpa.rhythm) lines.push(`初期波形：${cpa.rhythm}`);
-      if(isFirst) {
-        lines.push(`目撃：${cpa.witnessed ? 'あり' : 'なし'}`);
-        lines.push(`バイスタンダーCPR：${cpa.bystander ? 'あり' : 'なし'}`);
-        if(cpa.cprStart) lines.push(`胸骨圧迫開始：${cpa.cprStart}`);
-        if(cpa.ivTime) lines.push(`末梢確保：${cpa.ivTime}`);
-      }
-      const changes = cpa.rhythmChanges || [];
-      if(changes.length > 1) lines.push(`波形変化：${changes.slice(1).map(change => `${change.time} ${change.rhythm}`).join(' → ')}`);
-      const defibTimes = cpa.defibrillationTimes || [];
-      if(defibTimes.length) lines.push(`除細動：${defibTimes.map((time, i) => `${i + 1}回目 ${time}`).join('、')}（計${defibTimes.length}回）`);
-      const adrenalineTimes = cpa.adrenalineTimes || [];
-      if(adrenalineTimes.length) lines.push(`アドレナリン投与：${adrenalineTimes.map((time, i) => `${i + 1}回目 ${time}`).join('、')}`);
-      const amiodaroneTimes = cpa.amiodaroneTimes || [];
-      if(amiodaroneTimes.length) {
-        lines.push(`アミオダロン投与：${amiodaroneTimes.map((item, i) => {
-          const time = typeof item === 'string' ? item : item.time;
-          const dose = typeof item === 'string' ? '' : (item.dose ? ` ${item.dose}` : '');
-          return `${i + 1}回目 ${time}${dose}`;
-        }).join('、')}`);
-      }
-      if(isFirst) {
-        if(cpa.lt) lines.push('LT挿入：実施');
-        if(cpa.intubation) lines.push(`気管挿管：${cpa.intubationTime || '実施'}`);
-        if(cpa.pericardio) lines.push(`心膜腔穿刺：${cpa.pericardioTime || '実施'}`);
-      }
-      appendCpaOutcomeFlowLines(lines, cpa, isFirst);
-      if(cpa.memo) lines.push(`メモ：${cpa.memo}`);
-    });
-  }
-  return lines;
-}
+function buildAllFdExamLines(fd) { return [buildClinicalReferralFindings(fd || {}, 'heli', false), ...buildRecordedCpaLines(fd || {})]; }
 
 function appendAllFdExamSections(r, fd) {
   r += '【身体所見】\n';
@@ -6971,6 +7025,7 @@ function buildReferralNeurology(stroke, app) {
 
 function buildClinicalReferralFindings(section, app, isEms) {
   const lines = buildReferralChipNarrative(section.chips);
+  if (isEms && section.stroke_onset) lines.push('発症時刻：' + section.stroke_onset);
   const titles = {head:'頭頚部',neck:'頸部',resp:'呼吸器',card:'循環器',chest:'胸部',abd:'腹部',pelvis:'骨盤',limb:'四肢',neuro:'神経',cn:'脳神経',motor:'運動',eye:'眼',higher:'高次機能',reflex:'反射',body:'全身',trunk:'体幹',memo:'自由記載'};
   for (const [group, memos] of Object.entries(section.memos || {})) {
     if (!memos || typeof memos !== 'object') continue;
@@ -6990,8 +7045,8 @@ function saveReferralDraft() {
   state.referralDraft = {...(state.referralDraft || {}), text: ta.value};
   const key = typeof generateDrCarReferralText === 'function' ? 'doctorCarV1' : 'heliRecordV5';
   try {
-    if (key === 'heliRecordV5') updateState();
-    else localStorage.setItem(key, JSON.stringify(state));
+    if (key === 'heliRecordV5') persistCurrentClinicalRecord();
+    else writeClinicalStorage(key, state);
   }
   catch (e) { alert('紹介状の編集内容を保存できませんでした。画面を閉じる前に本文をコピーしてください。'); }
 }
@@ -7042,7 +7097,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.21\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.22\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
@@ -7071,99 +7126,8 @@ function generateReport() {
   });
 
   r = appendAllFdExamSections(r, state.fd);
-  const fTab = '__all_sections_rendered__';
-  if(fTab==='general') {
-
-    const headS = extractFindings(FD_GEN_GROUPS.head, state.fd.chips);
-    const headM = state.fd.memos.general.head;
-    if(headS||headM) r+=`  【頭頚部】${[headS,headM].filter(Boolean).join('。')}\n`;
-
-    const respS = extractFindings(FD_GEN_GROUPS.resp, state.fd.chips);
-    const respM = state.fd.memos.general.resp;
-    const cardS = extractFindings(FD_GEN_GROUPS.card, state.fd.chips);
-    const cardM = state.fd.memos.general.card;
-    const chestContent = [respS,respM,cardS,cardM].filter(Boolean);
-    if(chestContent.length > 0) r+=`  【胸部】${chestContent.join('。')}\n`;
-
-    [['腹部',FD_GEN_GROUPS.abd,'abd'],['四肢',FD_GEN_GROUPS.limb,'limb'],['神経',FD_GEN_GROUPS.neuro,'neuro']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.general[k]; if(s||m)r+=`  【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
-  }
-  else if(fTab==='trauma') [['頭部・顔面',FD_TRA_GROUPS.head,'head'],['頸部',FD_TRA_GROUPS.neck,'neck'],['胸部',FD_TRA_GROUPS.chest,'chest'],['腹部',FD_TRA_GROUPS.abd,'abd'],['骨盤',FD_TRA_GROUPS.pelvis,'pelvis'],['四肢',FD_TRA_GROUPS.limb,'limb']].forEach(([t,d,k])=>{ const s=extractFindings(d,state.fd.chips),m=state.fd.memos.trauma[k]; if(s||m)r+=`  【${t}】${[s,m].filter(Boolean).join('。')}\n`; });
-  else if(fTab==='stroke') {
-    const cn = extractFindings(FD_STR_GROUPS.cn, state.fd.chips); const cnM = state.fd.memos?.stroke?.cn || ''; if(cn||cnM) r+=`  【脳神経】${[cn,cnM].filter(Boolean).join('。')}\n`;
-    const str = state.fd.stroke || {};
-    let eyeLine = `L:${str.pupilL ?? '--'}mm R:${str.pupilR ?? '--'}mm, PLR L:${str.plrL || '--'} R:${str.plrR || '--'}`;
-    if(str.gaze||str.nyst) eyeLine += `, 共同偏視:${str.gaze||'--'}, 眼振:${str.nyst||'--'}`;
-    const eyeM = state.fd.memos?.stroke?.eye || ''; if(eyeM) eyeLine += ' '+eyeM;
-    r+=`  【瞳孔・眼球運動】${eyeLine}\n`;
-    const motorM = state.fd.memos?.stroke?.motor || '';
-    r+=`  【運動】MMT(${str.mmt?.ru ?? '--'},${str.mmt?.lu ?? '--'},${str.mmt?.rl ?? '--'},${str.mmt?.ll ?? '--'})${motorM ? ' '+motorM : ''}\n`;
-    const reflexM = state.fd.memos?.stroke?.reflex || '';
-    if(str.btr||str.ptr||str.babinski||str.chaddock||reflexM) r+=`  【反射】BTR:${str.btr||'--'}, PTR:${str.ptr||'--'}${str.babinski?' Babinski(+)':''}${str.chaddock?' Chaddock(+)':''}${reflexM ? ' '+reflexM : ''}\n`;
-    const higher = extractFindings(FD_STR_GROUPS.higher, state.fd.chips); const higherM = state.fd.memos?.stroke?.higher || ''; if(higher||higherM) r+=`  【高次脳機能・小脳】${[higher,higherM].filter(Boolean).join('。')}\n`;
-    if (str.nihssExpanded) {
-      r += `  【NIHSS】${calcNihssSum()}点${str.nihssMemo ? ' ' + str.nihssMemo : ''}\n`;
-    }
-  }
-  else if(fTab==='cpa' && state.fd.cpaEvents && state.fd.cpaEvents.length > 0) {
-    r += '\n＜CPA記録＞\n';
-    state.fd.cpaEvents.forEach((cpa, idx) => {
-      const isFirst = idx === 0;
-      if(state.fd.cpaEvents.length > 1) r += `\n【心停止イベント ${idx + 1}${!isFirst ? '（再心停止）' : ''}】\n`;
-      if(cpa.arrestTime) r += `心停止時刻：${cpa.arrestTime}\n`;
-      if(cpa.rhythm) r += `初期波形：${cpa.rhythm}\n`;
-      if(isFirst) {
-        r += `目撃：${cpa.witnessed ? 'あり' : 'なし'}\n`;
-        r += `バイスタンダーCPR：${cpa.bystander ? 'あり' : 'なし'}\n`;
-        if(cpa.cprStart) r += `胸骨圧迫開始：${cpa.cprStart}\n`;
-        if(cpa.ivTime) r += `末梢確保：${cpa.ivTime}\n`;
-      }
-      const changes = cpa.rhythmChanges || [];
-      if(changes.length > 1) {
-        r += `波形変化：${changes.slice(1).map(c => `${c.time} ${c.rhythm}`).join(' → ')}\n`;
-      }
-      const defibTimes = cpa.defibrillationTimes || [];
-      if(defibTimes.length > 0) {
-        r += `除細動：${defibTimes.map((t,i) => `${i+1}回目 ${t}`).join('、')}（計${defibTimes.length}回）\n`;
-      }
-      if(cpa.adrenalineTimes && cpa.adrenalineTimes.length > 0) {
-        r += `アドレナリン投与：${cpa.adrenalineTimes.map((t,i) => `${i+1}回目 ${t}`).join('、')}\n`;
-      }
-      const amioTimes = cpa.amiodaroneTimes || [];
-      if(amioTimes.length > 0) {
-        r += `アミオダロン投与：${amioTimes.map((a,i) => {
-          const time = typeof a === 'string' ? a : a.time;
-          const dose = typeof a === 'string' ? '' : (a.dose ? ` ${a.dose}` : '');
-          return `${i+1}回目 ${time}${dose}`;
-        }).join('、')}\n`;
-      }
-      if(isFirst) {
-        if(cpa.lt) r += `LT挿入：実施\n`;
-        if(cpa.intubation) r += `気管挿管：${cpa.intubationTime || '実施'}\n`;
-        if(cpa.pericardio) r += `心膜腔穿刺：${cpa.pericardioTime || '実施'}\n`;
-      }
-      const outcomeFlowLines = [];
-      appendCpaOutcomeFlowLines(outcomeFlowLines, cpa, isFirst);
-      if(outcomeFlowLines.length) r += outcomeFlowLines.join('\n') + '\n';
-      if(cpa.memo) r += `メモ：${cpa.memo}\n`;
-    });
-  }
-  
-  r += '\n';
-
-  let exams = [];
-  if(state.fd.exams?.bs && state.fd.bs) exams.push(`BS:${state.fd.bs}mg/dL`);
-  const examLabels = {ucg:'UCG',us_abd:'腹部US',us_lung:'肺US',us_neck:'頸部血管US',ecg:'12誘導心電図',fast:'FAST',efast:'eFAST'};
-  ['ucg','us_abd','us_lung','us_neck','ecg','fast','efast'].forEach(t => {
-    if(state.fd.exams?.[t] && state.fd.exam_texts?.[t]) exams.push(`${examLabels[t]}:${state.fd.exam_texts[t]}`);
-  });
-  if(state.fd.abg_type && state.fd.abg_data && state.fd.abg_data.length > 0) {
-    const abgStr = state.fd.abg_data.map(d=>`${d.item}:${d.val}${d.unit}`).join(' ');
-    exams.push(`${state.fd.abg_type} ${abgStr}`);
-  }
-  if(state.fd.exam_detail) exams.push(state.fd.exam_detail);
-  if(exams.length > 0) r += `【検査】${exams.join('、')}\n`;
-  
-
+  const exams = buildRecordedExamLines(state.fd);
+  if (exams.length) r += '\n【検査】' + exams.join('、') + '\n';
   const fdProcItems = (state.fd.procedures_items || []).filter(k => state.fd.procedures[k]);
   if(fdProcItems.length > 0 || state.fd.procedure_detail) {
     r += '【処置】';
@@ -7244,7 +7208,12 @@ function importRecordStateFromText(jsonText) {
   state = normalizeRecordState(parsed);
   migrateAssessState();
   migrateEmsMechanicalCompressionTerminology();
-  normalRecordState = cloneRecordState(state);
+  if (mciDetailRecordMode) {
+    blockedClinicalStorage.delete(MCI_STORAGE_KEY);
+  } else {
+    normalRecordState = cloneRecordState(state);
+    writeClinicalStorage('heliRecordV5', state, true);
+  }
   restoreUI();
   updateState();
   return state;
@@ -7269,15 +7238,11 @@ function loadDataFromInput(input) {
   };
   reader.readAsText(file);
 }
-function clearHeliDraftStorage() {
-  HELI_DRAFT_STORAGE_KEYS.forEach((key) => {
-    try { localStorage.removeItem(key); } catch {   }
-  });
-}
+function clearHeliDraftStorage() { return HELI_DRAFT_STORAGE_KEYS.every(key => clearClinicalStorage(key)); }
 function resetData() {
   if (!confirm('活動記録・多数傷・連携下書きをすべて消去します。よろしいですか？')) return;
 
-  clearHeliDraftStorage();
+  if (!clearHeliDraftStorage()) return;
   const url = new URL(location.href);
   url.searchParams.delete('tab');
   location.replace(url.pathname + url.search + url.hash);
@@ -7286,7 +7251,7 @@ function resetData() {
 function cancelRequestAndReset() {
   if (!confirm('要請キャンセルとして終了します。\n活動記録・診療情報提供書は作成せず、入力データを消去します。よろしいですか？')) return;
 
-  clearHeliDraftStorage();
+  if (!clearHeliDraftStorage()) return;
   const url = new URL(location.href);
   url.searchParams.delete('tab');
   location.replace(url.pathname + url.search + url.hash);
@@ -7320,7 +7285,7 @@ function migrateEmsMechanicalCompressionTerminology() {
 function restoreUI() {
   state = normalizeRecordState(state);
   const EMS_DEF = {aware:'',arrival:'',contact:'',lz:'',vitals:[],exam_tab:'general',chips:{},memos:{general:{},trauma:{},stroke:{memo:''},cpa:{memo:''}},stroke_motor:defaultEmsStrokeMotor(),stroke_onset:'',procedures:{},procedures_items:['頚椎カラー','全身固定','吸引','酸素投与','BVM換気','気管挿管','LT挿入','静脈路確保','ブドウ糖投与','ショック輸液','圧迫止血','胸骨圧迫','自動胸骨圧迫装置','除細動','アドレナリン'],o2_flow:'',procedures_detail:''};
-  const FD_DEF = {vitals:[],exam_tab:'general',chips:{},memos:{},exams:{bs:false,ucg:false,us_abd:false,us_lung:false,us_neck:false,ecg:false,fast:false,efast:false},exam_texts:{ucg:'',us_abd:'',us_lung:'',us_neck:'',ecg:'',fast:'',efast:''},exam_form:null,intubation:{time:'',size:'7.0'},nppv:{mode:'',fio2:0.21,ipap:10,epap:5,peep:5},nppv_history:[],bs:120,abg_type:'',abg_data:[],exam_detail:'',cpaEvents:[],stroke:{},procedures:{},procedures_items:['酸素投与','BVM','NPPV','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],procedure_detail:'',drugs:{},drugs_items:['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'],drug_details:{},drug_detail:''};
+  const FD_DEF = {vitals:[],exam_tab:'general',chips:{},memos:{},exams:{bs:false,ucg:false,us_abd:false,us_lung:false,us_neck:false,ecg:false,fast:false,efast:false},exam_texts:{ucg:'',us_abd:'',us_lung:'',us_neck:'',ecg:'',fast:'',efast:''},exam_form:null,intubation:{time:'',size:'7.0'},nppv:{mode:'',fio2:0.21,ipap:10,epap:5,peep:5},nppv_history:[],bs:'',abg_type:'',abg_data:[],exam_detail:'',cpaEvents:[],stroke:{},procedures:{},procedures_items:['酸素投与','BVM','NPPV','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],procedure_detail:'',drugs:{},drugs_items:['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'],drug_details:{},drug_detail:''};
   if(!state.ems) { state.ems = Object.assign({}, EMS_DEF); state.ems.vitals = []; state.ems.procedures = {}; state.ems.chips = {}; }
   if(!state.fd) { state.fd = Object.assign({}, FD_DEF); state.fd.vitals = []; state.fd.procedures = {}; state.fd.chips = {}; state.fd.drugs = {}; }
   ensureEmsStrokeMotor();
@@ -7370,7 +7335,7 @@ function restoreUI() {
   if (o2Disp) o2Disp.textContent = e.o2_flow || '－';
   const o2Amt = $('#ems_o2_amount');
   if (o2Amt) o2Amt.style.display = e.procedures['酸素投与'] ? 'block' : 'none';
-  $('#fd_bs_display').textContent=f.bs; $('#fd_bs').value=f.bs; $('#fd_abg_type').value=f.abg_type; migrateAbgData(); toggleAbg(false);
+  $('#fd_bs_display').textContent=f.bs === '' ? '未入力' : (f.bs ?? '未入力'); $('#fd_bs').value=f.bs; $('#fd_abg_type').value=f.abg_type; migrateAbgData(); toggleAbg(false);
   if(!f.drug_details) f.drug_details = {};
   restoreFdExamUi();
   if(f.stroke){
@@ -7588,16 +7553,12 @@ function ensureMciDefaults() {
   });
 }
 
-function clearMciLocalStorage() {
-  try { localStorage.removeItem(MCI_STORAGE_KEY); } catch {   }
-}
+function clearMciLocalStorage() { return clearClinicalStorage(MCI_STORAGE_KEY); }
 
-function saveMciState() {
-  localStorage.setItem(MCI_STORAGE_KEY, JSON.stringify(mci));
-}
+function saveMciState() { return writeClinicalStorage(MCI_STORAGE_KEY, mci); }
 
 function loadMciState() {
-  const saved = localStorage.getItem(MCI_STORAGE_KEY);
+  const saved = readClinicalStorage(MCI_STORAGE_KEY);
   if(saved) {
     try { mci = JSON.parse(saved); }
     catch(e) { mci = defaultMciState(); }
@@ -7726,7 +7687,7 @@ function saveCurrentMciDetailRecord() {
   p.hasDetailTab = true;
   syncMciCardDemographicsFromDetailState(p);
   syncMciPatientCardFromDetail(p);
-  saveMciState();
+  return saveMciState();
 }
 
 function syncMciPatientCardFromDetail(p) {
@@ -7853,10 +7814,7 @@ function formatMciBoardHospitalLine(p) {
 
 function generateReportFromData(data) {
   const previous = state;
-  state = data;
-  const text = generateReport();
-  state = previous;
-  return text;
+  try { state = data; return generateReport(); } finally { state = previous; }
 }
 
 function switchAppMode(forceMode) {
@@ -8275,8 +8233,8 @@ function renderMciPatients() {
     return `<div class="patient-card ${tag.className} ${p.open ? 'open' : ''} ${p.detailState ? 'has-detail' : ''}">
       <div class="patient-card-main">
         <div class="patient-card-main-body" onclick="toggleMciPatientCard(${p.id})">
-          <div class="patient-title">No.${p.id} ${boardAgeTitle(p)}/${p.sex || '性別不詳'}${p.detailState ? '<span class="detail-badge">詳細あり</span>' : ''}</div>
-          <div class="patient-meta">🩹 ${injury}<br>💉 ${treatment}<br>🏥 ${formatMciBoardHospitalLine(p)}</div>
+          <div class="patient-title">No.${p.id} ${escapeHtml(boardAgeTitle(p))}/${escapeHtml(p.sex || '性別不詳')}${p.detailState ? '<span class="detail-badge">詳細あり</span>' : ''}</div>
+          <div class="patient-meta">🩹 ${escapeHtml(injury)}<br>💉 ${escapeHtml(treatment)}<br>🏥 ${escapeHtml(formatMciBoardHospitalLine(p))}</div>
         </div>
         <div class="patient-card-main-aside">
           <div class="patient-tag">${tag.icon} ${tag.label}</div>
@@ -8354,7 +8312,9 @@ function renderMciSummary() {
 
 function copyMciSummary(tag, includeDetail = false) {
   updateCurrentMciPatientFromUI();
-  const text = generateMciSummary(tag, includeDetail);
+  let text;
+  try { text = generateMciSummary(tag, includeDetail); }
+  catch (e) { alert('多数傷の文書生成に失敗しました。入力内容の保存状況は保存・復元で確認してください。'); return; }
 
 
   navigator.clipboard.writeText(text).then(() => showMciCopyToast(includeDetail)).catch(() => {
@@ -8419,7 +8379,7 @@ function showMciCopyToast(forDetail = true) {
 
 function init() {
   forceUnlockScrollIfNeeded();
-  const saved = localStorage.getItem('heliRecordV5') || localStorage.getItem('heliRecordV41');
+  const saved = readClinicalStorage('heliRecordV5') || (!blockedClinicalStorage.has('heliRecordV5') ? readClinicalStorage('heliRecordV41') : null);
   if(saved) {
     try { state = normalizeRecordState(JSON.parse(saved)); }
     catch(e) { console.warn('保存済み活動記録の復元に失敗:', e); state = normalizeRecordState(BASE_RECORD_STATE); }
@@ -8441,7 +8401,7 @@ function init() {
   if(state.patient.food_allergy === undefined) state.patient.food_allergy = '';
   if(state.patient.drug_allergy === undefined) state.patient.drug_allergy = '';
   const EMS_DEF = {aware:'',arrival:'',contact:'',departure:'',lz:'',vitals:[],exam_tab:'general',chips:{},memos:{general:{},trauma:{},stroke:{memo:''},cpa:{memo:''}},stroke_motor:defaultEmsStrokeMotor(),stroke_onset:'',procedures:{},procedures_items:['頚椎カラー','全身固定','吸引','酸素投与','BVM換気','気管挿管','LT挿入','静脈路確保','ブドウ糖投与','ショック輸液','圧迫止血','胸骨圧迫','自動胸骨圧迫装置','除細動','アドレナリン'],o2_flow:'',procedures_detail:''};
-  const FD_DEF = {vitals:[],exam_tab:'general',chips:{},memos:{},exams:{bs:false,ucg:false,us_abd:false,us_lung:false,us_neck:false,ecg:false,fast:false,efast:false},exam_texts:{ucg:'',us_abd:'',us_lung:'',us_neck:'',ecg:'',fast:'',efast:''},exam_form:null,intubation:{time:'',size:'7.0'},nppv:{mode:'',fio2:0.21,ipap:10,epap:5,peep:5},nppv_history:[],bs:120,abg_type:'',abg_data:[],exam_detail:'',cpaEvents:[],stroke:{},procedures:{},procedures_items:['酸素投与','BVM','NPPV','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],procedure_detail:'',drugs:{},drugs_items:['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'],drug_details:{},drug_detail:''};
+  const FD_DEF = {vitals:[],exam_tab:'general',chips:{},memos:{},exams:{bs:false,ucg:false,us_abd:false,us_lung:false,us_neck:false,ecg:false,fast:false,efast:false},exam_texts:{ucg:'',us_abd:'',us_lung:'',us_neck:'',ecg:'',fast:'',efast:''},exam_form:null,intubation:{time:'',size:'7.0'},nppv:{mode:'',fio2:0.21,ipap:10,epap:5,peep:5},nppv_history:[],bs:'',abg_type:'',abg_data:[],exam_detail:'',cpaEvents:[],stroke:{},procedures:{},procedures_items:['酸素投与','BVM','NPPV','気管挿管','胸腔ドレナージ','開胸','輸液','輸血','骨盤固定','止血処置','CPR','除細動','経皮ペーシング'],procedure_detail:'',drugs:{},drugs_items:['アドレナリン','ミダゾラム','ジアゼパム','アトロピン','メイロン','レペタン','トランサミン','アセリオ','メトクロプラミド','エスラックス'],drug_details:{},drug_detail:''};
   if(!state.ems) { state.ems = Object.assign({}, EMS_DEF); state.ems.vitals = []; state.ems.procedures = {}; state.ems.chips = {}; }
   if(!state.fd) { state.fd = Object.assign({}, FD_DEF); state.fd.vitals = []; state.fd.procedures = {}; state.fd.chips = {}; state.fd.drugs = {}; }
   ensureEmsStrokeMotor();
@@ -8458,6 +8418,7 @@ function init() {
   $('#copyOut').onclick=()=>{
     if (!ensureTransportSchemeSelected()) return;
     updateState();
+    if (clinicalRenderFailed) { alert('活動記録の生成に失敗しています。保存・復元から状況を確認してください。'); return; }
 
     navigator.clipboard.writeText($('#outText').textContent);
     const b=$('#copyOut'); b.textContent='✓ コピーしました'; setTimeout(()=>b.textContent='📋 活動記録をコピー',1500);
@@ -8650,27 +8611,9 @@ function buildReferralEmsTreatment(data) {
 }
 
 
-function buildReferralFdFindings(data) {
-  const fd = data.fd || {};
-  const lines = buildAllFdExamLines({cpaEvents: fd.cpaEvents || []});
-  return [buildClinicalReferralFindings(fd, 'heli', false), ...lines].join('\n');
-}
+function buildReferralFdFindings(data) { return buildAllFdExamLines(data.fd).join('\n'); }
 
-function buildReferralExamText(data) {
-  const fd = data.fd || {};
-  const exams = [];
-  if (fd.exams?.bs && fd.bs) exams.push(`BS:${fd.bs}mg/dL`);
-  const examLabels = { ucg: 'UCG', us_abd: '腹部US', us_lung: '肺US', us_neck: '頸部血管US', ecg: '12誘導心電図', fast: 'FAST', efast: 'eFAST' };
-  ['ucg', 'us_abd', 'us_lung', 'us_neck', 'ecg', 'fast', 'efast'].forEach(t => {
-    if (fd.exams?.[t] && fd.exam_texts?.[t]) exams.push(`${examLabels[t]}:${fd.exam_texts[t]}`);
-  });
-  if (fd.abg_type && fd.abg_data && fd.abg_data.length > 0) {
-    const abgStr = fd.abg_data.map(d => `${d.item}:${d.val}${d.unit}`).join(' ');
-    exams.push(`${fd.abg_type} ${abgStr}`);
-  }
-  if (fd.exam_detail) exams.push(fd.exam_detail);
-  return exams.length > 0 ? exams.join('、') : '';
-}
+function buildReferralExamText(data) { return buildRecordedExamLines(data.fd).join('、'); }
 
 function buildReferralFdProcedures(data) {
   const fd = data.fd || {};
