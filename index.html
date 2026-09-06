@@ -65,7 +65,7 @@
 
 
 
-<title>ドクターヘリ活動記録 v5.1.23 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.24 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -1101,7 +1101,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.23 多数傷対応</p>
+    <p class="sub">heli record v5.1.24 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
@@ -1761,6 +1761,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
           <button class="btn small" onclick="addAbgSet()">セット追加</button>
           <button class="btn small ghost" onclick="clearAbg()">クリア</button>
         </div>
+        <div class="muted" style="font-size:12px;margin-bottom:8px">数値をタップして各桁を選択し、完了で確定します。数値を長押しすると直接入力できます。未入力の項目は出力されません。</div>
         <div id="abg_pills" class="labline"></div>
       </div>
       
@@ -5441,6 +5442,8 @@ const ABG_ITEMS = [
   {item:'BE',unit:'mEq/L',normal:'0.0'},
   {item:'Lac',unit:'mmol/L',normal:'1.0'},
   {item:'Na',unit:'mEq/L',normal:'140.0'},
+  {item:'K',unit:'mEq/L',normal:'4.0'},
+  {item:'Hb',unit:'g/dL',normal:'12.0'},
   {item:'Cr',unit:'mg/dL',normal:'0.80'},
   {item:'COHb',unit:'%',normal:'1.0'}
 ];
@@ -5453,7 +5456,9 @@ const ABG_SCHEMA = {
   'BE': { signed: true, intDigits: 2, decDigits: 1, min: -30, max: 30.9 },
   'Lac': { intDigits: 2, decDigits: 1, min: 0, max: 30.9 },
   'Na': { intPrefix: '1', intDigits: 2, decDigits: 1, min: 100, max: 180.9 },
-  'Cr': { intDigits: 1, decDigits: 2, min: 0.1, max: 9.99 },
+  'K': { intDigits: 2, decDigits: 1, min: 0, max: 99.9 },
+  'Hb': { intDigits: 2, decDigits: 1, min: 0, max: 99.9 },
+  'Cr': { intDigits: 2, decDigits: 2, min: 0.1, max: 15 },
   'COHb': { intDigits: 2, decDigits: 1, min: 0, max: 99.9 }
 };
 
@@ -5555,7 +5560,6 @@ function composeAbgValue(item, selected) {
   let n = parseFloat(intStr + '.' + decStr);
   if(isNaN(n)) n = 0;
   n *= sign;
-  n = Math.max(schema.min, Math.min(schema.max, n));
   return n.toFixed(schema.decDigits);
 }
 
@@ -5578,9 +5582,6 @@ function migrateAbgData() {
   ABG_ITEMS.forEach(it => {
     if(!have.has(it.item)) state.fd.abg_data.push({ item: it.item, unit: it.unit, val: '' });
   });
-  state.fd.abg_data.forEach(rec => {
-    if(ABG_SCHEMA[rec.item] && rec.val !== '' && rec.val != null) rec.val = formatAbgStored(rec.item, rec.val);
-  });
 }
 
 function toggleAbg(shouldSave = true) {
@@ -5595,9 +5596,6 @@ function addAbgSet() {
       state.fd.abg_data.push({ item: it.item, unit: it.unit, val: '' });
     }
   });
-  state.fd.abg_data.forEach(rec => {
-    if(ABG_SCHEMA[rec.item] && rec.val !== '' && rec.val != null) rec.val = formatAbgStored(rec.item, rec.val);
-  });
   renderAbgPills();
   updateState();
 }
@@ -5609,7 +5607,13 @@ function openAbgDial(idx) {
   const wheels = buildAbgDigitWheels(rec.item, rec.val);
   const title = rec.unit ? `${rec.item} (${rec.unit})` : rec.item;
   openDial(title, wheels, vals => {
-    rec.val = composeAbgValue(rec.item, vals);
+    const value = composeAbgValue(rec.item, vals);
+    const schema = ABG_SCHEMA[rec.item];
+    if(!Number.isFinite(Number(value)) || Number(value) < schema.min || Number(value) > schema.max) {
+      alert(`${rec.item} は ${schema.min}～${schema.max} の範囲で入力してください`);
+      return;
+    }
+    rec.val = value;
     renderAbgPills();
     updateState();
   }, { compact: true });
@@ -5621,8 +5625,8 @@ function openAbgManualInput(idx) {
   if(!schema) return;
   const newVal = prompt(`${rec.item} の値を入力 (${schema.min}～${schema.max})`, rec.val);
   if(newVal !== null && newVal.trim() !== '') {
-    const num = parseFloat(newVal.trim());
-    if(!isNaN(num) && num >= schema.min && num <= schema.max) {
+    const num = Number(newVal.trim());
+    if(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(newVal.trim()) && Number.isFinite(num) && num >= schema.min && num <= schema.max) {
       rec.val = composeAbgValue(rec.item, abgSelectedFromParts(rec.item, splitAbgValue(rec.item, String(num))));
       renderAbgPills();
       updateState();
@@ -5649,6 +5653,7 @@ function renderAbgPills() {
       if(!isLong) openAbgDial(i);
     });
     valSpan.addEventListener('touchmove', () => clearTimeout(timer));
+    valSpan.addEventListener('touchcancel', () => clearTimeout(timer));
     valSpan.addEventListener('click', (e) => {
       e.stopPropagation();
       openAbgDial(i);
@@ -7100,7 +7105,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.23\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.24\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+(state.request.type||'--')+' '+(state.request.time||'')+'\n'+(state.request.detail||'')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {

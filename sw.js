@@ -10,7 +10,7 @@
 
 
 const CACHE_PREFIX = 'heli-record-';
-const CACHE_NAME = 'heli-record-v5.1.23-20260906b';
+const CACHE_NAME = 'heli-record-v5.1.24-20260906b';
 const urlsToCache = [
   './index.html',
   './manifest.json',
