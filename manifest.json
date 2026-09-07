@@ -1,0 +1,16 @@
+{
+  "name": "ドクターヘリ活動記録",
+  "short_name": "ヘリ記録",
+  "description": "ドクターヘリ医師用活動記録アプリケーション",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f2f2f7",
+  "theme_color": "#007aff",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
