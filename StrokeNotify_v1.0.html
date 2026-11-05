@@ -12,7 +12,7 @@
 <meta property="og:title" content="Stroke Notify">
 <meta property="og:description" content="脳卒中通知チェックリスト">
 <meta property="og:type" content="website">
-<link rel="manifest" href="manifest-stroke.json">
+<link rel="manifest" href="manifest.json">
 <script src="related-apps.js"></script>
 <style>
   :root {
@@ -828,15 +828,15 @@
         </button>
         <div class="conscious-gcs">
           <button type="button" class="gcs-part" data-gcs-field="gcs_e" aria-label="GCS E">
-            <span class="lbl">E</span><span class="val" id="gcs_e_display">4</span>
+            <span class="lbl">E</span><span class="val" id="gcs_e_display">--</span>
           </button>
           <button type="button" class="gcs-part" data-gcs-field="gcs_v" aria-label="GCS V">
-            <span class="lbl">V</span><span class="val" id="gcs_v_display">5</span>
+            <span class="lbl">V</span><span class="val" id="gcs_v_display">--</span>
           </button>
           <button type="button" class="gcs-part" data-gcs-field="gcs_m" aria-label="GCS M">
-            <span class="lbl">M</span><span class="val" id="gcs_m_display">6</span>
+            <span class="lbl">M</span><span class="val" id="gcs_m_display">--</span>
           </button>
-          <span class="gcs-sum" id="gcs_sum_display">15</span>
+          <span class="gcs-sum" id="gcs_sum_display">--</span>
         </div>
       </div>
     </div>
@@ -1045,6 +1045,63 @@ const ANTIPLATELET_DRUGS = ['バイアスピリン', 'プラビックス', 'エ�
 const HELI_STROKE_BRIDGE_KEY = 'heli_stroke_bridge_v1';
 const STROKE_TO_HELI_BRIDGE_KEY = 'stroke_notify_to_heli_bridge_v1';
 
+function hasVitalValue(value) {
+  return value !== undefined && value !== null && value !== '';
+}
+
+function getVitalField(v, field) {
+  return field.startsWith('gcs_') ? v?.gcs?.[field.slice(-1)] : v?.[field];
+}
+
+function setVitalField(v, field, value) {
+  if(field.startsWith('gcs_')) {
+    if(!v.gcs || typeof v.gcs !== 'object') v.gcs = {e:'', v:'', m:''};
+    v.gcs[field.slice(-1)] = value;
+  } else v[field] = value;
+  if(v.pending) delete v.pending[field];
+}
+
+function emptyVitalRecord(time = '', timeSource = '') {
+  return {inputVersion:1, time, timeSource, sbp:'', dbp:'', hr:'', rr:'', spo2:'', bt:'',
+    jcs:'', gcs:{e:'',v:'',m:''}, pupilL:'', pupilR:'', plrL:'', plrR:'', pending:{}};
+}
+
+function normalizeVitalRecord(input) {
+  const v = {...emptyVitalRecord(), ...input, gcs:{e:'',v:'',m:'', ...input?.gcs}, pending:{...input?.pending}};
+  if(input?.inputVersion !== 1) {
+    for(const field of ['sbp','dbp','hr','rr','spo2','bt','jcs','gcs_e','gcs_v','gcs_m','pupilL','pupilR','plrL','plrR']) {
+      const value = getVitalField(v, field);
+      if(hasVitalValue(value)) v.pending[field] = value;
+      if(field.startsWith('gcs_')) v.gcs[field.slice(-1)] = '';
+      else v[field] = '';
+    }
+  }
+  v.inputVersion = 1;
+  return v;
+}
+
+function vitalDialValue(v, field, fallback) {
+  const recorded = getVitalField(v, field);
+  const value = hasVitalValue(recorded) ? recorded : v?.pending?.[field];
+  return hasVitalValue(value) && !['未測定','×'].includes(String(value)) ? value : fallback;
+}
+
+function vitalGcsSum(g = {}) {
+  if(!['e','v','m'].every(k => hasVitalValue(g[k]))) return '--';
+  if(g.v === 'T') return `${Number(g.e) + Number(g.m)}T`;
+  const sum = Number(g.e) + Number(g.v) + Number(g.m);
+  return Number.isFinite(sum) ? sum : '--';
+}
+
+function vitalGcsText(g = {}) {
+  const fields = ['e','v','m'].filter(k => hasVitalValue(g[k]));
+  if(!fields.length) return '';
+  const parts = fields.map(k => k.toUpperCase() + String(g[k])).join('');
+  const sum = vitalGcsSum(g);
+  return sum === '--' ? parts + '（一部未入力）' : parts + `(${sum})`;
+}
+
+
 class StrokeNotifyApp {
   constructor() {
     this.storage_key = 'stroke_notify_draft_v4';
@@ -1081,8 +1138,9 @@ class StrokeNotifyApp {
       flags: tri,
       contacts: [{ relation: null, detail: '' }],
       lvo_manual: false,
+      inputVersion: 1, pending: {}, consciousEdits: {},
       jcs: '',
-      gcs: { e: 4, v: 5, m: 6 }
+      gcs: { e: '', v: '', m: '' }
     };
   }
 
@@ -1092,29 +1150,35 @@ class StrokeNotifyApp {
     this.renderMedicationUi();
     this.bindEvents();
     this.initIntegration();
-    this.loadDraft();
-    this.applyHeliBridge();
+    if(this.integration.from) this.applyHeliBridge();
+    else this.loadDraft();
     this.renderConsciousUi();
     this.updatePreview();
   }
 
   applyHeliBridge() {
-    let raw;
-    try { raw = localStorage.getItem(HELI_STROKE_BRIDGE_KEY); } catch { return; }
-    if (!raw) return;
     try {
-      const snap = JSON.parse(raw);
-      this.applyHeliSnapshot(snap);
-      localStorage.removeItem(HELI_STROKE_BRIDGE_KEY);
-      this.showToast('ヘリ記録から項目を反映しました');
-    } catch {   }
+      const visit = new URL(location.href).searchParams.get('visit');
+      const snap = JSON.parse(sessionStorage.getItem(HELI_STROKE_BRIDGE_KEY));
+      if(!visit || snap?.link?.visit !== visit || !/^[a-f0-9]{32}$/.test(snap.link.caseId)) throw Error();
+      this.link = snap.link;
+      this.storage_key += ':' + this.link.caseId;
+      const draft = this.loadDraft();
+      if(draft?.visit !== visit) this.applyHeliSnapshot(snap);
+      this.saveDraft();
+      const target = this.link.doctorRow ? '医師の観察（'+(this.link.timeLabel || this.link.time || '時刻未入力')+'）を訂正' : '医師の再評価として記録';
+      document.getElementById('status-bar').textContent = (this.link.patientId ? '傷病者No.'+this.link.patientId+' ／ ' : '') + target;
+    } catch {
+      this.storage_key = null;
+      document.getElementById('status-bar').textContent = '連携元の症例を確認できません。活動記録から開き直してください。';
+    }
   }
 
   applyHeliSnapshot(snap) {
     if (!snap) return;
     if (snap.fields) {
       Object.entries(snap.fields).forEach(([id, v]) => {
-        if (v == null || v === '') return;
+        if (v == null) return;
         const el = document.getElementById(id);
         if (el) el.value = v;
       });
@@ -1124,11 +1188,13 @@ class StrokeNotifyApp {
       return;
     }
     const s = snap.state;
-    const def = this.defaultState();
-    if (s.jcs != null && s.jcs !== '') this.state.jcs = String(s.jcs);
-    if (s.gcs && typeof s.gcs === 'object') {
-      this.state.gcs = { ...def.gcs, ...s.gcs };
-    }
+    this.state.consciousEdits = {};
+    this.state.assessedTime = '';
+    const conscious = normalizeVitalRecord(s);
+    this.state.jcs = conscious.jcs;
+    this.state.gcs = conscious.gcs;
+    this.state.inputVersion = 1;
+    this.state.pending = conscious.pending;
     if (s.anticoagulant != null) this.state.anticoagulant = s.anticoagulant;
     if (Array.isArray(s.anticoagulant_drugs)) this.state.anticoagulant_drugs = [...s.anticoagulant_drugs];
     if (s.antiplatelet != null) this.state.antiplatelet = s.antiplatelet;
@@ -1140,7 +1206,7 @@ class StrokeNotifyApp {
       if (totalEl) totalEl.value = String(s.lvo.length);
     }
     if (s.checks && typeof s.checks === 'object') {
-      this.state.checks = { ...def.checks, ...s.checks };
+      this.state.checks = { ...this.state.checks, ...s.checks };
     }
     if (Array.isArray(s.preadl)) this.state.preadl = [...s.preadl];
     this.syncUiFromState();
@@ -1149,14 +1215,20 @@ class StrokeNotifyApp {
   }
 
   persistBridgeToHeli() {
+    if(!this.link) return !this.integration.from;
     try {
+      const snap = JSON.parse(sessionStorage.getItem(HELI_STROKE_BRIDGE_KEY));
+      if(snap?.link?.visit !== this.link.visit) throw Error();
       this.saveDraft();
-      localStorage.setItem(STROKE_TO_HELI_BRIDGE_KEY, JSON.stringify({
-        version: 1,
-        savedAt: new Date().toISOString(),
-        ...this.collectDraft()
+      const draft = this.collectDraft();
+      sessionStorage.setItem(STROKE_TO_HELI_BRIDGE_KEY, JSON.stringify({
+        ...draft, caseId:this.link.caseId, assessedTime:this.state.assessedTime || ''
       }));
-    } catch {   }
+      return true;
+    } catch {
+      alert('症例に対応する連携を保存できません。入力内容を確認してください。');
+      return false;
+    }
   }
 
   renderFlagBlocks() {
@@ -1332,11 +1404,10 @@ class StrokeNotifyApp {
     let backLabel = '← ドクターヘリ活動記録に戻る';
 
     if (this.integration.return_url) {
-      try {
-        backHref = decodeURIComponent(this.integration.return_url);
-      } catch {
-        backHref = this.integration.return_url;
-      }
+      const expected = new URL('./index.html',location.href);
+      const requested = new URL(this.integration.return_url,location.href);
+      backHref = requested.protocol === expected.protocol && requested.origin === expected.origin &&
+        requested.pathname === expected.pathname ? requested.href : expected.href;
       backLabel = fromApp ? `← ${fromApp.label}に戻る` : '← 前の画面に戻る';
     } else if (heliApp?.href) {
       backHref = heliApp.href;
@@ -1347,7 +1418,7 @@ class StrokeNotifyApp {
       back.hidden = false;
       back.href = backHref;
       back.textContent = backLabel;
-      back.onclick = () => this.persistBridgeToHeli();
+      back.onclick = e => { if(this.link && !this.persistBridgeToHeli()) e.preventDefault(); };
     }
 
     if (fromApp) {
@@ -1359,22 +1430,10 @@ class StrokeNotifyApp {
     }
   }
 
-  updateApp() {
-    if (!confirm('アプリを最新版に更新しますか？\n（キャッシュを削除して再読み込みします）')) return;
-    try { this.saveDraft(); } catch {   }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister());
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(names => { names.forEach(n => caches.delete(n)); });
-    }
-    setTimeout(() => {
-      const url = new URL(window.location.href);
-      url.searchParams.set('_t', String(Date.now()));
-      window.location.href = url.toString();
-    }, 300);
+  async updateApp() {
+    if(!confirm('下書きを保存してアプリの更新を確認しますか？')) return;
+    if(!this.saveDraft()) { alert('下書きを保存できません。現在の画面で入力を確認してください。'); return; }
+    await window.refreshRecordApp();
   }
 
   async copyText(text) {
@@ -1393,13 +1452,6 @@ class StrokeNotifyApp {
     if (!ok) throw new Error('copy failed');
   }
 
-  notifyParent(type, text) {
-    try {
-      if (window.opener) {
-        window.opener.postMessage({ type, text, source: 'stroke_notify' }, '*');
-      }
-    } catch {   }
-  }
 
   selectSingle(field, btn, selector) {
     document.querySelectorAll(`${selector} .preset-btn`).forEach(b => b.classList.remove('selected'));
@@ -1410,36 +1462,33 @@ class StrokeNotifyApp {
   }
 
   gcsSum() {
-    const g = this.state.gcs;
-    if (g.v === 'T') return `${g.e + g.m}T`;
-    return g.e + (parseInt(g.v, 10) || 0) + g.m;
+    return vitalGcsSum(this.state.gcs);
   }
 
   formatGcsReport() {
-    const g = this.state.gcs;
-    if (g.v === 'T') {
-      return `E${g.e}VTM${g.m}（${g.e + g.m}T）`;
-    }
-    return `E${g.e}V${g.v}M${g.m}（${this.gcsSum()}）`;
+    const text = vitalGcsText(this.state.gcs);
+    const pending = ['gcs_e','gcs_v','gcs_m'].some(k => hasVitalValue(this.state.pending?.[k]));
+    return (text || '未入力') + (pending ? '（保存値は要確認）' : '');
   }
 
+
   formatJcsReport() {
-    if (this.state.jcs === '' || this.state.jcs == null) return '未入力';
+    if (this.state.jcs === '' || this.state.jcs == null) return hasVitalValue(this.state.pending?.jcs) ? '保存値は要確認' : '未入力';
     const opt = JCS_OPTIONS.find(o => String(o.value) === String(this.state.jcs));
     return opt ? `${opt.label}（${opt.value}）` : String(this.state.jcs);
   }
 
   renderConsciousUi() {
-    const jcsEl = document.getElementById('jcs_display');
-    jcsEl.textContent = (this.state.jcs === '' || this.state.jcs == null) ? '--' : String(this.state.jcs);
-    document.getElementById('gcs_e_display').textContent = this.state.gcs.e;
-    document.getElementById('gcs_v_display').textContent = this.state.gcs.v;
-    document.getElementById('gcs_m_display').textContent = this.state.gcs.m;
+    for(const field of ['jcs','gcs_e','gcs_v','gcs_m']) {
+      const value = getVitalField(this.state, field);
+      const pending = this.state.pending?.[field];
+      document.getElementById(field + '_display').textContent = hasVitalValue(value)
+        ? String(value) : hasVitalValue(pending) ? `要確認 ${pending}` : '--';
+    }
     document.getElementById('gcs_sum_display').textContent = String(this.gcsSum());
   }
 
   openConsciousDial(field) {
-    const g = this.state.gcs;
     let wheels = [];
     let title = '';
     switch (field) {
@@ -1448,36 +1497,33 @@ class StrokeNotifyApp {
         wheels = [{ options: [
           { label: '1', value: 1 }, { label: '2', value: 2 },
           { label: '3', value: 3 }, { label: '4', value: 4 }
-        ], selected: g.e }];
+        ], selected: vitalDialValue(this.state,'gcs_e',4) }];
         break;
       case 'gcs_v':
         title = 'GCS - V';
         wheels = [{ options: [
           { label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
           { label: '4', value: 4 }, { label: '5', value: 5 }, { label: 'T', value: 'T' }
-        ], selected: g.v }];
+        ], selected: vitalDialValue(this.state,'gcs_v',5) }];
         break;
       case 'gcs_m':
         title = 'GCS - M';
         wheels = [{ options: [
           { label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
           { label: '4', value: 4 }, { label: '5', value: 5 }, { label: '6', value: 6 }
-        ], selected: g.m }];
+        ], selected: vitalDialValue(this.state,'gcs_m',6) }];
         break;
       case 'jcs':
         title = 'JCS';
-        wheels = [{ options: JCS_OPTIONS.map(o => ({ label: o.label, value: o.value })), selected: this.state.jcs || '0' }];
+        wheels = [{ options: JCS_OPTIONS.map(o => ({ label: o.label, value: o.value })), selected: vitalDialValue(this.state,'jcs','0') }];
         break;
       default:
         return;
     }
     this.openDial(title, wheels, (vals) => {
-      switch (field) {
-        case 'gcs_e': g.e = vals[0]; break;
-        case 'gcs_v': g.v = vals[0]; break;
-        case 'gcs_m': g.m = vals[0]; break;
-        case 'jcs': this.state.jcs = String(vals[0]); break;
-      }
+      setVitalField(this.state, field, field === 'jcs' ? String(vals[0]) : vals[0]);
+      this.state.consciousEdits[field] = true;
+      this.state.assessedTime = new Date().toTimeString().slice(0,5);
       this.renderConsciousUi();
       this.saveDraft();
       this.updatePreview();
@@ -1485,6 +1531,8 @@ class StrokeNotifyApp {
   }
 
   openDial(title, wheels, callback) {
+    clearTimeout(this.dial_auto_confirm);
+    const session = this.dial_session = (this.dial_session || 0) + 1;
     this.dial_scroll_position = window.pageYOffset;
     document.body.classList.add('dial-open');
     document.body.style.top = `-${this.dial_scroll_position}px`;
@@ -1532,6 +1580,11 @@ class StrokeNotifyApp {
         scroll.style.transform = `translateY(${currentOffset}px)`;
         updateSel(newIndex);
       };
+      w.finishScroll = () => {
+        stopAnimation();
+        snap();
+        return w.selected;
+      };
       const momentum = () => {
         velocityY *= 0.92;
         currentOffset += velocityY;
@@ -1565,9 +1618,25 @@ class StrokeNotifyApp {
         if (Math.abs(velocityY) > 2) animationId = requestAnimationFrame(momentum);
         else snap();
       };
-      scroll.addEventListener('touchstart', (e) => { e.preventDefault(); onDown(e.touches[0].clientY); }, { passive: false });
-      scroll.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e.touches[0].clientY); }, { passive: false });
-      scroll.addEventListener('touchend', (e) => { e.preventDefault(); onUp(); }, { passive: false });
+      let tapOption = null, tapY = 0;
+      scroll.addEventListener('touchstart', e => {
+        e.preventDefault();
+        clearTimeout(this.dial_auto_confirm);
+        tapY = e.touches[0].clientY;
+        tapOption = e.touches.length === 1 ? e.target.closest('.dial-option') : null;
+        onDown(tapY);
+      }, {passive:false});
+      scroll.addEventListener('touchmove', e => {
+        e.preventDefault();
+        if(e.touches.length !== 1 || Math.abs(e.touches[0].clientY - tapY) > 6) tapOption = null;
+        onMove(e.touches[0].clientY);
+      }, {passive:false});
+      scroll.addEventListener('touchend', e => {
+        e.preventDefault();
+        if(tapOption && !e.touches.length && Math.abs(e.changedTouches[0].clientY - tapY) <= 6) tapOption.click();
+        else onUp();
+        tapOption = null;
+      }, {passive:false});
       wheel.addEventListener('mousedown', (e) => {
         e.preventDefault();
         onDown(e.clientY);
@@ -1583,12 +1652,16 @@ class StrokeNotifyApp {
       scroll.querySelectorAll('.dial-option').forEach((opt, oi) => {
         opt.addEventListener('click', (e) => {
           e.stopPropagation();
+          stopAnimation();
           currentOffset = -oi * 40;
           w.selected = w.options[oi].value;
           scroll.style.transition = 'transform 0.2s ease-out';
           scroll.style.transform = `translateY(${currentOffset}px)`;
           updateSel(oi);
-          if (wheels.length === 1) setTimeout(() => this.confirmDial(), 200);
+          if (wheels.length === 1) {
+            clearTimeout(this.dial_auto_confirm);
+            this.dial_auto_confirm = setTimeout(() => { if(session === this.dial_session) this.confirmDial(); }, 200);
+          }
         });
       });
       scroll.style.transform = `translateY(${currentOffset}px)`;
@@ -1600,6 +1673,7 @@ class StrokeNotifyApp {
 
   closeDial(e) {
     if (e && e.target !== document.getElementById('dial_overlay')) return;
+    clearTimeout(this.dial_auto_confirm); ++this.dial_session;
     document.getElementById('dial_overlay').classList.remove('show');
     document.body.classList.remove('dial-open');
     document.body.style.top = '';
@@ -1608,14 +1682,15 @@ class StrokeNotifyApp {
   }
 
   confirmDial() {
+    clearTimeout(this.dial_auto_confirm); ++this.dial_session;
     const cb = this.dial_callback;
-    const values = this.dial_wheels.map(w => w.selected);
+    const values = this.dial_wheels.map(w => w.finishScroll ? w.finishScroll() : w.selected);
     this.dial_callback = null;
     document.getElementById('dial_overlay').classList.remove('show');
     document.body.classList.remove('dial-open');
     document.body.style.top = '';
     window.scrollTo(0, this.dial_scroll_position);
-    if (cb) setTimeout(() => cb(values), 50);
+    if (cb) cb(values);
   }
 
   cycleMedStatus(field) {
@@ -1810,7 +1885,6 @@ class StrokeNotifyApp {
     const text = this.buildMessage();
     try {
       await this.copyText(text);
-      this.notifyParent('stroke_notify_copied', text);
       this.showToast('報告文をコピーしました');
     } catch {
       this.showToast('コピーに失敗しました', true);
@@ -1937,7 +2011,7 @@ class StrokeNotifyApp {
     ];
     const wish = this.val('wish_detail');
     if (wish) lines.push(`治療希望の補足：${wish}`);
-    return lines.filter(Boolean).join('\n');
+    return lines.filter(line => line !== null && line !== undefined).join('\n');
   }
 
   updatePreview() {
@@ -1946,6 +2020,7 @@ class StrokeNotifyApp {
 
   collectDraft() {
     return {
+      visit:this.link?.visit || '',
       state: this.state,
       fields: {
         onset_time: this.val('onset_time'),
@@ -1959,9 +2034,11 @@ class StrokeNotifyApp {
   }
 
   saveDraft() {
+    if(!this.storage_key) return false;
     try {
       localStorage.setItem(this.storage_key, JSON.stringify(this.collectDraft()));
-    } catch {   }
+      return true;
+    } catch { return false; }
   }
 
   loadDraft() {
@@ -1981,7 +2058,7 @@ class StrokeNotifyApp {
           this.state.contacts = [{ relation: null, detail: '' }];
         }
         if (!this.state.gcs || typeof this.state.gcs !== 'object') {
-          this.state.gcs = { e: 4, v: 5, m: 6 };
+          this.state.gcs = { e: '', v: '', m: '' };
         }
         if (!Array.isArray(this.state.anticoagulant_drugs)) this.state.anticoagulant_drugs = [];
         if (!Array.isArray(this.state.antiplatelet_drugs)) this.state.antiplatelet_drugs = [];
@@ -1992,9 +2069,12 @@ class StrokeNotifyApp {
           delete this.state.checks.anticoag;
         }
       }
+      const conscious = normalizeVitalRecord({...this.state, inputVersion:data.state?.inputVersion});
+      this.state.jcs = conscious.jcs; this.state.gcs = conscious.gcs;
+      this.state.pending = conscious.pending; this.state.inputVersion = 1;
       if (data.fields) {
         if (data.fields.jcs != null && data.fields.jcs !== '' && !data.state?.jcs) {
-          this.state.jcs = String(data.fields.jcs);
+          this.state.pending.jcs = String(data.fields.jcs);
         }
         if (data.fields.anticoag_detail && this.state.anticoagulant === 'あり' && !this.state.anticoagulant_drugs.length) {
           const detail = String(data.fields.anticoag_detail).trim();
@@ -2014,13 +2094,13 @@ class StrokeNotifyApp {
       this.syncUiFromState();
       this.renderConsciousUi();
       this.renderMedicationUi();
+      return data;
     } catch {   }
   }
 
   syncUiFromState() {
-    this.state.preadl.forEach(val => {
-      const b = document.querySelector(`#preadl_group [data-value="${val}"]`);
-      if (b) b.classList.add('selected');
+    document.querySelectorAll('#preadl_group [data-value]').forEach(b => {
+      b.classList.toggle('selected', this.state.preadl.includes(b.dataset.value));
     });
     ['family_ride', 'med_book', 'mynumber_insurance', 'mri_ok', 'tpa_ok', 'wish_surgery', 'wish_catheter', 'wish_icu'].forEach(field => {
       if (!this.state[field]) return;

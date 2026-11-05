@@ -1,69 +1,40 @@
-
-
-
-
-
-
-
-
-
-
-
 const CACHE_PREFIX = 'heli-record-';
-const CACHE_NAME = 'heli-record-v5.1.25-20260906b';
-const urlsToCache = [
-  './index.html',
-  './manifest.json',
-  './apple-touch-icon.png'
-];
+const CACHE_NAME = CACHE_PREFIX + 'v5.1.34' + '@' + self.registration.scope;
+const ASSETS = ["./index.html", "./StrokeNotify_v1.0.html", "./related-apps.js", "./manifest.json", "./apple-touch-icon.png"];
 
-const NETWORK_FIRST_PATH_RE = /\.(html|js)(\?|$)/i;
-
-function isNetworkFirstRequest(request) {
-  if (request.method !== 'GET') return false;
-  if (request.mode === 'navigate') return true;
-  try {
-    const url = new URL(request.url);
-    if (url.origin !== self.location.origin) return false;
-    return NETWORK_FIRST_PATH_RE.test(url.pathname);
-  } catch {
-    return false;
-  }
-}
-
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache).catch(() => {}))
-  );
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(ASSETS.map(asset => new Request(asset, {cache:'reload'})));
+    await self.skipWaiting();
+  })());
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => Promise.all(
-        cacheNames.map((cacheName) => (
-          cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME
-            ? caches.delete(cacheName)
-            : null
-        ))
-      ))
-      .then(() => self.clients.claim())
-  );
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    for(const key of await caches.keys()) {
+      if(!key.startsWith(CACHE_PREFIX) || key === CACHE_NAME) continue;
+      if(key.includes('@')) {
+        if(key.endsWith('@'+self.registration.scope)) await caches.delete(key);
+      } else {
+        const old = await caches.open(key);
+        const entries = await old.keys();
+        if(entries.length && entries.every(r=>r.url.startsWith(self.registration.scope))) await caches.delete(key);
+      }
+    }
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (event) => {
-  if (!isNetworkFirstRequest(event.request)) return;
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+self.addEventListener('fetch', event => {
+  if(event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  const root = new URL('./',self.location.href);
+  if(url.origin !== root.origin || !url.pathname.startsWith(root.pathname)) return;
+  const asset = './' + (url.pathname.slice(root.pathname.length) || 'index.html');
+  if(!ASSETS.includes(asset)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    return await cache.match(new URL(asset,root).href) || fetch(event.request);
+  })());
 });
