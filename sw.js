@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'heli-record-';
-const CACHE_NAME = CACHE_PREFIX + 'v5.1.34' + '@' + self.registration.scope;
+const CACHE_NAME = CACHE_PREFIX + 'v5.1.35' + '@' + self.registration.scope;
 const ASSETS = ["./index.html", "./StrokeNotify_v1.0.html", "./related-apps.js", "./manifest.json", "./apple-touch-icon.png"];
 
 self.addEventListener('install', event => {

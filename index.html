@@ -65,7 +65,7 @@
 
 
 
-<title>ドクターヘリ活動記録 v5.1.34 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.35 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -1094,6 +1094,13 @@ div.card-body > div[style*="display:flex"] .btn.small {
 }
 
 .record-safety{position:fixed;top:var(--header-h);left:0;right:0;height:28px;z-index:201;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:center}.record-safety button{border:0;background:transparent;font-size:12px;height:28px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} main#mainRecordView,main#modeMCI,main#referralView{top:calc(var(--header-h) + 28px)}
+.cpa-time-row input[type="time"]{flex:1;min-width:0;width:0}
+.cpa-time-row select{width:auto;flex:none;padding:10px 27px 10px 9px}
+.cpa-time-row .time-btn{flex:none}
+.cpa-flow-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;color:#0369a1;font-weight:600}
+.cpa-flow-row + .cpa-flow-row{margin-top:8px}
+.cpa-flow-row span:last-child{white-space:nowrap}
+.cpa-flow-warning:not(:empty){margin-top:8px;color:#92400e;font-size:13px;white-space:pre-line}
 .vital-input-hint{font-size:11px;color:#526070;margin:0 0 8px;line-height:1.45}.vital-item.is-unentered .vital-value,.gcs-part.is-unentered .val{color:#788493}.vital-pending{display:block;color:#92400e;font-size:10px;line-height:1.3;white-space:normal}
 .dial-missing-actions{flex-wrap:wrap}
 .vital-time select {width:auto;max-width:8.5em;min-width:0;margin-left:.35em;font-size:.78rem;}
@@ -1134,7 +1141,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.34 多数傷対応</p>
+    <p class="sub">heli record v5.1.35 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
@@ -2920,6 +2927,9 @@ function validateCpaEvent(e) {
   for(const field of ['arrestTime','cprStart','ivTime','intubationTime','pericardioTime','roscTime','endTime','handoffTime']) {
     if(!optional(e[field],time)) fail();
   }
+  for(const field of ['cprDay','roscDay','endDay','handoffDay']) {
+    if(e[field] !== undefined && e[field] !== 0 && e[field] !== 1) fail();
+  }
   if(!optional(e.pendingCpa,obj) || !optional(e.pendingCpa?.arrestTime,time)) fail();
   for(const field of ['witnessed','bystander','lt','intubation','pericardio']) if(!optional(e[field],v=>typeof v==='boolean')) fail();
   for(const field of ['rhythm','outcome','memo']) if(!optional(e[field],v=>typeof v==='string')) fail();
@@ -3207,9 +3217,9 @@ function buildRecordedCpaLines(fd) {
       if(isFirst) {
         if(typeof cpa.witnessed === 'boolean') entry.push(`目撃：${cpa.witnessed ? 'あり' : 'なし'}`);
         if(typeof cpa.bystander === 'boolean') entry.push(`バイスタンダーCPR：${cpa.bystander ? 'あり' : 'なし'}`);
-        if(cpa.cprStart) entry.push(`胸骨圧迫開始：${cpa.cprStart}`);
-        if(cpa.ivTime) entry.push(`末梢確保：${cpa.ivTime}`);
       }
+      if(cpa.cprStart) entry.push(`${isFirst ? '胸骨圧迫開始' : '胸骨圧迫再開'}：${cpaTimeText(cpa.cprStart, cpa.cprDay)}`);
+      if(isFirst && cpa.ivTime) entry.push(`末梢確保：${cpa.ivTime}`);
       const changes = (cpa.rhythmChanges || []).slice(1).filter(change => change.rhythm);
       if(changes.length) entry.push(`波形変化：${changes.map(change => `${change.time} ${change.rhythm}`).join(' → ')}`);
       const defibTimes = cpa.defibrillationTimes || [];
@@ -4059,6 +4069,28 @@ function deleteCpaEvent(idx) {
   }
 }
 
+function cpaTimeInputValue(time) {
+  return typeof time === 'string' && clockMinute(time) !== null ? time.padStart(5, '0') : '';
+}
+
+function cpaFlowTimeInput(event, idx, field, dayField, label) {
+  const id = `cpa_${field}_${idx}`;
+  const handoffAttr = field === 'handoffTime' ? `data-testid="cpa-handoff-time-${idx}"` : '';
+  return `<label for="${id}">${label}</label>
+    <div class="time-row cpa-time-row">
+      <select id="cpa_${dayField}_${idx}" aria-label="${label}の日付" onchange="updateCpaEventField(${idx}, '${dayField}', Number(this.value))">
+        <option value="0">同日</option>
+        <option value="1" ${event[dayField] === 1 ? 'selected' : ''}>翌日</option>
+      </select>
+      <input type="time" id="${id}" data-cpa-flow-time ${handoffAttr} value="${cpaTimeInputValue(event[field])}" onchange="updateCpaEventField(${idx}, '${field}', this.value)">
+      <button type="button" class="time-btn" onclick="setCpaEventNow(${idx}, '${field}')">Now</button>
+    </div>`;
+}
+
+function cpaFlowRow(id, label) {
+  return `<div class="cpa-flow-row"><span>${label}</span><span id="${id}">-- 分</span></div>`;
+}
+
 function renderCpaEvents() {
   const container = $('#cpa_events_container');
   if(!container) return;
@@ -4083,9 +4115,9 @@ function renderCpaEvents() {
       <div style="padding:12px">
         <div class="grid2" style="margin-bottom:12px">
           <div>
-            <label>心停止時刻</label>
+            <label for="cpa_arrestTime_${idx}">${isFirst ? '心停止時刻' : '再心停止時刻'}</label>
             <div class="time-row">
-              <input type="time" value="${escapeHtml(event.arrestTime)}" onchange="updateCpaEventField(${idx}, 'arrestTime', this.value)">
+              <input type="time" id="cpa_arrestTime_${idx}" data-cpa-flow-time value="${cpaTimeInputValue(event.arrestTime)}" onchange="updateCpaEventField(${idx}, 'arrestTime', this.value)">
               <button class="time-btn" onclick="setCpaEventNow(${idx}, 'arrestTime')">Now</button>
             </div>
           </div>
@@ -4104,6 +4136,10 @@ function renderCpaEvents() {
               <option value="no" ${event[field] === false ? 'selected' : ''}>なし</option>
             </select></label>`).join('')}
         </div>` : ''}
+        <div style="margin-top:12px">
+          ${cpaFlowTimeInput(event, idx, 'cprStart', 'cprDay', isFirst ? '胸骨圧迫開始時刻' : '胸骨圧迫再開時刻')}
+          <small>日付はこの心停止イベントの発生日を基準に選択してください。</small>
+        </div>
         <h3 style="margin-top:12px">波形変化</h3>
         <div id="rhythm_changes_${idx}"></div>
         <button class="btn small" style="margin-top:8px" onclick="addRhythmChange(${idx})">＋ 波形変化を追加</button>
@@ -4132,43 +4168,25 @@ function renderCpaEvents() {
           <div class="toggle-btn ${event.outcome === 'death' ? 'active' : ''}" style="flex:1;min-width:80px;text-align:center;${event.outcome === 'death' ? 'background:#6b7280;color:#fff;border-color:#6b7280' : ''}" onclick="setCpaOutcome(${idx}, 'death')">死亡</div>
         </div>
         <div id="cpa_outcome_area_${idx}">
-          ${event.outcome === 'rosc' ? `<label>ROSC時刻</label>
-          <div class="time-row">
-            <input type="time" value="${escapeHtml(event.roscTime)}" onchange="updateCpaEventField(${idx}, 'roscTime', this.value)">
-            <button class="time-btn" onclick="setCpaEventNow(${idx}, 'roscTime')">Now</button>
-          </div>` : ''}
-          ${event.outcome === 'hospital' || event.outcome === 'death' ? `<label>${event.outcome === 'hospital' ? '病着時刻' : '蘇生終了時刻'}</label>
-          <div class="time-row">
-            <input type="time" value="${escapeHtml(event.endTime)}" onchange="updateCpaEventField(${idx}, 'endTime', this.value)">
-            <button class="time-btn" onclick="setCpaEventNow(${idx}, 'endTime')">Now</button>
-          </div>` : ''}
+          ${event.outcome === 'rosc' ? cpaFlowTimeInput(event, idx, 'roscTime', 'roscDay', 'ROSC時刻') : ''}
+          ${event.outcome === 'hospital' || event.outcome === 'death'
+            ? cpaFlowTimeInput(event, idx, 'endTime', 'endDay', event.outcome === 'hospital' ? '病着時刻' : '蘇生終了時刻')
+            : ''}
         </div>
         <h3 style="margin-top:12px">プレホス活動終了</h3>
         <button type="button" data-testid="cpa-handoff-btn-${idx}" class="toggle-btn ${event.handoffTime ? 'active' : ''}" aria-pressed="${event.handoffTime ? 'true' : 'false'}" style="width:100%;text-align:center;${event.handoffTime ? 'background:#0284c7;color:#fff;border-color:#0284c7' : ''}" onclick="recordCpaHandoff(${idx})">
-          ${event.handoffTime ? `CPA継続で引き継ぎ（${escapeHtml(event.handoffTime)} 記録済み）` : 'CPA継続で引き継ぎ'}
+          ${event.handoffTime ? `CPA継続で引き継ぎ（${event.handoffDay === 1 ? '翌日 ' : ''}${escapeHtml(event.handoffTime)} 記録済み）` : 'CPA継続で引き継ぎ'}
         </button>
         <div id="cpa_handoff_area_${idx}" style="${event.handoffTime ? '' : 'display:none;'}margin-top:8px;padding:10px;background:#f0f9ff;border-radius:10px">
-          <label>引継ぎ時刻</label>
-          <div class="time-row">
-            <input type="time" data-testid="cpa-handoff-time-${idx}" value="${escapeHtml(event.handoffTime || '')}" onchange="updateCpaEventField(${idx}, 'handoffTime', this.value)">
-            <button class="time-btn" onclick="setCpaEventNow(${idx}, 'handoffTime')">Now</button>
-            <button class="time-btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca" onclick="clearCpaHandoff(${idx})">解除</button>
-          </div>
-          <div style="margin-top:6px;font-size:12px;line-height:1.5;color:#0369a1">CPAが持続したままFDから引き継いだ時点を記録します。最終Low Flow Timeとは区別して出力されます。</div>
+          ${cpaFlowTimeInput(event, idx, 'handoffTime', 'handoffDay', '引継ぎ時刻')}
+          <button type="button" class="btn small ghost" style="margin-top:6px" onclick="clearCpaHandoff(${idx})">引継ぎを解除</button>
         </div>
         <div id="flow_times_${idx}" style="margin-top:12px;padding:12px;background:#f0f9ff;border-radius:10px;border:1px solid #0ea5e9">
-          ${isFirst ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px">
-            <span style="font-weight:600;color:#0369a1">No Flow Time</span>
-            <span id="no_flow_time_${idx}" style="font-weight:600;color:#0369a1">-- 分</span>
-          </div>` : ''}
-          <div style="display:flex;justify-content:space-between">
-            <span style="font-weight:600;color:#0369a1">Low Flow Time</span>
-            <span id="low_flow_time_${idx}" style="font-weight:600;color:#0369a1">-- 分</span>
-          </div>
-          ${event.handoffTime ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid #bae6fd">
-            <span style="font-weight:600;color:#0369a1">プレホスLow Flow（暫定）</span>
-            <span id="prehospital_low_flow_time_${idx}" style="font-weight:600;color:#0369a1;white-space:nowrap">-- 分</span>
-          </div>` : ''}
+          ${cpaFlowRow('no_flow_time_' + idx, 'No Flow Time')}
+          ${event.outcome === 'rosc' || event.outcome === 'death' ? cpaFlowRow('low_flow_time_' + idx, 'Low Flow Time') : ''}
+          ${event.outcome === 'hospital' ? cpaFlowRow('hospital_low_flow_time_' + idx, '病着時Low Flow（暫定）') : ''}
+          ${event.handoffTime ? cpaFlowRow('prehospital_low_flow_time_' + idx, '引継ぎ時Low Flow（暫定）') : ''}
+          <div id="flow_warning_${idx}" class="cpa-flow-warning" role="status"></div>
         </div>
         <label style="margin-top:12px">特記事項</label>
         <textarea class="memo" placeholder="蘇生中の経過・特記事項" onchange="updateCpaEventField(${idx}, 'memo', this.value)">${escapeHtml(event.memo)}</textarea>
@@ -4184,13 +4202,15 @@ function renderCpaEvents() {
 }
 
 function updateCpaEventField(idx, field, value) {
-  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
-  const event = state.fd.cpaEvents[idx];
+  const event = state.fd.cpaEvents?.[idx];
+  if(!event) return;
   event[field] = value;
-  if(Object.hasOwn(event.pendingCpa || {},field)) { delete event.pendingCpa[field]; renderCpaEvents(); }
-  if(field === 'handoffTime') {
+  const pending = Object.hasOwn(event.pendingCpa || {}, field);
+  if(pending) delete event.pendingCpa[field];
+  if(field === 'handoffTime' && !value) delete event.handoffDay;
+  if(pending || field === 'handoffTime' || field === 'handoffDay') {
     renderCpaEvents();
-  } else if(field === 'arrestTime' || field === 'cprStart' || field === 'roscTime' || field === 'endTime') {
+  } else if(['arrestTime','cprStart','cprDay','roscTime','roscDay','endTime','endDay'].includes(field)) {
     calcFlowTimes(idx);
   }
   updateState();
@@ -4218,6 +4238,7 @@ function recordCpaHandoff(idx) {
 function clearCpaHandoff(idx) {
   if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   state.fd.cpaEvents[idx].handoffTime = '';
+  delete state.fd.cpaEvents[idx].handoffDay;
   renderCpaEvents();
   updateState();
 }
@@ -4461,20 +4482,13 @@ function openRhythmChangeRhythmDial(idx, rIdx) {
 }
 
 function setCpaOutcome(idx, outcome) {
-  if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
-  const current = state.fd.cpaEvents[idx].outcome;
-  if(current === outcome) {
-    state.fd.cpaEvents[idx].outcome = '';
-    state.fd.cpaEvents[idx].roscTime = '';
-    state.fd.cpaEvents[idx].endTime = '';
-  } else {
-    state.fd.cpaEvents[idx].outcome = outcome;
-    if(outcome === 'rosc') {
-      state.fd.cpaEvents[idx].endTime = '';
-    } else {
-      state.fd.cpaEvents[idx].roscTime = '';
-    }
-  }
+  const event = state.fd.cpaEvents?.[idx];
+  if(!event) return;
+  event.outcome = event.outcome === outcome ? '' : outcome;
+  event.roscTime = '';
+  event.endTime = '';
+  delete event.roscDay;
+  delete event.endDay;
   renderCpaEvents();
   updateState();
 }
@@ -4483,36 +4497,67 @@ function calcFlowTimes(idx) {
   const event = state.fd.cpaEvents[idx];
   if (!event) return;
   const flow = getCpaFlowTimes(event, idx === 0);
-  const setText = (elId, text) => { const el = $(elId); if(el) el.textContent = text; };
-  const fmt = (d) => (typeof d === 'number' && !isNaN(d) && d >= 0) ? `${d} 分` : '-- 分';
-  if(idx === 0) {
-    setText(`#no_flow_time_${idx}`, fmt(flow.noFlow));
-  }
-  setText(`#low_flow_time_${idx}`, fmt(flow.lowFlow));
-  setText(`#prehospital_low_flow_time_${idx}`, fmt(flow.prehospitalLowFlow));
+  const setMinutes = (id, minutes) => {
+    const target = document.getElementById(id);
+    if(target) target.textContent = Number.isFinite(minutes) ? `${minutes} 分` : '-- 分';
+  };
+  setMinutes('no_flow_time_' + idx, flow.noFlow);
+  setMinutes('low_flow_time_' + idx, flow.lowFlow);
+  setMinutes('hospital_low_flow_time_' + idx, flow.hospitalLowFlow);
+  setMinutes('prehospital_low_flow_time_' + idx, flow.prehospitalLowFlow);
+  document.getElementById('flow_warning_' + idx).textContent = flow.warnings.join('\n');
 }
 
-function calcTimeDiffMinutes(startTime,endTime) {
-  const start = clockMinute(startTime), end = clockMinute(endTime);
-  return start === null || end === null ? NaN : (end-start+1440)%1440;
+
+function cpaTimeText(time, day) {
+  return time && day === 1 ? '翌日 ' + time : (time || '');
+}
+
+function cpaTimeMinute(time, day = 0) {
+  const minute = clockMinute(time);
+  if(minute === null || (day !== 0 && day !== 1)) return NaN;
+  return day * 1440 + minute;
 }
 
 function getCpaFlowTimes(cpa, isFirst) {
-  cpa = cpa || {};
-  const lowFlowStart = isFirst ? cpa.cprStart : cpa.arrestTime;
-  const finalEndTime = cpa.outcome === 'rosc'
-    ? (cpa.roscTime || '')
-    : ((cpa.outcome === 'hospital' || cpa.outcome === 'death') ? (cpa.endTime || '') : '');
-  const noFlow = isFirst && cpa.arrestTime && cpa.cprStart
-    ? calcTimeDiffMinutes(cpa.arrestTime, cpa.cprStart)
-    : NaN;
-  const lowFlow = lowFlowStart && finalEndTime
-    ? calcTimeDiffMinutes(lowFlowStart, finalEndTime)
-    : NaN;
-  const prehospitalLowFlow = lowFlowStart && cpa.handoffTime
-    ? calcTimeDiffMinutes(lowFlowStart, cpa.handoffTime)
-    : NaN;
-  return { lowFlowStart, finalEndTime, noFlow, lowFlow, prehospitalLowFlow };
+  const warnings = [];
+  const cprLabel = isFirst ? '胸骨圧迫開始' : '胸骨圧迫再開';
+  const arrest = cpaTimeMinute(cpa.arrestTime);
+  const cpr = cpaTimeMinute(cpa.cprStart, cpa.cprDay);
+  const handoff = cpaTimeMinute(cpa.handoffTime, cpa.handoffDay);
+  const isRosc = cpa.outcome === 'rosc';
+  const isHospital = cpa.outcome === 'hospital';
+  const isDeath = cpa.outcome === 'death';
+  const endLabel = isRosc ? 'ROSC' : isHospital ? '病着' : '蘇生終了';
+  const end = isRosc ? cpaTimeMinute(cpa.roscTime, cpa.roscDay)
+    : (isDeath || isHospital) ? cpaTimeMinute(cpa.endTime, cpa.endDay) : NaN;
+
+  const cprBeforeArrest = cpr < arrest;
+  if(cprBeforeArrest) warnings.push(cprLabel + 'が心停止より前です。');
+  function fromCpr(minute, label) {
+    if(minute < cpr) {
+      warnings.push(label + 'が' + cprLabel + 'より前です。');
+      return NaN;
+    }
+    if(minute < arrest) {
+      warnings.push(label + 'が心停止より前です。');
+      return NaN;
+    }
+    return cprBeforeArrest ? NaN : minute - cpr;
+  }
+  const toEnd = fromCpr(end, endLabel);
+  let toHandoff = fromCpr(handoff, 'CPA継続引継ぎ');
+  if((isRosc || isDeath) && handoff > end) {
+    warnings.push('CPA継続引継ぎが' + endLabel + 'より後です。');
+    toHandoff = NaN;
+  }
+  return {
+    noFlow: cprBeforeArrest ? NaN : cpr - arrest,
+    lowFlow: isRosc || isDeath ? toEnd : NaN,
+    prehospitalLowFlow: toHandoff,
+    hospitalLowFlow: isHospital ? toEnd : NaN,
+    warnings
+  };
 }
 
 function openPupilDial(side) {
@@ -4778,6 +4823,7 @@ function handleVitalContactChange(type) {
 }
 
 function getBaseTimeForInput(inputEl) {
+  if(inputEl.hasAttribute('data-cpa-flow-time')) return '';
   const vitalParsed = parseVitalTimeInputId(inputEl.id);
   if (vitalParsed) {
     const vitalTime = getDefaultVitalTime(vitalParsed.type, vitalParsed.idx);
@@ -7059,16 +7105,23 @@ function calcNihssTotal(stroke) {
 
 function appendCpaOutcomeFlowLines(lines, cpa, isFirst) {
   const flow = getCpaFlowTimes(cpa, isFirst);
-  if(cpa.handoffTime) lines.push(`CPA継続で引き継ぎ：${cpa.handoffTime}`);
-  if(cpa.outcome === 'rosc' && cpa.roscTime) lines.push(`心拍再開(ROSC)：${cpa.roscTime}`);
-  else if(cpa.outcome === 'hospital' && cpa.endTime) lines.push(`転帰：CPR継続のまま病着（${cpa.endTime}）`);
-  else if(cpa.outcome === 'death' && cpa.endTime) lines.push(`転帰：蘇生終了（${cpa.endTime}）`);
-  if(!isNaN(flow.noFlow) && flow.noFlow >= 0) lines.push(`No Flow Time：${flow.noFlow}分`);
-  if(!isNaN(flow.prehospitalLowFlow) && flow.prehospitalLowFlow >= 0) {
-    const startLabel = isFirst ? '胸骨圧迫開始' : '再心停止';
-    lines.push(`プレホスLow Flow Time（暫定）：${flow.prehospitalLowFlow}分（${startLabel} ${flow.lowFlowStart}→CPA継続引継ぎ ${cpa.handoffTime}）`);
+  const cprLabel = isFirst ? '胸骨圧迫開始' : '胸骨圧迫再開';
+  const start = cpaTimeText(cpa.cprStart, cpa.cprDay);
+  const handoff = cpaTimeText(cpa.handoffTime, cpa.handoffDay);
+  const end = cpaTimeText(cpa.endTime, cpa.endDay);
+  if(handoff) lines.push(`CPA継続で引き継ぎ：${handoff}`);
+  if(cpa.outcome === 'rosc' && cpa.roscTime) lines.push(`心拍再開(ROSC)：${cpaTimeText(cpa.roscTime, cpa.roscDay)}`);
+  if(cpa.outcome === 'hospital') lines.push('転帰：CPR継続のまま病着' + (end ? `（${end}）` : ''));
+  if(cpa.outcome === 'death' && end) lines.push(`転帰：蘇生終了（${end}）`);
+  if(Number.isFinite(flow.noFlow)) lines.push(`No Flow Time：${flow.noFlow}分`);
+  if(Number.isFinite(flow.prehospitalLowFlow)) {
+    lines.push(`プレホスLow Flow Time（暫定）：${flow.prehospitalLowFlow}分（${cprLabel} ${start}→CPA継続引継ぎ ${handoff}）`);
   }
-  if(!isNaN(flow.lowFlow) && flow.lowFlow >= 0) lines.push(`Low Flow Time：${flow.lowFlow}分`);
+  if(Number.isFinite(flow.hospitalLowFlow)) {
+    lines.push(`病着時点のLow Flow Time（暫定）：${flow.hospitalLowFlow}分（${cprLabel} ${start}→CPR継続で病着 ${end}）`);
+  }
+  if(Number.isFinite(flow.lowFlow)) lines.push(`Low Flow Time：${flow.lowFlow}分`);
+  for(const warning of flow.warnings) lines.push('CPA時刻要確認：' + warning);
 }
 
 
@@ -7694,7 +7747,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.34\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+[state.request.type||'--',state.request.time].filter(Boolean).join(' ')+(state.request.detail ? '\n'+state.request.detail : '')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+(premorbidText(state.patient) ? '\n発症前の生活状況：'+premorbidText(state.patient) : '')+(state.patient.strokeDiscoveryAt ? '\n発見日時：'+state.patient.strokeDiscoveryAt.replace('T',' ') : '')+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.35\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+[state.request.type||'--',state.request.time].filter(Boolean).join(' ')+(state.request.detail ? '\n'+state.request.detail : '')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+(premorbidText(state.patient) ? '\n発症前の生活状況：'+premorbidText(state.patient) : '')+(state.patient.strokeDiscoveryAt ? '\n発見日時：'+state.patient.strokeDiscoveryAt.replace('T',' ') : '')+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
