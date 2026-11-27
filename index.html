@@ -65,7 +65,7 @@
 
 
 
-<title>ドクターヘリ活動記録 v5.1.35 多数傷対応</title>
+<title>ドクターヘリ活動記録 v5.1.36 多数傷対応</title>
 <style>
 :root{
   --ink:#111827;--muted:#6b7280;--bg:#f2f2f7;--card:#fff;
@@ -1100,6 +1100,15 @@ div.card-body > div[style*="display:flex"] .btn.small {
 .cpa-flow-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;color:#0369a1;font-weight:600}
 .cpa-flow-row + .cpa-flow-row{margin-top:8px}
 .cpa-flow-row span:last-child{white-space:nowrap}
+.cpa-occurrence,.cpa-initial-timeline{display:grid;gap:10px;margin:0 0 12px;min-width:0}
+.cpa-occurrence{border:1px solid var(--line);border-radius:10px;padding:12px}
+.cpa-occurrence legend{font-weight:600;padding:0 4px}
+.cpa-choice{display:flex;align-items:flex-start;gap:7px;margin-top:8px}
+.cpa-choice[hidden],.cpa-origin:empty{display:none}
+.cpa-choice input[type="checkbox"]{-webkit-appearance:checkbox;appearance:auto;accent-color:var(--brand);width:19px;height:19px;flex:none;margin:0;padding:0;background:transparent}
+.cpa-origin{font-size:13px;line-height:1.5;margin:6px 0 0}
+.cpa-aware-editor{width:min(340px,90vw);border:1px solid var(--line);border-radius:12px;padding:16px}
+.cpa-aware-editor .time-row{margin:8px 0 12px}
 .cpa-flow-warning:not(:empty){margin-top:8px;color:#92400e;font-size:13px;white-space:pre-line}
 .vital-input-hint{font-size:11px;color:#526070;margin:0 0 8px;line-height:1.45}.vital-item.is-unentered .vital-value,.gcs-part.is-unentered .val{color:#788493}.vital-pending{display:block;color:#92400e;font-size:10px;line-height:1.3;white-space:normal}
 .dial-missing-actions{flex-wrap:wrap}
@@ -1141,7 +1150,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
   <button class="mode-switch" id="modeToggleBtn" onclick="switchAppMode()">多数傷</button>
   <div class="header-content">
     <h1>🚁 ドクターヘリ活動記録</h1>
-    <p class="sub">heli record v5.1.35 多数傷対応</p>
+    <p class="sub">heli record v5.1.36 多数傷対応</p>
   </div>
   <div class="header-actions">
     <button class="btn-reset-header" onclick="resetData()" title="入力中の症例データをすべて消去">🗑 リセット</button>
@@ -1307,7 +1316,7 @@ div.card-body > div[style*="display:flex"] .btn.small {
         <div class="ems-tl-pre">
           <label>覚知</label>
           <div class="time-row">
-            <input type="time" id="ems_aware">
+            <input type="time" id="ems_aware" data-cpa-flow-time>
             <button class="time-btn" onclick="setNow('ems_aware')">Now</button>
           </div>
         </div>
@@ -2930,6 +2939,16 @@ function validateCpaEvent(e) {
   for(const field of ['cprDay','roscDay','endDay','handoffDay']) {
     if(e[field] !== undefined && e[field] !== 0 && e[field] !== 1) fail();
   }
+  for(const field of ['observationTime','instructionTime','confirmationTime']) if(!optional(e[field],time)) fail();
+  for(const field of ['awareDay','observationDay','instructionDay','confirmationDay']) {
+    if(e[field] !== undefined && ![-1,0,1].includes(e[field])) fail();
+  }
+  for(const field of ['adoptEstimate','showReference','arrestTimeFromPulseObservation']) if(!optional(e[field],v=>typeof v === 'boolean')) fail();
+  const people = ['','家族','居合わせた人','救急隊','医療者','その他','不詳'];
+  for(const field of ['source','compressor']) if(!optional(e[field],v=>people.includes(v))) fail();
+  if(!optional(e.situation,v=>['','collapse','found','pulse','unknown'].includes(v))) fail();
+  if(!optional(e.observationMode,v=>['','clock','relative','vague','unknown'].includes(v))) fail();
+  if(!optional(e.observationMinutes,v=>v === '' || (Number.isInteger(v) && v >= 0 && v <= 720))) fail();
   if(!optional(e.pendingCpa,obj) || !optional(e.pendingCpa?.arrestTime,time)) fail();
   for(const field of ['witnessed','bystander','lt','intubation','pericardio']) if(!optional(e[field],v=>typeof v==='boolean')) fail();
   for(const field of ['rhythm','outcome','memo']) if(!optional(e[field],v=>typeof v==='string')) fail();
@@ -3205,20 +3224,21 @@ function confirmCpaField(idx,key) {
   renderCpaEvents();
 }
 
-function buildRecordedCpaLines(fd) {
+function buildRecordedCpaLines(fd, aware = '') {
   const lines = [];
   const cpaEvents = Array.isArray(fd.cpaEvents) ? fd.cpaEvents : [];
   if(cpaEvents.length) {
     cpaEvents.forEach((cpa, idx) => {
       const isFirst = idx === 0;
       const entry = [];
+      if(isFirst) entry.push(...cpaCircumstanceLines(cpa, aware));
       if(cpa.arrestTime) entry.push(`心停止時刻：${cpa.arrestTime}`);
       if(cpa.rhythm) entry.push(`初期波形：${cpa.rhythm}`);
       if(isFirst) {
         if(typeof cpa.witnessed === 'boolean') entry.push(`目撃：${cpa.witnessed ? 'あり' : 'なし'}`);
         if(typeof cpa.bystander === 'boolean') entry.push(`バイスタンダーCPR：${cpa.bystander ? 'あり' : 'なし'}`);
       }
-      if(cpa.cprStart) entry.push(`${isFirst ? '胸骨圧迫開始' : '胸骨圧迫再開'}：${cpaTimeText(cpa.cprStart, cpa.cprDay)}`);
+      if(!isFirst && cpa.cprStart) entry.push('胸骨圧迫再開：' + cpaTimeText(cpa.cprStart, cpa.cprDay));
       if(isFirst && cpa.ivTime) entry.push(`末梢確保：${cpa.ivTime}`);
       const changes = (cpa.rhythmChanges || []).slice(1).filter(change => change.rhythm);
       if(changes.length) entry.push(`波形変化：${changes.map(change => `${change.time} ${change.rhythm}`).join(' → ')}`);
@@ -3239,7 +3259,20 @@ function buildRecordedCpaLines(fd) {
         if(cpa.intubation) entry.push(`気管挿管：${cpa.intubationTime || '実施'}`);
         if(cpa.pericardio) entry.push(`心膜腔穿刺：${cpa.pericardioTime || '実施'}`);
       }
-      appendCpaOutcomeFlowLines(entry, cpa, isFirst);
+      if(isFirst) {
+        const times = [
+          ['指令員のCPR指示', cpa.instructionTime, cpa.instructionDay],
+          ['救急隊による心停止確認', cpa.confirmationTime, cpa.confirmationDay],
+          ['胸骨圧迫開始', cpa.cprStart, cpa.cprDay]
+        ].filter(([,time]) => time);
+        if(cpa.compressor) entry.push('初回胸骨圧迫の開始者：' + cpa.compressor);
+        if(aware && (entry.length || times.length || cpa.outcome || cpa.handoffTime || cpa.memo || cpa.showReference)) {
+          times.unshift(['消防覚知', aware, cpa.awareDay]);
+        }
+        times.sort((a,b) => cpaTimeMinute(a[1],a[2]) - cpaTimeMinute(b[1],b[2]));
+        for(const [label,time,day] of times) entry.push(label + '：' + cpaTimeText(time,day));
+      }
+      appendCpaOutcomeFlowLines(entry, cpa, isFirst, aware);
       if(cpa.memo) entry.push(`蘇生中の特記事項：${cpa.memo}`);
       if(entry.length) {
         if(cpaEvents.length > 1) lines.push(`【心停止イベント ${idx + 1}${!isFirst ? '（再心停止）' : ''}】`);
@@ -4073,15 +4106,100 @@ function cpaTimeInputValue(time) {
   return typeof time === 'string' && clockMinute(time) !== null ? time.padStart(5, '0') : '';
 }
 
-function cpaFlowTimeInput(event, idx, field, dayField, label) {
+function cpaFirstSelect(event, field, label, choices) {
+  const options = choices.map(([value, title]) =>
+    `<option value="${value}" ${event[field] === value ? 'selected' : ''}>${title}</option>`);
+  return `<label for="cpa_${field}_0">${label}</label>
+    <select id="cpa_${field}_0" onchange="updateCpaEventField(0, '${field}', this.value)">
+      <option value="">未選択</option>${options.join('')}
+    </select>`;
+}
+
+function cpaOccurrenceFields(event) {
+  const kind = event.situation;
+  const title = {collapse:'意識消失', found:'発見', pulse:'脈拍消失'}[kind];
+  const actors = ['家族','居合わせた人','救急隊','医療者','その他','不詳'].map(value => [value,value]);
+  const kinds = [['collapse','突然の意識消失を目撃'],['found','発見時すでに反応なし'],
+    ['pulse','脈拍が消失するところを確認'],['unknown','状況不詳']];
+  const modes = [['clock','時刻で入力'],['vague','覚知の数分前'],['relative','覚知の約○分前'],['unknown','不詳']];
+  return `<fieldset class="cpa-occurrence"><legend>初回心停止の発生状況</legend>
+    <div class="grid2"><div>${cpaFirstSelect(event,'situation','確認できたこと',kinds)}</div>
+      <div>${cpaFirstSelect(event,'source','情報源',actors)}</div></div>
+    ${title ? `<div>${cpaFirstSelect(event,'observationMode',title + 'の時刻',modes)}</div>` : ''}
+    ${title && event.observationMode === 'clock' && kind !== 'pulse'
+      ? `<div>${cpaFlowTimeInput(event,0,'observationTime','observationDay',title + 'の時刻',true)}</div>` : ''}
+    ${kind === 'pulse' && event.observationMode === 'clock'
+      ? '<small>確認した時刻は「心停止時刻」に入力してください。</small>' : ''}
+    ${title && event.observationMode === 'relative'
+      ? `<label for="cpa_observationMinutes_0">覚知の何分前（概算）</label>
+        <input type="number" min="0" max="720" step="1" inputmode="numeric" id="cpa_observationMinutes_0"
+          value="${escapeHtml(String(event.observationMinutes ?? ''))}"
+          onchange="if(this.reportValidity()) { this.defaultValue=this.value; updateCpaEventField(0,'observationMinutes',this.value === '' ? '' : this.valueAsNumber); } else this.value = this.defaultValue">` : ''}
+    ${kind === 'collapse' ? `<label class="cpa-choice"><input id="cpa_adoptEstimate_0" type="checkbox"
+      ${event.adoptEstimate ? 'checked' : ''} ${event.arrestTime ? 'disabled' : ''}
+      onchange="updateCpaEventField(0,'adoptEstimate',this.checked)">意識消失を心停止の推定起点として採用</label>` : ''}
+  </fieldset>`;
+}
+
+function cpaInitialTimeline(event) {
+  const actors = ['家族','居合わせた人','救急隊','医療者','その他','不詳'].map(value => [value,value]);
+  return `<div class="cpa-initial-timeline">
+    <div><label for="cpa_aware_0">消防覚知</label><div class="time-row cpa-time-row">
+      ${cpaDaySelect(event,0,'awareDay','消防覚知',true)}
+      <button type="button" class="btn small ghost" id="cpa_aware_0" onclick="editCpaAware()">${escapeHtml(state.ems.aware || '時刻を入力')}</button>
+    </div></div>
+    <div>${cpaFlowTimeInput(event,0,'instructionTime','instructionDay','指令員がCPRを指示した時刻',true)}</div>
+    <div>${cpaFirstSelect(event,'compressor','初回の胸骨圧迫を始めた人',actors)}</div>
+    <div>${cpaFlowTimeInput(event,0,'confirmationTime','confirmationDay','救急隊が心停止を確認した時刻',true)}</div>
+  </div>`;
+}
+
+function editCpaAware() {
+  const row = $('#ems_aware').closest('.time-row');
+  const marker = document.createComment('');
+  const dialog = document.createElement('dialog');
+  dialog.className = 'cpa-aware-editor';
+  dialog.setAttribute('aria-label','消防覚知時刻');
+  dialog.innerHTML = '<label for="ems_aware">消防覚知時刻</label><button type="button" id="cpa_aware_done" class="btn" autofocus>閉じる</button>';
+  const done = dialog.querySelector('button');
+  row.before(marker);
+  document.body.append(dialog);
+  done.before(row);
+  done.onclick = () => dialog.close();
+  dialog.addEventListener('close', () => {
+    marker.replaceWith(row);
+    dialog.remove();
+    updateState();
+    document.getElementById('cpa_aware_0')?.focus();
+  }, {once:true});
+  dialog.showModal();
+}
+
+function readEmsAwareTime() {
+  const value = $('#ems_aware').value;
+  if(state.ems.aware === value) return;
+  state.ems.aware = value;
+  const edit = document.getElementById('cpa_aware_0');
+  if(edit) {
+    edit.textContent = value || '時刻を入力';
+    calcFlowTimes(0);
+  }
+}
+
+function cpaDaySelect(event,idx,field,label,previousDay) {
+  const days = previousDay ? [[-1,'前日'],[0,'同日'],[1,'翌日']] : [[0,'同日'],[1,'翌日']];
+  return `<select id="cpa_${field}_${idx}" aria-label="${label}の日付"
+    onchange="updateCpaEventField(${idx}, '${field}', Number(this.value))">
+    ${days.map(([value,text]) => `<option value="${value}" ${value === (event[field] ?? 0) ? 'selected' : ''}>${text}</option>`).join('')}
+  </select>`;
+}
+
+function cpaFlowTimeInput(event, idx, field, dayField, label, previousDay = false) {
   const id = `cpa_${field}_${idx}`;
   const handoffAttr = field === 'handoffTime' ? `data-testid="cpa-handoff-time-${idx}"` : '';
   return `<label for="${id}">${label}</label>
     <div class="time-row cpa-time-row">
-      <select id="cpa_${dayField}_${idx}" aria-label="${label}の日付" onchange="updateCpaEventField(${idx}, '${dayField}', Number(this.value))">
-        <option value="0">同日</option>
-        <option value="1" ${event[dayField] === 1 ? 'selected' : ''}>翌日</option>
-      </select>
+      ${cpaDaySelect(event,idx,dayField,label,previousDay)}
       <input type="time" id="${id}" data-cpa-flow-time ${handoffAttr} value="${cpaTimeInputValue(event[field])}" onchange="updateCpaEventField(${idx}, '${field}', this.value)">
       <button type="button" class="time-btn" onclick="setCpaEventNow(${idx}, '${field}')">Now</button>
     </div>`;
@@ -4113,11 +4231,12 @@ function renderCpaEvents() {
         <button class="vital-del" onclick="deleteCpaEvent(${idx})">削除</button>
       </div>
       <div style="padding:12px">
+        ${isFirst ? cpaOccurrenceFields(event) : ''}
         <div class="grid2" style="margin-bottom:12px">
           <div>
             <label for="cpa_arrestTime_${idx}">${isFirst ? '心停止時刻' : '再心停止時刻'}</label>
             <div class="time-row">
-              <input type="time" id="cpa_arrestTime_${idx}" data-cpa-flow-time value="${cpaTimeInputValue(event.arrestTime)}" onchange="updateCpaEventField(${idx}, 'arrestTime', this.value)">
+              <input type="time" id="cpa_arrestTime_${idx}" data-cpa-flow-time value="${cpaTimeInputValue(event.arrestTime)}" onchange="updateCpaEventField(${idx}, 'arrestTime', this.value, true)">
               <button class="time-btn" onclick="setCpaEventNow(${idx}, 'arrestTime')">Now</button>
             </div>
           </div>
@@ -4129,7 +4248,7 @@ function renderCpaEvents() {
           </div>
         </div>
         ${isFirst ? `<div class="grid2" style="margin-top:12px">
-          ${[['witnessed','目撃'],['bystander','バイスタンダーCPR']].map(([field,label]) => `<label>${label}
+          ${[['witnessed','心停止の目撃'],['bystander','バイスタンダーCPR']].map(([field,label]) => `<label>${label}
             <select onchange="updateCpaEventField(${idx}, '${field}', this.value === '' ? null : this.value === 'yes')">
               <option value="" ${event[field] == null ? 'selected' : ''}>未確認</option>
               <option value="yes" ${event[field] === true ? 'selected' : ''}>あり</option>
@@ -4137,6 +4256,7 @@ function renderCpaEvents() {
             </select></label>`).join('')}
         </div>` : ''}
         <div style="margin-top:12px">
+          ${isFirst ? cpaInitialTimeline(event) : ''}
           ${cpaFlowTimeInput(event, idx, 'cprStart', 'cprDay', isFirst ? '胸骨圧迫開始時刻' : '胸骨圧迫再開時刻')}
           <small>日付はこの心停止イベントの発生日を基準に選択してください。</small>
         </div>
@@ -4186,6 +4306,11 @@ function renderCpaEvents() {
           ${event.outcome === 'rosc' || event.outcome === 'death' ? cpaFlowRow('low_flow_time_' + idx, 'Low Flow Time') : ''}
           ${event.outcome === 'hospital' ? cpaFlowRow('hospital_low_flow_time_' + idx, '病着時Low Flow（暫定）') : ''}
           ${event.handoffTime ? cpaFlowRow('prehospital_low_flow_time_' + idx, '引継ぎ時Low Flow（暫定）') : ''}
+          ${isFirst ? `<p id="cpa_origin_0" class="cpa-origin"></p>
+            <label id="cpa_reference_choice" class="cpa-choice"><input type="checkbox" id="cpa_showReference_0"
+              ${event.showReference ? 'checked' : ''} onchange="updateCpaEventField(0,'showReference',this.checked)">
+              覚知直前に心停止したと仮定した場合の最短No Flowを併記する</label>
+            <p id="cpa_reference_0" class="cpa-origin"></p>` : ''}
           <div id="flow_warning_${idx}" class="cpa-flow-warning" role="status"></div>
         </div>
         <label style="margin-top:12px">特記事項</label>
@@ -4201,16 +4326,34 @@ function renderCpaEvents() {
   });
 }
 
-function updateCpaEventField(idx, field, value) {
+function updateCpaEventField(idx, field, value, directTimeEntry = false) {
   const event = state.fd.cpaEvents?.[idx];
   if(!event) return;
+  if(idx === 0 && event.arrestTimeFromPulseObservation && (
+    (field === 'situation' && value !== 'pulse') || (field === 'observationMode' && value !== 'clock')
+  )) {
+    event.arrestTime = '';
+    delete event.arrestTimeFromPulseObservation;
+  }
+  if(idx === 0 && field === 'arrestTime') {
+    if(directTimeEntry && value && event.situation === 'pulse' && event.observationMode === 'clock') {
+      event.arrestTimeFromPulseObservation = true;
+    } else delete event.arrestTimeFromPulseObservation;
+  }
+  if(idx === 0 && field === 'situation' && event.situation !== value) {
+    for(const dependent of ['observationMode','observationTime','observationMinutes','observationDay','adoptEstimate','showReference']) delete event[dependent];
+  }
+  if(idx === 0 && field === 'observationMode' && event.observationMode !== value) {
+    for(const dependent of ['observationTime','observationDay','observationMinutes','adoptEstimate']) delete event[dependent];
+  }
+  if(idx === 0 && field === 'arrestTime' && value) delete event.adoptEstimate;
   event[field] = value;
   const pending = Object.hasOwn(event.pendingCpa || {}, field);
   if(pending) delete event.pendingCpa[field];
   if(field === 'handoffTime' && !value) delete event.handoffDay;
-  if(pending || field === 'handoffTime' || field === 'handoffDay') {
+  if(pending || ['handoffTime','handoffDay','situation','observationMode'].includes(field)) {
     renderCpaEvents();
-  } else if(['arrestTime','cprStart','cprDay','roscTime','roscDay','endTime','endDay'].includes(field)) {
+  } else {
     calcFlowTimes(idx);
   }
   updateState();
@@ -4220,7 +4363,7 @@ function updateCpaEventField(idx, field, value) {
 function setCpaEventNow(idx, field) {
   if(!state.fd.cpaEvents || !state.fd.cpaEvents[idx]) return;
   const now = new Date();
-  updateCpaEventField(idx, field, now.toTimeString().slice(0,5));
+  updateCpaEventField(idx, field, now.toTimeString().slice(0,5), true);
   renderCpaEvents();
   updateState();
 }
@@ -4496,12 +4639,24 @@ function setCpaOutcome(idx, outcome) {
 function calcFlowTimes(idx) {
   const event = state.fd.cpaEvents[idx];
   if (!event) return;
-  const flow = getCpaFlowTimes(event, idx === 0);
+  const flow = getCpaFlowTimes(event, idx === 0, state.ems.aware);
   const setMinutes = (id, minutes) => {
     const target = document.getElementById(id);
     if(target) target.textContent = Number.isFinite(minutes) ? `${minutes} 分` : '-- 分';
   };
-  setMinutes('no_flow_time_' + idx, flow.noFlow);
+  const noFlow = document.getElementById('no_flow_time_' + idx);
+  if(!noFlow) return;
+  noFlow.textContent = cpaNoFlowText(flow);
+  if(idx === 0) {
+    document.getElementById('cpa_origin_0').textContent = flow.originText || '';
+    document.getElementById('cpa_reference_0').textContent = flow.referenceText || flow.referenceReason || '';
+    document.getElementById('cpa_reference_choice').hidden = event.situation === 'pulse' && event.observationMode === 'clock' && Boolean(event.arrestTime);
+    const estimate = document.getElementById('cpa_adoptEstimate_0');
+    if(estimate) {
+      estimate.disabled = Boolean(event.arrestTime);
+      estimate.checked = !estimate.disabled && event.adoptEstimate === true;
+    }
+  }
   setMinutes('low_flow_time_' + idx, flow.lowFlow);
   setMinutes('hospital_low_flow_time_' + idx, flow.hospitalLowFlow);
   setMinutes('prehospital_low_flow_time_' + idx, flow.prehospitalLowFlow);
@@ -4510,16 +4665,69 @@ function calcFlowTimes(idx) {
 
 
 function cpaTimeText(time, day) {
-  return time && day === 1 ? '翌日 ' + time : (time || '');
+  if(!time) return '';
+  const prefix = day === -1 ? '前日 ' : day === 1 ? '翌日 ' : '';
+  return prefix + time;
 }
 
 function cpaTimeMinute(time, day = 0) {
   const minute = clockMinute(time);
-  if(minute === null || (day !== 0 && day !== 1)) return NaN;
+  if(minute === null || ![-1,0,1].includes(day)) return NaN;
   return day * 1440 + minute;
 }
 
-function getCpaFlowTimes(cpa, isFirst) {
+function cpaMinuteLabel(minute) {
+  const day = Math.floor(minute / 1440);
+  const withinDay = minute - day * 1440;
+  const hh = String(Math.floor(withinDay / 60)).padStart(2, '0');
+  const mm = String(withinDay % 60).padStart(2, '0');
+  if(day < -1) return Math.abs(day) + '日前 ' + hh + ':' + mm;
+  return cpaTimeText(hh + ':' + mm, day);
+}
+
+function cpaObservation(cpa, aware) {
+  const result = {minute:NaN, wording:''};
+  if(!['collapse','found','pulse'].includes(cpa.situation)) return result;
+  switch(cpa.observationMode) {
+    case 'clock': {
+      const pulse = cpa.situation === 'pulse';
+      const time = pulse ? cpa.arrestTime : cpa.observationTime;
+      const day = pulse ? 0 : cpa.observationDay;
+      result.wording = cpaTimeText(time, day) || '時刻不詳';
+      result.minute = cpaTimeMinute(time, day);
+      break;
+    }
+    case 'relative':
+      if(Number.isInteger(cpa.observationMinutes) && cpa.observationMinutes >= 0 && cpa.observationMinutes <= 720) {
+        result.wording = '覚知の約' + cpa.observationMinutes + '分前';
+        result.minute = cpaTimeMinute(aware, cpa.awareDay) - cpa.observationMinutes;
+      } else result.wording = '概算の分数未入力';
+      break;
+    case 'vague': result.wording = '覚知の数分前'; break;
+    case 'unknown': result.wording = '時刻不詳'; break;
+  }
+  return result;
+}
+
+function cpaCircumstanceLines(cpa, aware) {
+  const lines = [];
+  const situations = {collapse:'突然の意識消失を目撃',found:'発見時すでに反応なし',pulse:'脈拍が消失するところを確認',unknown:'状況不詳'};
+  if(situations[cpa.situation]) lines.push('初回心停止の発生状況：' + situations[cpa.situation]);
+  if(cpa.source) lines.push('情報源：' + cpa.source);
+  const observation = cpaObservation(cpa, aware);
+  const labels = {collapse:'意識消失時刻',found:'発見時刻',pulse:'脈拍消失時刻'};
+  if(observation.wording && !(cpa.situation === 'pulse' && cpa.observationMode === 'clock' && cpa.arrestTime)) {
+    lines.push(labels[cpa.situation] + '：' + observation.wording);
+  }
+  return lines;
+}
+
+function cpaNoFlowText(flow) {
+  if(!Number.isFinite(flow.noFlow)) return '不詳';
+  return (flow.estimated ? '推定 約' : '') + flow.noFlow + '分';
+}
+
+function getCpaFlowTimes(cpa, isFirst, aware = '') {
   const warnings = [];
   const cprLabel = isFirst ? '胸骨圧迫開始' : '胸骨圧迫再開';
   const arrest = cpaTimeMinute(cpa.arrestTime);
@@ -4532,6 +4740,35 @@ function getCpaFlowTimes(cpa, isFirst) {
   const end = isRosc ? cpaTimeMinute(cpa.roscTime, cpa.roscDay)
     : (isDeath || isHospital) ? cpaTimeMinute(cpa.endTime, cpa.endDay) : NaN;
 
+  const knownArrest = Number.isFinite(arrest);
+  const adoptedCollapse = cpa.situation === 'collapse' && cpa.adoptEstimate === true;
+  const approximatePulse = cpa.situation === 'pulse' && ['relative','vague'].includes(cpa.observationMode);
+  const estimated = isFirst && !knownArrest && (adoptedCollapse || approximatePulse);
+  const observation = estimated ? cpaObservation(cpa, aware) : null;
+  const origin = estimated ? observation.minute : arrest;
+  let originText = isFirst && cpa.situation && !knownArrest ? '心停止発生時刻：不詳' : '';
+  if(estimated) {
+    const basis = adoptedCollapse ? '意識消失を推定起点として採用' : '脈拍消失の情報';
+    const time = Number.isFinite(origin) ? '約' + cpaMinuteLabel(origin) : (observation.wording || '時刻不詳');
+    originText = '推定心停止時刻：' + time + '（' + basis + '）';
+  }
+  const call = isFirst ? cpaTimeMinute(aware, cpa.awareDay) : NaN;
+  const cprBeforeOrigin = cpr < origin;
+  let referenceText = '';
+  let referenceReason = '';
+  const measuredPulse = knownArrest && cpa.situation === 'pulse' && cpa.observationMode === 'clock';
+  if(isFirst && cpa.showReference === true && !measuredPulse) {
+    if(!Number.isFinite(call) || !Number.isFinite(cpr)) referenceReason = '参考値の算定には消防覚知と初回圧迫の時刻が必要です。';
+    else if(cpr < call) referenceReason = '初回圧迫が覚知より前のため、覚知を基準とした参考値は算定できません。';
+    else if(origin > call) referenceReason = '心停止発生が覚知より後のため、覚知直前という仮定は使えません。';
+    else if(!cprBeforeOrigin) {
+      referenceText = '参考：覚知直前の心停止と仮定すると最短' + (cpr - call) + '分。覚知 '
+        + cpaTimeText(aware, cpa.awareDay) + ' → 初回圧迫 ' + cpaTimeText(cpa.cprStart, cpa.cprDay);
+    }
+  }
+  if(estimated && cprBeforeOrigin) warnings.push('推定心停止時刻が胸骨圧迫開始より後です。');
+  if(isFirst && cpa.situation === 'pulse' && cpa.witnessed === false) warnings.push('脈拍消失の確認と心停止の目撃なしが併記されています。');
+  if(isFirst && cpa.bystander === false && ['家族','居合わせた人'].includes(cpa.compressor)) warnings.push('バイスタンダーCPRなしと初回圧迫の開始者を確認してください。');
   const cprBeforeArrest = cpr < arrest;
   if(cprBeforeArrest) warnings.push(cprLabel + 'が心停止より前です。');
   function fromCpr(minute, label) {
@@ -4552,7 +4789,8 @@ function getCpaFlowTimes(cpa, isFirst) {
     toHandoff = NaN;
   }
   return {
-    noFlow: cprBeforeArrest ? NaN : cpr - arrest,
+    noFlow: cprBeforeOrigin ? NaN : cpr - origin,
+    estimated, originText, referenceText, referenceReason,
     lowFlow: isRosc || isDeath ? toEnd : NaN,
     prehospitalLowFlow: toHandoff,
     hospitalLowFlow: isHospital ? toEnd : NaN,
@@ -6988,7 +7226,7 @@ function updateState() {
     drug_allergy: state.patient?.drug_allergy || ''
   };
   state.heli = {takeoff:$('#heli_takeoff').value, lz_landing:$('#heli_lz_landing').value, fd_contact:$('#fd_contact').value, turn_type:$('#turn_type').value, transport_takeoff:$('#transport_takeoff').value, hospital_arrival:$('#hospital_arrival').value};
-  state.ems.aware=$('#ems_aware').value; state.ems.arrival=$('#ems_arrival').value; state.ems.contact=$('#ems_contact').value; state.ems.lz=$('#ems_lz').value; state.ems.stroke_onset=$('#ems_stroke_onset').value; state.ems.procedures_detail=$('#ems_procedures_detail').value;
+  readEmsAwareTime(); state.ems.arrival=$('#ems_arrival').value; state.ems.contact=$('#ems_contact').value; state.ems.lz=$('#ems_lz').value; state.ems.stroke_onset=$('#ems_stroke_onset').value; state.ems.procedures_detail=$('#ems_procedures_detail').value;
   state.fd.bs=$('#fd_bs').value; state.fd.exam_detail=$('#fd_exam_detail').value; state.fd.procedure_detail=$('#fd_procedure_detail').value; state.fd.drug_detail=$('#fd_drug_detail').value;
   syncExamFormsFromDom();
   if(!state.fd.exam_texts) state.fd.exam_texts = {ucg:'', us_abd:'', us_lung:'', us_neck:'', ecg:'', fast:'', efast:''};
@@ -7103,8 +7341,8 @@ function calcNihssTotal(stroke) {
 }
 
 
-function appendCpaOutcomeFlowLines(lines, cpa, isFirst) {
-  const flow = getCpaFlowTimes(cpa, isFirst);
+function appendCpaOutcomeFlowLines(lines, cpa, isFirst, aware) {
+  const flow = getCpaFlowTimes(cpa, isFirst, aware);
   const cprLabel = isFirst ? '胸骨圧迫開始' : '胸骨圧迫再開';
   const start = cpaTimeText(cpa.cprStart, cpa.cprDay);
   const handoff = cpaTimeText(cpa.handoffTime, cpa.handoffDay);
@@ -7113,7 +7351,11 @@ function appendCpaOutcomeFlowLines(lines, cpa, isFirst) {
   if(cpa.outcome === 'rosc' && cpa.roscTime) lines.push(`心拍再開(ROSC)：${cpaTimeText(cpa.roscTime, cpa.roscDay)}`);
   if(cpa.outcome === 'hospital') lines.push('転帰：CPR継続のまま病着' + (end ? `（${end}）` : ''));
   if(cpa.outcome === 'death' && end) lines.push(`転帰：蘇生終了（${end}）`);
-  if(Number.isFinite(flow.noFlow)) lines.push(`No Flow Time：${flow.noFlow}分`);
+  if(flow.originText) lines.push(flow.originText);
+  if(lines.length || cpa.outcome || cpa.memo) {
+    const reference = flow.referenceText ? '（' + flow.referenceText + '）' : '';
+    lines.push('No Flow Time：' + cpaNoFlowText(flow) + reference);
+  }
   if(Number.isFinite(flow.prehospitalLowFlow)) {
     lines.push(`プレホスLow Flow Time（暫定）：${flow.prehospitalLowFlow}分（${cprLabel} ${start}→CPA継続引継ぎ ${handoff}）`);
   }
@@ -7125,11 +7367,11 @@ function appendCpaOutcomeFlowLines(lines, cpa, isFirst) {
 }
 
 
-function buildAllFdExamLines(fd) { return [buildClinicalRecordFindings(fd || {}, 'heli', false), ...buildRecordedCpaLines(fd || {})]; }
+function buildAllFdExamLines(fd, aware) { return [buildClinicalRecordFindings(fd || {}, 'heli', false), ...buildRecordedCpaLines(fd || {}, aware)]; }
 
-function appendAllFdExamSections(r, fd) {
+function appendAllFdExamSections(r, fd, aware) {
   r += '【身体所見】\n';
-  r += buildAllFdExamLines(fd).join('\n') + '\n';
+  r += buildAllFdExamLines(fd, aware).join('\n') + '\n';
   return r;
 }
 
@@ -7598,7 +7840,7 @@ function referralMissingItems(data = state) {
   const activity = (section.vitals || []).some(vitalHasOutput)
     || referralHasText(buildClinicalReferralFindings(section, car ? 'car' : 'heli', false))
     || buildRecordedExamLines(section).some(referralHasText)
-    || buildRecordedCpaLines(section).some(referralHasText)
+    || buildRecordedCpaLines(section, data.ems?.aware).some(referralHasText)
     || (car
       ? [...carProcedureLines(section), section.procedure_detail, ...carDrugLines(section), section.drug_detail].some(referralHasText)
       : [buildReferralFdProcedures(data), buildReferralFdDrugs(data)].some(referralHasText));
@@ -7747,7 +7989,7 @@ function generateReport() {
   const facReq = isFacilityTransferRequestType(state.request.type);
   const precedingLbl = facReq ? '前医活動情報' : '先行救急隊';
   const emsBlockTitle = facReq ? '【前医活動情報】' : '【救急隊活動】';
-  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.35\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+[state.request.type||'--',state.request.time].filter(Boolean).join(' ')+(state.request.detail ? '\n'+state.request.detail : '')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+(premorbidText(state.patient) ? '\n発症前の生活状況：'+premorbidText(state.patient) : '')+(state.patient.strokeDiscoveryAt ? '\n発見日時：'+state.patient.strokeDiscoveryAt.replace('T',' ') : '')+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
+  let r = '━━━━━━━━━━━━━━━━━━━━\n　病院前医療活動記録 v5.1.36\n━━━━━━━━━━━━━━━━━━━━\n\n【要請情報】\n要請：'+[state.request.type||'--',state.request.time].filter(Boolean).join(' ')+(state.request.detail ? '\n'+state.request.detail : '')+'\n'+precedingLbl+'：'+(state.request.precedingTeam||'--')+'\n\n【患者情報】\n年代：'+(state.patient.age||'--')+'\n性別：'+(state.patient.sex||'不明')+'\n既往歴：'+state.patient.history+'\n常用薬：'+state.patient.medication+'\nアレルギー歴：'+state.patient.allergy+(premorbidText(state.patient) ? '\n発症前の生活状況：'+premorbidText(state.patient) : '')+(state.patient.strokeDiscoveryAt ? '\n発見日時：'+state.patient.strokeDiscoveryAt.replace('T',' ') : '')+'\n最終健常時刻：'+(state.patient.lastWell||'--')+'\n最終食事時刻：'+(state.patient.lastMeal||'--')+'\nかかりつけ医療機関：'+state.patient.hospital+'\n\n'+emsBlockTitle+'\n';
   if(facReq) {
     if(state.ems.lz) r += `タイムライン: LZ着:${state.ems.lz}\n`;
   } else if(state.ems.aware||state.ems.arrival||state.ems.contact||state.ems.lz) {
@@ -7776,7 +8018,7 @@ function generateReport() {
     r += `${formatVitalLine(v)}\n`;
   });
 
-  r = appendAllFdExamSections(r, state.fd);
+  r = appendAllFdExamSections(r, state.fd, state.ems.aware);
   const exams = buildRecordedExamLines(state.fd);
   if (exams.length) r += '【検査】\n' + exams.join('、') + '\n';
   const fdProcItems = (state.fd.procedures_items || []).filter(k => state.fd.procedures[k]);
@@ -9237,7 +9479,7 @@ function buildReferralEmsTreatment(data) {
 }
 
 
-function buildReferralFdFindings(data) { return [buildClinicalReferralFindings(data.fd || {}, 'heli', false), ...buildRecordedCpaLines(data.fd || {})].filter(Boolean).join('\n'); }
+function buildReferralFdFindings(data) { return [buildClinicalReferralFindings(data.fd || {}, 'heli', false), ...buildRecordedCpaLines(data.fd || {}, data.ems?.aware)].filter(Boolean).join('\n'); }
 
 function buildReferralExamText(data) { return buildRecordedExamLines(data.fd).join('、'); }
 
